@@ -75,7 +75,7 @@ const presence = {}; // pid -> user -> {file, at}
 /* ------------------------------------------------------------------ routes */
 async function api(req, res, url, ip) {
   const m = req.method, p = url.pathname, seg = p.split('/').filter(Boolean); // ['api', ...]
-  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '2.0.0', time: Date.now(), register: ALLOW_REGISTER });
+  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '1.0.0', time: Date.now(), register: ALLOW_REGISTER });
 
   /* --- accounts --- */
   if (p === '/api/register' && m === 'POST') {

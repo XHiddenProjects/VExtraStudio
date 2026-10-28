@@ -15,7 +15,7 @@
     addRecent(path, name, kind) { const r = S.settings.recent.filter((x) => x.path !== path); r.unshift({ path, name: name || VX.path.base(path), kind: kind || 'folder', at: Date.now() }); S.settings.recent = r.slice(0, 12); app.saveSettings(); },
     setRoot(path) { S.root = path; VX.emit('root', path); },
     rel: (p) => (S.root ? VX.path.rel(S.root, p) : VX.path.base(p)),
-    version: '2.0.0',
+    version: '1.0.0',
   });
   /* file classification */
   const IMG = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg', 'avif']);

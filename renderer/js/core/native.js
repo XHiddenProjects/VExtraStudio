@@ -108,7 +108,7 @@
     },
     settings: { async load() { return lsSettings; }, async save(data) { lsSettings = data; localStorage.setItem('vx-settings', JSON.stringify(data)); } },
     secret: { async get(k) { return localStorage.getItem('vx-secret-' + k); }, async set(k, v) { v == null ? localStorage.removeItem('vx-secret-' + k) : localStorage.setItem('vx-secret-' + k, v); } },
-    async info() { return { name: 'Vextra Studio', version: '2.0.0', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
+    async info() { return { name: 'Vextra Studio', version: '1.0.0', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
     async clean(what) { const removed = []; const all = what.includes('all'); if (all || what.includes('settings')) { localStorage.removeItem('vx-settings'); removed.push('settings'); } for (const k of ['plugins', 'themes']) if (all || what.includes(k)) { localStorage.removeItem('vx-ext-' + k); removed.push(k); } if (all || what.includes('secrets')) { Object.keys(localStorage).filter((k) => k.startsWith('vx-secret-')).forEach((k) => localStorage.removeItem(k)); removed.push('secrets'); } return removed; },
     async http({ method, url, headers, body }) { const r = await fetch(url, { method, headers, body }); return { status: r.status, body: await r.text() }; },
     onMenu() { return Promise.resolve(() => {}); },
