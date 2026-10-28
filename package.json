@@ -24,6 +24,6 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2",
     "ace-builds": "1.45.2",
-    "three": "0.170.0"
+    "three": "0.186.1"
   }
 }
