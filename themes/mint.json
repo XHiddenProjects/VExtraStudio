@@ -1,0 +1,3 @@
+{ "id": "mint", "name": "Mint Paper", "type": "light",
+  "colors": { "bg": "#f6fbf8", "bg2": "#eaf4ee", "bg3": "#dcebe2", "border": "#c9ddd0", "text": "#173025", "muted": "#5b7a6a", "accent": "#12a37f", "accentFg": "#ffffff" },
+  "editor": { "rules": [ {"token":"comment","foreground":"7a9a88","fontStyle":"italic"}, {"token":"keyword","foreground":"0f766e"}, {"token":"string","foreground":"b45309"}, {"token":"number","foreground":"be123c"} ] } }

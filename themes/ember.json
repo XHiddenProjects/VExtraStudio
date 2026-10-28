@@ -1,0 +1,3 @@
+{ "id": "ember", "name": "Ember", "type": "dark",
+  "colors": { "bg": "#1b1512", "bg2": "#221a16", "bg3": "#2b211c", "border": "#3a2c25", "text": "#ecdcd0", "muted": "#a1897a", "accent": "#ff7a3d", "accentFg": "#1b0d05" },
+  "editor": { "rules": [ {"token":"comment","foreground":"8c7464","fontStyle":"italic"}, {"token":"keyword","foreground":"ff9d5c"}, {"token":"string","foreground":"d9c36a"}, {"token":"number","foreground":"ff6b6b"} ] } }

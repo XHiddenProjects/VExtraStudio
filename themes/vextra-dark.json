@@ -1,0 +1,3 @@
+{ "id": "vextra-dark", "name": "Vextra Dark", "type": "dark",
+  "colors": { "bg": "#0f1218", "bg2": "#151921", "bg3": "#1c212b", "border": "#272d3a", "text": "#d7dae0", "muted": "#8b93a1", "accent": "#6c8cff", "accentFg": "#ffffff" },
+  "editor": { "rules": [ {"token":"comment","foreground":"6b7385","fontStyle":"italic"}, {"token":"keyword","foreground":"c792ea"}, {"token":"string","foreground":"a5e075"}, {"token":"number","foreground":"f5a26b"}, {"token":"type","foreground":"7fd1ff"} ] } }

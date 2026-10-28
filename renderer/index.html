@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vextra Studio</title>
+<link rel="icon" href="icon.png" />
+<link rel="stylesheet" href="css/app.css" />
+<link rel="stylesheet" href="css/game.css" />
+<link rel="stylesheet" href="css/docs.css" />
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js" } }</script>
+</head>
+<body data-mode="advanced">
+<div class="splash" id="splash"><img src="icon.png" alt="" /></div>
+<div id="app">
+  <div id="activity"></div>
+  <div id="sidebar"><div id="side-head"><span id="side-title"></span><span id="side-actions"></span></div><div id="side-body"></div></div>
+  <div class="resizer" id="side-resizer"></div>
+  <div id="main">
+    <div id="tabbar"></div>
+    <div id="toolbar"></div>
+    <div id="stage">
+      <div class="host" id="editor-host"></div>
+      <div class="host" id="designer-host"></div>
+      <div class="host" id="game-host"></div>
+      <div class="host" id="view-host"></div>
+    </div>
+  </div>
+  <div id="bottom" class="collapsed"><div id="bottom-resizer"></div><div class="bp-tabs" id="bp-tabs"></div><div class="bp-body" id="bp-body"></div></div>
+  <div id="statusbar"><span id="st-left"></span><span class="spacer"></span><span id="st-right"></span></div>
+</div>
+<div id="overlays"></div>
+<div id="toasts"></div>
+
+<script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from './vendor/three/OrbitControls.js';
+  import { TransformControls } from './vendor/three/TransformControls.js';
+  window.THREE = THREE; window.VX_THREE = { OrbitControls, TransformControls };
+  window.dispatchEvent(new Event('three-ready'));
+</script>
+<!-- core -->
+<script src="js/core/util.js"></script>
+<script src="js/core/native.js"></script>
+<script src="js/core/ui.js"></script>
+<script src="js/core/theme.js"></script>
+<script src="js/core/dnd.js"></script>
+<script src="js/core/plugins.js"></script>
+<script src="js/app/state.js"></script>
+<script src="vendor/ace/ace.js"></script>
+<script src="vendor/ace/ext-language_tools.js"></script>
+<script src="vendor/ace/ext-searchbox.js"></script>
+<script src="vendor/ace/ext-beautify.js"></script>
+<script src="js/editor/code-editor.js"></script>
+<!-- UI designer -->
+<script src="js/designer/components.js"></script>
+<script src="js/designer/designer.js"></script>
+<!-- game runtime (also exported with every game) -->
+<script src="js/game/rt-core.js"></script>
+<script src="js/game/rt-input.js"></script>
+<script src="js/game/rt-physics.js"></script>
+<script src="js/game/rt-render2d.js"></script>
+<script src="js/game/rt-render3d.js"></script>
+<script src="js/game/rt-graph.js"></script>
+<script src="js/game/rt-services.js"></script>
+<script src="js/game/blocks-triggers.js"></script>
+<script src="js/game/blocks-logic.js"></script>
+<script src="js/game/blocks-components.js"></script>
+<script src="js/game/blocks-properties.js"></script>
+<script src="js/game/blocks-text.js"></script>
+<script src="js/game/blocks-flow.js"></script>
+<!-- game editor -->
+<script src="js/game/editor/project.js"></script>
+<script src="js/game/editor/codegen.js"></script>
+<script src="js/game/editor/graph-editor.js"></script>
+<script src="js/game/editor/viewport2d.js"></script>
+<script src="js/game/editor/viewport3d.js"></script>
+<script src="js/game/editor/assets.js"></script>
+<script src="js/game/editor/sprite-editor.js"></script>
+<script src="js/game/editor/sound-editor.js"></script>
+<script src="js/game/editor/model-editor.js"></script>
+<script src="js/game/editor/play.js"></script>
+<script src="js/game/editor/export.js"></script>
+<script src="js/game/editor/editor.js"></script>
+<!-- docs, web tools, cloud -->
+<script src="js/docs/markdown.js"></script>
+<script src="js/docs/docs.js"></script>
+<script src="js/docs/content.js"></script>
+<script src="js/web/webtools.js"></script>
+<script src="js/web/templates.js"></script>
+<script src="js/cloud/cloud.js"></script>
+<script src="js/cloud/cloud-ui.js"></script>
+<!-- application -->
+<script src="js/app/tabs.js"></script>
+<script src="js/app/sidebar.js"></script>
+<script src="js/app/pages.js"></script>
+<script src="js/app/main.js"></script>
+</body>
+</html>

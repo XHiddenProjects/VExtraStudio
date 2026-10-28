@@ -1,0 +1,3 @@
+{ "id": "violet", "name": "Violet Night", "type": "dark",
+  "colors": { "bg": "#110e1a", "bg2": "#171322", "bg3": "#1f1a2e", "border": "#2e2742", "text": "#e3def2", "muted": "#9a8fb8", "accent": "#a98bff", "accentFg": "#12091f" },
+  "editor": { "rules": [ {"token":"comment","foreground":"6f6590","fontStyle":"italic"}, {"token":"keyword","foreground":"ff7ad9"}, {"token":"string","foreground":"9be58b"}, {"token":"number","foreground":"ffb86b"}, {"token":"type","foreground":"7fd7ff"} ] } }

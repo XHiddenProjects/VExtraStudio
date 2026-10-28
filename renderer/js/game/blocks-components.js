@@ -1,0 +1,114 @@
+/* Vextra blocks – 3. Components (17): functional behaviours attached to an object. */
+(function () {
+  const VXRT = window.VXRT, U = VXRT.util, B = VXRT.registerBlock, P = VXRT.P, each = VXRT.each;
+  const is3 = (g) => g.dim === '3d';
+  /** forward vector of an object (2D: rotation angle, 0 = pointing right; 3D: yaw, -Z is forward) */
+  function forward(g, o) { if (is3(g)) { const y = U.rad(o.ry); return { x: -Math.sin(y), y: 0, z: -Math.cos(y) }; } const a = U.rad(o.rot); return { x: Math.cos(a), y: Math.sin(a), z: 0 }; }
+  function dirVec(g, o, dir, angle) {
+    if (dir === 'forward') return forward(g, o); if (dir === 'angle') { const a = U.rad(U.num(angle)); return is3(g) ? { x: Math.cos(a), y: 0, z: -Math.sin(a) } : { x: Math.cos(a), y: Math.sin(a), z: 0 }; }
+    if (dir === 'camera' && is3(g)) { const y = U.rad(g.cam3d.yaw); return { x: -Math.sin(y), y: 0, z: -Math.cos(y) }; }
+    const up = is3(g) ? 1 : -1; return { left: { x: -1, y: 0, z: 0 }, right: { x: 1, y: 0, z: 0 }, up: { x: 0, y: up, z: 0 }, down: { x: 0, y: -up, z: 0 }, back: is3(g) ? { x: 0, y: 0, z: 1 } : { x: 0, y: 0, z: 0 }, front: is3(g) ? { x: 0, y: 0, z: -1 } : { x: 0, y: 0, z: 0 } }[dir] || { x: 1, y: 0, z: 0 };
+  }
+  VXRT.dirVec = dirVec;
+  const DIRS = ['forward', 'left', 'right', 'up', 'down', 'back', 'front', 'angle', 'camera'];
+
+  B({ id: 'sound', cat: 'components', label: 'Sound', desc: 'Plays, stops or adjusts a sound from your Sound assets. Sounds you make in the Sound Studio are synthesized – no files needed.',
+    inputs: ['play', 'stop'], outputs: ['done'], params: [P.sound(), P.num('volume', 'Volume', 1, { min: 0, max: 2, step: 0.1 }), P.num('pitch', 'Pitch', 1, { min: 0.2, max: 4, step: 0.05 }), P.bool('loop', 'Loop', false), P.sel('action', 'When triggered', [['play', 'Play'], ['stop', 'Stop all sounds'], ['mute', 'Mute'], ['unmute', 'Unmute'], ['toggleMute', 'Toggle mute']]), P.bool('onStart', 'Play when the scene starts', false)],
+    init(n, g) { if (n.p.onStart) this.play(n, g); },
+    play(n, g) { const h = g.audio.play(n.p.sound, { volume: U.num(n.p.volume, 1), pitch: U.num(n.p.pitch, 1), loop: n.p.loop, onEnd: () => g.send(n, 'done', 1) }); n.st.h = h; if (h && h.then) h.then((x) => { n.st.h = x; }); },
+    onInput(n, port, v, g) { if (port === 'stop') { const h = n.st.h; if (h && h.stop) h.stop(); return; } const a = n.p.action; if (a === 'play') this.play(n, g); else if (a === 'stop') g.audio.stopAll(); else { g.audio.muted = a === 'mute' ? true : a === 'unmute' ? false : !g.audio.muted; g.audio.ensure(); } } });
+
+  B({ id: 'emit', cat: 'components', label: 'Emit', desc: 'Particle emitter: bursts of dots or emoji. Use "emit" for a burst, or "start"/"stop" with a rate for a continuous stream.',
+    inputs: ['emit', 'start', 'stop'], outputs: ['out'], params: [P.target(), P.num('count', 'Particles per burst', 14, { min: 1, max: 400 }), P.num('rate', 'Stream rate (per s)', 0, { min: 0 }), P.color('color', 'Color', '#ffd54a'), P.text('emoji', 'Emoji (optional)', ''), P.num('speed', 'Speed', 160), P.num('spread', 'Spread (°)', 360, { min: 0, max: 360 }), P.num('angle', 'Direction (°)', -90), P.num('life', 'Lifetime (s)', 0.8, { step: 0.1 }), P.num('size', 'Size', 6), P.num('gravity', 'Gravity', 0), P.bool('shrink', 'Shrink over time', true), P.num('offsetX', 'Offset X', 0), P.num('offsetY', 'Offset Y', 0)],
+    burst(n, g, o, count) { VXRT.emitParticles(g, { x: o.x + U.num(n.p.offsetX), y: o.y + U.num(n.p.offsetY), z: o.z, count, color: n.p.color, emoji: n.p.emoji, speed: n.p.speed, spread: n.p.spread, angle: n.p.angle, life: n.p.life, size: n.p.size, gravity: n.p.gravity, shrink: n.p.shrink }); },
+    onInput(n, port, v, g) { if (port === 'start') { n.st.run = true; return; } if (port === 'stop') { n.st.run = false; return; } each(n, g, (o) => this.burst(n, g, o, U.num(n.p.count, 14))); g.send(n, 'out', 1); },
+    update(n, dt, g) { if (!n.st.run || !(U.num(n.p.rate) > 0)) return; n.st.acc = (n.st.acc || 0) + dt * n.p.rate; const k = Math.floor(n.st.acc); if (k > 0) { n.st.acc -= k; each(n, g, (o) => this.burst(n, g, o, k)); } } });
+
+  B({ id: 'spawn', cat: 'components', label: 'Spawn', desc: 'Creates copies of another object (a template). Mark the template object as a "prefab" in the inspector so it does not appear at start. Outputs the new object\'s name.',
+    inputs: ['in'], outputs: ['out'], params: [P.text('template', 'Object to spawn', ''), P.num('count', 'Copies', 1, { min: 1, max: 100 }), P.target('at', 'Spawn at', 'self'), P.num('offsetX', 'Offset X', 0), P.num('offsetY', 'Offset Y', 0), P.num('offsetZ', 'Offset Z', 0), P.num('randomX', 'Random X ±', 0), P.num('randomY', 'Random Y ±', 0), P.num('lifetime', 'Lifetime (s, 0 = forever)', 0), P.bool('inherit', 'Copy spawner rotation', false), P.num('speed', 'Launch speed (along direction)', 0), P.sel('dir', 'Launch direction', DIRS.slice(0, 5).concat(['angle'])), P.num('angle', 'Angle (°)', 0)],
+    onInput(n, port, v, g) { const at = g.targets(n.p.at, n.owner, n.owner.lastOther)[0] || n.owner; for (let i = 0; i < U.num(n.p.count, 1); i++) { const o = g.spawn(n.p.template, { x: at.x + U.num(n.p.offsetX) + U.rand(-U.num(n.p.randomX), U.num(n.p.randomX)), y: at.y + U.num(n.p.offsetY) + U.rand(-U.num(n.p.randomY), U.num(n.p.randomY)), z: at.z + U.num(n.p.offsetZ), rot: n.p.inherit ? at.rot : undefined, ry: n.p.inherit ? at.ry : undefined, prefab: false }); if (!o) return; if (U.num(n.p.lifetime) > 0) o.destroyAt = g.time + n.p.lifetime; if (U.num(n.p.speed)) { const d = VXRT.dirVec(g, at, n.p.dir, n.p.angle); o.vx = d.x * n.p.speed; o.vy = d.y * n.p.speed; o.vz = d.z * n.p.speed; } g.send(n, 'out', o.name); } } });
+
+  B({ id: 'attacher', cat: 'components', label: 'Attacher', desc: 'Attaches this object to another so it follows it (like a hat on a character), or detaches it again.',
+    inputs: ['in', 'detach'], outputs: ['out'], params: [P.target('target', 'Attach to', 'other'), P.bool('keepOffset', 'Keep current offset', true), P.sel('action', 'On "in"', [['attach', 'Attach'], ['detach', 'Detach']])],
+    onInput(n, port, v, g) { if (port === 'detach' || n.p.action === 'detach') return g.detach(n.owner); const t = g.targets(n.p.target, n.owner, n.owner.lastOther)[0]; if (t) { g.attach(n.owner, t, n.p.keepOffset); g.send(n, 'out', t.name); } } });
+
+  B({ id: 'physics', cat: 'components', label: 'Physics', desc: 'Gives an object a physics body. Dynamic = falls and collides. Static = solid and immovable (floors, walls). Kinematic = moves by velocity but pushes others. None = no solid response (collisions can still trigger events).',
+    inputs: ['in'], outputs: ['out'], params: [P.target(), P.sel('body', 'Body', ['dynamic', 'static', 'kinematic', 'none'], 'dynamic'), P.sel('shape', 'Shape', [['box', 'Box'], ['circle', 'Circle / sphere']]), P.num('bounce', 'Bounciness', 0, { min: 0, max: 1.2, step: 0.05 }), P.num('friction', 'Friction', 0.2, { min: 0, max: 1, step: 0.05 }), P.num('gravityScale', 'Gravity scale', 1, { step: 0.1 }), P.num('mass', 'Mass', 1, { min: 0.01 }), P.num('drag', 'Air drag', 0, { min: 0, step: 0.1 }), P.bool('sensor', 'Sensor (detect only, no push)', false), P.bool('applyOnStart', 'Apply at start', true)],
+    init(n, g) { if (n.p.applyOnStart) this.apply(n, g); },
+    apply(n, g) { each(n, g, (o) => { Object.assign(o.physics, { body: n.p.body, shape: n.p.shape, bounce: U.num(n.p.bounce), friction: U.num(n.p.friction, 0.2), gravityScale: U.num(n.p.gravityScale, 1), mass: U.num(n.p.mass, 1), drag: U.num(n.p.drag), sensor: !!n.p.sensor }); o.mass = o.physics.mass; }); },
+    onInput(n, port, v, g) { this.apply(n, g); g.send(n, 'out', 1); } });
+
+  B({ id: 'joint', cat: 'components', label: 'Joint', desc: 'Connects this object to another with a spring-like distance joint (ropes, chains, pendulums, followers).',
+    inputs: ['in', 'break'], outputs: ['out'], params: [P.target('target', 'Connect to', 'tag:anchor'), P.num('distance', 'Distance (0 = current)', 0), P.num('stiffness', 'Stiffness', 0.5, { min: 0.01, max: 1, step: 0.05 })],
+    onInput(n, port, v, g) { const o = n.owner; if (port === 'break') { o.joints = (o.joints || []).filter((j) => j.node !== n); return; } const t = g.targets(n.p.target, o, o.lastOther)[0]; if (!t) return; const d = U.num(n.p.distance) || Math.hypot(t.x - o.x, t.y - o.y, is3(g) ? t.z - o.z : 0); (o.joints ||= []).push({ node: n, target: t, distance: d, stiffness: U.num(n.p.stiffness, 0.5) }); g.send(n, 'out', t.name); } });
+
+  B({ id: 'proximity', cat: 'components', label: 'Proximity', desc: 'Detects when another object (by name or tag) gets close. Outputs the distance.',
+    inputs: [], outputs: ['out', 'near', 'far'], params: [P.target('target', 'Watch for', 'tag:player'), P.num('radius', 'Radius', 150, { min: 0 }), P.sel('mode', 'Output "out"', [['enter', 'When something comes near'], ['leave', 'When it moves away'], ['while', 'Every frame while near']])],
+    update(n, dt, g) { const o = n.owner; let best = Infinity, who = null; for (const t of g.targets(n.p.target, o, o.lastOther)) { if (t === o) continue; const d = Math.hypot(t.x - o.x, t.y - o.y, is3(g) ? t.z - o.z : 0); if (d < best) { best = d; who = t; } } const near = best <= U.num(n.p.radius, 150), was = n.st.near; n.st.near = near;
+      if (near && !was) { o.lastOther = who; g.send(n, 'near', best); if (n.p.mode === 'enter') g.send(n, 'out', best); } else if (!near && was) { g.send(n, 'far', best); if (n.p.mode === 'leave') g.send(n, 'out', best); } if (near && n.p.mode === 'while') g.send(n, 'out', best); } });
+
+  B({ id: 'pushMotor', cat: 'components', label: 'Push Motor', desc: 'Pushes an object in a direction – thrusters, conveyor belts, WASD movement. Two ways to drive it: "start"/"stop" (stays on), or send signals to "in" every frame (e.g. a Keyboard trigger in Held mode) – it stops as soon as the signals stop. "Set speed" holds a steady speed; "Accelerate" adds force.',
+    inputs: ['start', 'stop', 'in'], outputs: [], params: [P.target(), P.num('force', 'Speed / force', 200), P.sel('direction', 'Direction', DIRS), P.num('angle', 'Angle (°)', 0), P.sel('mode', 'Mode', [['speed', 'Set speed'], ['accelerate', 'Accelerate']]), P.bool('useSignal', 'Scale by the incoming number (e.g. a stick axis)', false), P.bool('autoStart', 'Start automatically', false)],
+    init(n) { n.st.run = !!n.p.autoStart; n.st.k = 1; n.st.pulse = false; n.st.was = false; },
+    onInput(n, port, v) { if (port === 'start') n.st.run = true; else if (port === 'stop') n.st.run = false; else { n.st.pulse = true; n.st.k = n.p.useSignal ? val(v) : 1; } },
+    update(n, dt, g) {
+      const active = n.st.run || n.st.pulse; const stopping = !active && n.st.was; n.st.was = active; n.st.pulse = false; if (!active && !stopping) return;
+      each(n, g, (o) => { const d = dirVec(g, o, n.p.direction, n.p.angle), f = active ? U.num(n.p.force) * n.st.k : 0;
+        if (n.p.mode === 'accelerate') { if (active) { o.vx += d.x * f * dt; o.vy += d.y * f * dt; o.vz += d.z * f * dt; } } else { if (Math.abs(d.x) > 1e-6) o.vx = d.x * f; if (Math.abs(d.y) > 1e-6) o.vy = d.y * f; if (is3(g) && Math.abs(d.z) > 1e-6) o.vz = d.z * f; } }); } });
+  function val(v) { return typeof v === 'number' ? v : Number.isFinite(parseFloat(v)) ? parseFloat(v) : 1; }
+
+  B({ id: 'spinMotor', cat: 'components', label: 'Spin Motor', desc: 'Continuously rotates an object (degrees per second).',
+    inputs: ['start', 'stop', 'in'], outputs: [], params: [P.target(), P.num('speed', 'Speed (°/s)', 90), P.sel('axis', '3D axis', ['y', 'x', 'z']), P.bool('autoStart', 'Start automatically', true)],
+    init(n) { n.st.run = !!n.p.autoStart; n.st.k = 1; }, onInput(n, port, v) { if (port === 'start') n.st.run = true; else if (port === 'stop') n.st.run = false; else n.st.k = val(v); },
+    update(n, dt, g) { if (!n.st.run) return; each(n, g, (o) => { const d = U.num(n.p.speed) * n.st.k * dt; if (is3(g)) o['r' + n.p.axis] += d; else o.rot += d; }); } });
+
+  B({ id: 'impulse', cat: 'components', label: 'Impulse', desc: 'Gives an object an instant push – jumps, bounces, explosions, bullets. Direction is a preset or an angle; strength is in speed units.',
+    inputs: ['in'], outputs: ['out'], params: [P.target(), P.num('force', 'Strength', 450), P.sel('direction', 'Direction', DIRS, 'up'), P.num('angle', 'Angle (°)', 0), P.sel('mode', 'Apply as', [['add', 'Add to velocity'], ['set', 'Replace velocity']]), P.sel('axisOnly', 'Only affect', [['all', 'All axes'], ['y', 'Vertical only (jump)'], ['x', 'Horizontal only']]), P.bool('onlyGrounded', 'Only if standing on something', false)],
+    onInput(n, port, v, g) { each(n, g, (o) => { if (n.p.onlyGrounded && !o.grounded) return; const d = dirVec(g, o, n.p.direction, n.p.angle), f = U.num(n.p.force) * (typeof v === 'number' && n.p.useSignal ? v : 1); const m = n.p.mode === 'set'; const ax = n.p.axisOnly;
+      if (ax !== 'y') { o.vx = (m ? 0 : o.vx) + d.x * f; if (is3(g)) o.vz = (m ? 0 : o.vz) + d.z * f; } if (ax !== 'x') o.vy = (m ? 0 : o.vy) + d.y * f; }); g.send(n, 'out', 1); } });
+
+  B({ id: 'pointAt', cat: 'components', label: 'Point At', desc: 'Rotates an object to face a target: the mouse, another object, or a position. Speed 0 = instant, otherwise degrees per second.',
+    inputs: ['start', 'stop'], outputs: ['out'], params: [P.target(), P.text('at', 'Face', 'mouse', { hint: 'mouse, an object name, tag:name, or x,y' }), P.num('speed', 'Turn speed (°/s, 0 = instant)', 0), P.num('offset', 'Angle offset (°)', 0), P.bool('autoStart', 'Start automatically', true)],
+    init(n) { n.st.run = !!n.p.autoStart; }, onInput(n, port) { n.st.run = port === 'start'; },
+    update(n, dt, g) { if (!n.st.run) return; each(n, g, (o) => { let tx, ty; const at = String(n.p.at).trim(); if (at === 'mouse') { tx = g.input.mouse.x; ty = g.input.mouse.y; } else if (/^-?[\d.]+\s*,\s*-?[\d.]+$/.test(at)) { [tx, ty] = at.split(',').map(Number); } else { const t = g.targets(at, o, o.lastOther)[0]; if (!t) return; tx = t.x; ty = t.y; } if (is3(g) && at === 'mouse') return; const want = U.deg(Math.atan2(ty - o.y, tx - o.x)) + U.num(n.p.offset); const sp = U.num(n.p.speed);
+      if (sp <= 0) o.rot = want; else { let d = ((want - o.rot + 540) % 360) - 180; const step = sp * dt; o.rot += Math.abs(d) < step ? d : Math.sign(d) * step; } if (is3(g)) o.ry = -want + 90; }); } });
+
+  B({ id: 'destroyer', cat: 'components', label: 'Destroyer', desc: 'Removes an object from the game (this one by default), optionally after a delay.',
+    inputs: ['in'], outputs: ['out'], params: [P.target(), P.num('delay', 'Delay (s)', 0, { min: 0, step: 0.1 }), P.bool('burst', 'Burst of particles', false), P.color('color', 'Burst color', '#ffd54a')],
+    onInput(n, port, v, g) { g.send(n, 'out', 1); each(n, g, (o) => { if (n.p.burst) VXRT.emitParticles(g, { x: o.x, y: o.y, z: o.z, count: 18, color: n.p.color, speed: 180, life: 0.6, size: 7, shrink: true }); if (U.num(n.p.delay) > 0) o.destroyAt = g.time + n.p.delay; else g.later(() => g.removeObject(o)); }); } });
+
+  B({ id: 'camera', cat: 'components', label: 'Camera', desc: 'Controls the game camera. 2D: follow an object, move, zoom, shake. 3D: follow / orbit / first-person modes, field of view, look angles, shake.',
+    inputs: ['in'], outputs: ['out'], params: [P.sel('action', 'Action', [['follow', 'Follow target'], ['stopFollow', 'Stop following'], ['moveTo', 'Move to position'], ['zoom', 'Set zoom / FOV'], ['shake', 'Shake'], ['mode3d', '3D mode'], ['look', '3D look (yaw/pitch from signal)'], ['lookAt', '3D look at target']]), P.target('target', 'Target', 'self'), P.num('value', 'Value (zoom, FOV, shake amount)', 1, { step: 0.1 }), P.num('x', 'X', 0), P.num('y', 'Y', 0), P.num('z', 'Z', 0), P.num('lerp', 'Smoothing (1 = rigid)', 0.1, { min: 0.01, max: 1, step: 0.01 }), P.sel('mode', '3D mode', ['follow', 'orbit', 'fps', 'fixed']), P.num('distance', 'Distance', 8), P.num('height', 'Height', 3), P.num('sensitivity', 'Look sensitivity', 0.15, { step: 0.01 })],
+    onInput(n, port, v, g) {
+      const a = n.p.action, t = g.targets(n.p.target, n.owner, n.owner.lastOther)[0]; const c2 = g.camera2d, c3 = g.cam3d;
+      if (a === 'follow') { if (g.dim === '2d') { c2.follow = t; c2.lerp = U.num(n.p.lerp, 0.1); c2.offX = U.num(n.p.x); c2.offY = U.num(n.p.y); } else { c3.follow = t; c3.lerp = U.num(n.p.lerp, 0.1); } }
+      else if (a === 'stopFollow') { if (g.dim === '2d') c2.follow = null; else c3.follow = null; }
+      else if (a === 'moveTo') { if (g.dim === '2d') { c2.follow = null; c2.x = U.num(n.p.x); c2.y = U.num(n.p.y); } else { c3.pos = { x: U.num(n.p.x), y: U.num(n.p.y), z: U.num(n.p.z) }; c3.mode = 'fixed'; } }
+      else if (a === 'zoom') { const z = typeof v === 'number' && n.p.useSignal ? v : U.num(n.p.value, 1); if (g.dim === '2d') c2.zoom = Math.max(0.05, z); else c3.fov = U.clamp(z, 10, 140); }
+      else if (a === 'shake') { if (g.dim === '2d') c2.shake = U.num(n.p.value, 8); else c3.shake = U.num(n.p.value, 8); }
+      else if (a === 'mode3d' && g.dim === '3d') { c3.mode = n.p.mode; c3.follow = t || c3.follow; c3.distance = U.num(n.p.distance, 8); c3.height = U.num(n.p.height, 3); c3.lerp = U.num(n.p.lerp, 0.1); }
+      else if (a === 'look' && g.dim === '3d' && v && typeof v === 'object') { const k = U.num(n.p.sensitivity, 0.15); c3.yaw -= (v.dx || 0) * k; c3.pitch = U.clamp(c3.pitch - (v.dy || 0) * k * (c3.mode === 'fps' ? 1 : -1), -85, 85); if (t && c3.mode === 'fps') t.ry = c3.yaw; }
+      else if (a === 'lookAt' && g.dim === '3d' && t) { c3.target = { x: t.x, y: t.y, z: t.z }; }
+      g.send(n, 'out', 1); } });
+
+  B({ id: 'message', cat: 'components', label: 'Message', desc: 'Sends a message to other objects. They receive it with a Mailbox trigger on the same channel. Target: all, game (global), tag:name, an object name, or self.',
+    inputs: ['in'], outputs: ['out'], params: [P.text('target', 'Send to', 'all'), P.text('channel', 'Channel', 'hello'), P.text('payload', 'Payload (empty = the incoming value)', '')],
+    onInput(n, port, v, g) { const m = { channel: n.p.channel, payload: n.p.payload !== '' ? U.tpl(n.p.payload, Object.assign({}, g.vars, { value: v })) : v, sender: n.owner.name }; const t = String(n.p.target).trim(); if (t === 'game' || t === 'global') g.emit('msg:*', m); else for (const o of g.targets(t, n.owner, n.owner.lastOther)) g.emit('msg:' + o.id, m); g.send(n, 'out', m.payload); } });
+
+  B({ id: 'rayCast', cat: 'components', label: 'Ray Cast', desc: 'Shoots an invisible line from this object and reports what it hits (ground checks, line of sight, lasers).',
+    inputs: ['in'], outputs: ['hit', 'miss', 'distance'], params: [P.sel('direction', 'Direction', DIRS.concat(['toMouse'])), P.num('angle', 'Angle (°)', 0), P.num('distance', 'Max distance', 300), P.text('only', 'Only hit', '', { hint: 'object name or tag:name; empty = anything' }), P.bool('continuous', 'Cast every frame', false)],
+    cast(n, g) { const o = n.owner; let d; if (n.p.direction === 'toMouse') d = { x: g.input.mouse.x - o.x, y: g.input.mouse.y - o.y, z: 0 }; else d = dirVec(g, o, n.p.direction, n.p.angle); const only = String(n.p.only || '').trim(); const r = VXRT.raycast(g, o, d, U.num(n.p.distance, 300), (t) => t !== o && (!only || (only.startsWith('tag:') ? (t.tags || []).includes(only.slice(4)) : t.name === only))); if (r) { o.lastOther = r.obj; g.send(n, 'distance', r.dist); g.send(n, 'hit', r.obj.name); } else g.send(n, 'miss', 1); },
+    onInput(n, port, v, g) { this.cast(n, g); }, update(n, dt, g) { if (n.p.continuous) this.cast(n, g); } });
+
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  B({ id: 'calendar', cat: 'components', label: 'Calendar', desc: 'Reads the real-world date and time (daily rewards, day/night, events). Pick a field; it is sent when triggered or every N seconds.',
+    inputs: ['in'], outputs: ['out'], params: [P.sel('field', 'Field', ['year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'timestamp', 'dayName', 'monthName', 'date', 'time', 'isWeekend', 'isDaytime']), P.bool('utc', 'Use UTC', false), P.num('every', 'Also send every N seconds (0 = off)', 0, { min: 0 })],
+    read(n) { const d = new Date(), u = n.p.utc; const f = { year: u ? d.getUTCFullYear() : d.getFullYear(), month: (u ? d.getUTCMonth() : d.getMonth()) + 1, day: u ? d.getUTCDate() : d.getDate(), weekday: u ? d.getUTCDay() : d.getDay(), hour: u ? d.getUTCHours() : d.getHours(), minute: u ? d.getUTCMinutes() : d.getMinutes(), second: u ? d.getUTCSeconds() : d.getSeconds(), timestamp: Date.now() }; return { ...f, dayName: DAYS[f.weekday], monthName: MONTHS[f.month - 1], date: `${f.year}-${String(f.month).padStart(2, '0')}-${String(f.day).padStart(2, '0')}`, time: `${String(f.hour).padStart(2, '0')}:${String(f.minute).padStart(2, '0')}:${String(f.second).padStart(2, '0')}`, isWeekend: f.weekday === 0 || f.weekday === 6, isDaytime: f.hour >= 6 && f.hour < 18 }[n.p.field]; },
+    onInput(n, port, v, g) { g.send(n, 'out', this.read(n)); }, update(n, dt, g) { if (U.num(n.p.every) > 0) { n.st.t = (n.st.t || 0) + dt; if (n.st.t >= n.p.every) { n.st.t = 0; g.send(n, 'out', this.read(n)); } } } });
+
+  B({ id: 'clock', cat: 'components', label: 'Clock', desc: 'Stopwatch, countdown or real-time clock. "out" is the value in seconds, "text" is formatted (e.g. 01:30). A countdown sends "done" at zero.',
+    inputs: ['start', 'stop', 'reset', 'toggle'], outputs: ['out', 'text', 'done'], params: [P.sel('mode', 'Mode', [['stopwatch', 'Stopwatch'], ['countdown', 'Countdown'], ['realtime', 'Real time of day']]), P.num('duration', 'Countdown from (s)', 30, { min: 0 }), P.sel('format', 'Text format', ['seconds', 'mm:ss', 'hh:mm:ss']), P.bool('autoStart', 'Start automatically', false)],
+    init(n) { n.st.t = n.p.mode === 'countdown' ? U.num(n.p.duration, 30) : 0; n.st.run = !!n.p.autoStart || n.p.mode === 'realtime'; },
+    onInput(n, port) { const s = n.st; if (port === 'start') s.run = true; else if (port === 'stop') s.run = false; else if (port === 'toggle') s.run = !s.run; else if (port === 'reset') { s.t = n.p.mode === 'countdown' ? U.num(n.p.duration, 30) : 0; } },
+    update(n, dt, g) { const s = n.st; if (n.p.mode === 'realtime') { const d = new Date(); s.t = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds(); } else if (s.run) { s.t += n.p.mode === 'countdown' ? -dt : dt; if (n.p.mode === 'countdown' && s.t <= 0) { s.t = 0; s.run = false; g.send(n, 'done', 1); } } g.send(n, 'text', VXRT.fmtTime(s.t, n.p.format === 'seconds' && n.p.mode === 'realtime' ? 'hh:mm:ss' : n.p.format)); g.send(n, 'out', s.t); } });
+})();
