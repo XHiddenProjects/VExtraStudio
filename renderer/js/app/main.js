@@ -33,16 +33,16 @@
     const probs = [...VX.tabs.problems.values()].flat(); l.append(item(`⊘ ${probs.filter((p) => p.type === 'error').length}  ⚠ ${probs.filter((p) => p.type === 'warning').length}`, () => BP.show('problems'), 'Problems', true));
     for (const it of Forge.statusItems.values()) (it.align === 'right' ? r : l).append(item(it.text, it.onClick, it.tooltip));
     const t = VX.tabs.active(); if (t && t.kind === 'code') { r.append(item(`Ln ${cur.l}, Col ${cur.c}`), item(t.lang || 'text', null, '', true), item('Spaces: ' + app.settings.tabSize, null, '', true)); }
-    const u = VX.cloud && VX.cloud.user; r.append(item([VX.icon('user', 12), u ? u.username : 'Sign in'], () => VX.sidebar.show('cloud'), 'Account'), item(app.settings.mode === 'simple' ? 'Simple mode' : 'Advanced mode', () => { const m = app.settings.mode === 'simple' ? 'advanced' : 'simple'; app.set('mode', m); document.body.dataset.mode = m; renderStatus(); }, 'Toggle simple / advanced mode'), item('v' + app.version));
+    const u = VX.cloud && VX.cloud.user; r.append(item([VX.icon('user', 12), u ? u.username : 'Sign in'], () => VX.sidebar.show('cloud'), 'Account'), item(app.settings.mode === 'simple' ? 'Simple mode' : 'Advanced mode', () => { const m = app.settings.mode === 'simple' ? 'advanced' : 'simple'; app.set('mode', m); document.body.dataset.mode = m; renderStatus(); }, 'Toggle simple / advanced mode'), ...(() => { const U = VX.update, l = U && U.last; const txt = U && U.busy ? '⟳ Checking…' : U && U.pending() ? '⬆ Update v' + l.latest : null; return txt ? [h('span', { class: 'sb-item click upd-badge', title: U.message(), onclick: () => U.dialog() }, txt)] : []; })(), item('v' + app.version, () => VX.update.dialog(), 'Version ' + app.version + ' – click to check for updates'));
   }
-  VX.on('cursor', (l, c) => { cur = { l, c }; renderStatus(); }); VX.on('status', renderStatus); VX.on('tabChange', renderStatus); VX.on('registry', renderStatus); VX.on('root', renderStatus); VX.on('cloud', renderStatus);
+  VX.on('cursor', (l, c) => { cur = { l, c }; renderStatus(); }); VX.on('status', renderStatus); VX.on('update', renderStatus); VX.on('tabChange', renderStatus); VX.on('registry', renderStatus); VX.on('root', renderStatus); VX.on('cloud', renderStatus);
 
   /* ---------- command palette & quick open ---------- */
   function commands() {
     const C = [];
     const add = (title, run, hint) => C.push({ title, run, hint });
     add('New web project…', () => app.newProject()); add('New UI design', () => app.newUI()); add('New 2D game', () => app.newGame('2d')); add('New 3D game', () => app.newGame('3d')); add('Open 2D demo game', () => app.newGame('2d', true)); add('Open 3D demo game (first person)', () => app.newGame('3d', true)); add('Open UI example', () => app.newUIExample()); add('New file…', () => VX.sidebar.newFile()); add('Export website (ZIP / tar.gz)…', () => VX.web.exportSite()); add('Open project database', () => VX.web.openDatabase()); add('Run PHP site (desktop app)', () => { const t = VX.tabs.active(); VX.web.openPhp(t && t.path ? t : null); });
-    add('Open folder…', () => app.openFolder(), 'Ctrl+O'); add('Close workspace', () => app.closeWorkspace()); add('Clear recent list', () => app.clearRecent()); add('Save', () => VX.tabs.save(), 'Ctrl+S'); add('Save as…', () => VX.tabs.save(VX.tabs.active(), true), 'Ctrl+Shift+S'); add('Save all', () => VX.tabs.saveAll()); add('Close tab', () => S.active && VX.tabs.close(S.active), 'Ctrl+W');
+    add('Open folder…', () => app.openFolder(), 'Ctrl+O'); add('Check for updates', () => VX.update.check({ toast: true }).then(() => VX.update.dialog())); add('Close workspace', () => app.closeWorkspace()); add('Clear recent list', () => app.clearRecent()); add('Save', () => VX.tabs.save(), 'Ctrl+S'); add('Save as…', () => VX.tabs.save(VX.tabs.active(), true), 'Ctrl+Shift+S'); add('Save all', () => VX.tabs.saveAll()); add('Close tab', () => S.active && VX.tabs.close(S.active), 'Ctrl+W');
     add('Quick open file…', () => quickOpen(), 'Ctrl+P'); add('Find in files', () => { VX.sidebar.show('search'); }, 'Ctrl+Shift+F'); add('Toggle sidebar', () => VX.sidebar.collapse(!$('#sidebar').classList.contains('collapsed')), 'Ctrl+B'); add('Toggle bottom panel', () => BP.toggle(), 'Ctrl+J');
     add('Show explorer', () => VX.sidebar.show('explorer')); add('Show create palette', () => VX.sidebar.show('create')); add('Show plugins', () => VX.sidebar.show('plugins')); add('Show themes', () => VX.sidebar.show('themes')); add('Account & sharing', () => VX.sidebar.show('cloud'));
     add('Documentation', () => VX.docs.open(), 'F1'); add('Docs: Block reference', () => VX.docs.open('blocks')); add('Docs: Plugin API', () => VX.docs.open('plugin-api')); add('Welcome page', () => app.showWelcome()); add('Settings', () => app.openSettings(), 'Ctrl+,');
@@ -108,7 +108,7 @@
     VX.sidebar.show(app.settings.lastView && VX.sidebar.views[app.settings.lastView] ? app.settings.lastView : 'explorer'); renderStatus();
     if (window.native.onMenu) window.native.onMenu((id) => menu(id));
     if (!S.root) { try { const last = app.settings.autoOpen === false ? null : (app.settings.recent || []).find((r) => r.kind === 'folder'); if (last && window.native.isDesktop && (await window.native.exists(last.path))) await app.openRoot(last.path); } catch { /* ignore */ } }
-    if (app.settings.welcome !== false) app.showWelcome();
+    if (app.settings.welcome !== false) app.showWelcome(); VX.update.start();
     $('#splash').style.opacity = 0; setTimeout(() => $('#splash').remove(), 350);
     window.__vxReady = true;
   }

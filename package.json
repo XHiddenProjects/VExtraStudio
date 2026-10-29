@@ -27,8 +27,5 @@
     "esbuild": "^0.28.2",
     "sql.js": "^1.15.2",
     "three": "^0.186.1"
-  },
-  "allowScripts": {
-    "esbuild@0.28.2": true
   }
 }

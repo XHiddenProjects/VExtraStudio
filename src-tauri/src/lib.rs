@@ -481,6 +481,23 @@ struct HttpRes {
     body: String,
 }
 
+/// Open the project's GitHub page in the default browser. Only the Vextra Studio repository is allowed.
+#[tauri::command]
+fn open_url(url: String) -> Res<()> {
+    const BASE: &str = "https://github.com/XHiddenProjects/VExtraStudio";
+    let ok_chars = url.chars().all(|c| c.is_ascii_alphanumeric() || "/:.-_~?=#%".contains(c));
+    if !ok_chars || !(url == BASE || url.starts_with(&format!("{}/", BASE))) {
+        return Err("blocked: only the Vextra Studio repository can be opened".into());
+    }
+    #[cfg(target_os = "windows")]
+    let r = std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", &url]).spawn();
+    #[cfg(target_os = "macos")]
+    let r = std::process::Command::new("open").arg(&url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let r = std::process::Command::new("xdg-open").arg(&url).spawn();
+    r.map(|_| ()).map_err(|e| e.to_string())
+}
+
 /// All cloud/publish traffic goes through here so the webview never hits CORS or mixed-content limits.
 #[tauri::command]
 async fn http_request(req: HttpReq) -> Res<HttpRes> {
@@ -807,7 +824,7 @@ pub fn run() {
             fs_open_folder, fs_open_file, fs_save_as, fs_pick_files, fs_read_dir, fs_read_file, fs_read_base64, fs_write_file,
             fs_write_base64, fs_create, fs_remove, fs_rename, fs_exists, fs_reveal, fs_list_files, fs_search, ext_list, ext_save,
             ext_remove, ext_import, ext_open_dir, settings_load, settings_save, secret_get, secret_set, app_info, app_clean,
-            http_request, php_check, php_start, php_stop, serve_start, serve_stop
+            http_request, open_url, php_check, php_start, php_stop, serve_start, serve_stop
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vextra Studio");

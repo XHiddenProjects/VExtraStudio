@@ -41,17 +41,19 @@
     const hide = new Set(['node_modules', '.git', 'target', '.DS_Store']);
     for (const it of items) {
       if (hide.has(it.name)) continue;
+      try {
       const [ic, cls] = VX.app.fileIcon(it.name, it.isDir);
       const open = expanded.has(it.path);
       const chev = h('span', { class: 'chev' + (open ? ' open' : '') }, it.isDir ? VX.icon('right') : null);
       const row = h('div', { class: 'tree-row ft-' + (cls ? cls.slice(3) : '') + (S.active && VX.tabs.get(S.active)?.path === it.path ? ' active' : ''), style: `padding-left:${8 + depth * 14}px`, 'data-path': it.path, title: it.path,
         onclick: async () => { if (it.isDir) { open ? expanded.delete(it.path) : expanded.add(it.path); SB.refresh(); } else VX.tabs.open({ path: it.path }); },
         oncontextmenu: (e) => { e.preventDefault(); e.stopPropagation(); fileMenu(e, it); } }, chev, VX.icon(ic), h('span', { class: 'name' }, it.name));
-      row.classList.add(cls);
+      if (cls) row.classList.add(cls);
       container.append(row);
       if (it.isDir) { VX.dnd.target(row, (d) => moveInto(d, it.path), (d) => d && d.kind === 'file' && d.path !== it.path); }
       else VX.dnd.draggable(row, () => ({ kind: 'file', path: it.path, name: it.name }), it.name);
       if (it.isDir && open) await renderDir(it.path, container, depth + 1);
+      } catch (e) { console.warn('explorer row', it.name, e); container.append(h('div', { class: 'tree-row' }, h('span', { class: 'name' }, it.name))); }
     }
     if (!items.length && depth === 0) container.append(h('div', { class: 'empty' }, 'This folder is empty.'));
   }

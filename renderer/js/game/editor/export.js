@@ -3,7 +3,7 @@
   const RT_FILES = ['rt-core', 'rt-input', 'rt-physics', 'rt-render2d', 'rt-render3d', 'rt-graph', 'rt-services', 'blocks-triggers', 'blocks-logic', 'blocks-components', 'blocks-properties', 'blocks-text', 'blocks-flow'];
   const cache = {};
   async function src(url) { if (cache[url]) return cache[url]; const r = await fetch(url); if (!r.ok) throw new Error('Could not load ' + url + ' (' + r.status + ')'); return (cache[url] = await r.text()); }
-  const lit = (v) => JSON.stringify(v).replace(/</g, '\\u003c');
+  const lit = (v) => VX.jsLit(v);
   const safeScript = (s) => s.replace(/<\/(script)/gi, '<\\/$1').replace(/<!--/g, '<\\!--');
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fnSrc = (f) => { let s = Function.prototype.toString.call(f); if (/^(async\s+)?[A-Za-z_$][\w$]*\s*\(/.test(s) && !/^(async\s+)?function\b/.test(s)) s = s.replace(/^(async\s+)?([A-Za-z_$][\w$]*)\s*\(/, '$1function $2('); return s; };
@@ -33,7 +33,7 @@
 <meta name="generator" content="Vextra Studio"><title>${title}</title>
 <style>html,body{margin:0;height:100%;background:${bg};overflow:hidden;overscroll-behavior:none}#vx-game{position:fixed;inset:0;width:100%;height:100%}#vx-boot{position:fixed;inset:0;display:grid;place-items:center;color:#9aa3bd;font:14px system-ui,sans-serif}</style></head>
 <body><div id="vx-game"></div><div id="vx-boot">Loading…</div>
-<script>window.VXRT = window.VXRT || {};${opts.channel ? `window.__VX_CH = ${JSON.stringify({ token: String(opts.channel.token), origin: String(opts.channel.origin) })};` : ''}${opts.cloudUrl ? `window.VX_CLOUD = { url: ${JSON.stringify(opts.cloudUrl)} };` : ''}</script>
+<script>window.VXRT = window.VXRT || {};${opts.channel ? `window.__VX_CH = ${VX.jsLit({ token: String(opts.channel.token), origin: String(opts.channel.origin) })};` : ''}${opts.cloudUrl ? `window.VX_CLOUD = { url: ${VX.jsLit(opts.cloudUrl)} };` : ''}</script>
 <script type="module">
 const DATA = ${json};
 ${has3d ? `const THREE_SRC = ${lit(threeSrc)};

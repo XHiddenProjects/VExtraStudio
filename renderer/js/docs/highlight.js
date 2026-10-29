@@ -28,7 +28,7 @@
     parts.push([String.raw`"(?:\\.|[^"\\])*"?|'(?:\\.|[^'\\])*'?` + (o.tpl ? String.raw`|` + '`(?:\\\\[\\s\\S]|[^`\\\\])*`?' : ''), 's']);
     if (o.regex) parts.push([String.raw`(?<=[=(,:;!&|?{}\n]\s*)\/(?![*\/])(?:\\.|\[(?:\\.|[^\]\\])*\]|[^\/\\\n])+\/[a-z]*`, 'r']);
     if (o.var) parts.push([String.raw`\$[A-Za-z_]\w*`, 'v']);
-    parts.push([NUM, 'n']); parts.push([words(KW.lit).source, 'l']); parts.push([words(kw).source.replace(/^\\b/, '\\b'), 'k']);
+    parts.push([NUM, 'n']); parts.push([words(KW.lit).source, 'l']); parts.push([words(kw).source, 'k']);
     if (o.ci) { const r = mk(parts); r.re = new RegExp(r.re.source, 'gi'); return r; }
     parts.push([String.raw`[A-Za-z_$][\w$]*(?=\s*\()`, 'f']); parts.push([String.raw`\b[A-Z][A-Za-z0-9_]*\b`, 't']);
     return mk(parts);

@@ -16,6 +16,7 @@ Everything after the first downloadable build (v1.0.0).
 - Blocks: `once` trigger, Expression inputs A–F, Ad block *service* option, camera width/height follow (2D) and first-person camera (3D); first-person 3D demo.
 - Real **Simple / Advanced** mode; collapsible block editor panels and nodes; device frames that stay in view.
 - Blank new 2D / 3D / UI / web projects.
+- **Update indicator**: on start-up (and via *Settings → Check for updates*, the version label in the status bar, or the Command Palette) Studio reads the `VERSION` file of `XHiddenProjects/VExtraStudio` and shows a **⬆ Update vX.Y.Z** badge when a newer version exists, with *Skip this version*. A `VERSION` file now ships in the repo root — keep it in sync with `package.json` when you release. Can be turned off in Settings.
 - `SECURITY.md` and this changelog.
 
 ### Changed
@@ -24,6 +25,8 @@ Everything after the first downloadable build (v1.0.0).
 - Selection outline, preview interactivity hardening, adaptive layout, sticky documentation Copy button.
 
 ### Fixed
+- **Explorer showed no files** in projects containing file types without a dedicated icon (`.php`, `.sql`, `.md`, `.htaccess`, `LICENSE`, …): the row builder threw on an empty CSS class and aborted the whole tree. Fixed, and a failing row can no longer blank the explorer.
+- CodeQL alerts: *improper code sanitization* (inline-script values in the preview console/DB shims and game export are now escaped with `VX.jsLit`, covering `</script>`, `<!--` and U+2028/2029) and *replacement of a substring with itself* in `highlight.js`.
 - **Double paste**: copy / paste / duplicate / undo / redo fired twice because the viewport or graph handler and the editor root both handled the same key press. Keys handled by a canvas are now flagged and skipped by the root.
 - Labels disappearing after a game reset; Timer → Camera/Label wiring; Play device frame invisibility; Expression input state; unused-variable Rust warning.
 

@@ -113,6 +113,8 @@
   VX.iconHTML = (name) => `<svg class="ico" viewBox="0 0 24 24">${P[name] || P.file}</svg>`;
 
   /** Secure parent <-> preview/game messaging: a random per-session token plus a pinned origin (never "*" when the origin is known). */
+  /** Serialise a value as a JavaScript literal that is safe inside an inline <script> (no </script>, <!--, U+2028/2029 breakouts). */
+  VX.jsLit = (v) => JSON.stringify(v === undefined ? null : v).replace(/[<>&\u2028\u2029]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
   VX.channel = {
     token: () => { const a = new Uint8Array(16); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => (a[i] = Math.floor(Math.random() * 256))); return [...a].map((b) => b.toString(16).padStart(2, '0')).join(''); },
     origin: () => (location.origin && location.origin !== 'null' && /^[a-z][a-z0-9+.-]*:\/\/[^/]+$/i.test(location.origin) ? location.origin : '*'),

@@ -9,7 +9,7 @@
 
 ## Reporting a vulnerability
 
-Please open a public issue for security problems. fixes are released as patch versions and listed in `CHANGELOG.md`.
+Please **do not** open a public issue for security problems. Email the maintainers (see `author` in `package.json`) with a description, reproduction steps and the affected version. You will get an acknowledgement within 5 working days; fixes are released as patch versions and listed in `CHANGELOG.md`.
 
 ## How Vextra Studio protects you
 
@@ -34,3 +34,7 @@ Please open a public issue for security problems. fixes are released as patch ve
 
 - Keep the optional cloud/sharing server (`npm run server`) behind HTTPS and set a strong secret.
 - Exported websites ship `.htaccess` / `nginx.conf` with conservative headers; review them for your host.
+
+## Static analysis
+
+The repository is scanned by GitHub CodeQL. Values embedded in generated inline `<script>` blocks are serialised with `VX.jsLit`, which escapes `<`, `>`, `&`, U+2028 and U+2029, so they cannot terminate the script or inject code.
