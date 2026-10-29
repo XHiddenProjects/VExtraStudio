@@ -59,7 +59,7 @@
     const p = build().find((x) => x.id === view.cur) || build().find((x) => x.id === 'welcome'); const main = view.main; if (!p) return;
     main.textContent = ''; const body = h('div', { class: 'md', html: VX.markdown.render(safeMd(p)) }); main.append(body);
     body.querySelectorAll('a[data-doc]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); go(a.dataset.doc); drawNav(view.search.value); }));
-    body.querySelectorAll('pre').forEach((pre) => { const b = h('button', { class: 'btn sm copy', onclick: () => { navigator.clipboard && navigator.clipboard.writeText(pre.innerText); b.textContent = 'Copied'; setTimeout(() => (b.textContent = 'Copy'), 1200); } }, 'Copy'); pre.append(b); });
+    if (VX.wireCopy && !body._copyWired) { VX.wireCopy(body); body._copyWired = true; }
     if (anchor) { const el = body.querySelector('#' + CSS.escape(anchor)); el && el.scrollIntoView(); } else main.scrollTop = 0;
     view.nav.querySelectorAll('.docs-link').forEach((a) => a.classList.toggle('on', a.textContent === p.title));
   }

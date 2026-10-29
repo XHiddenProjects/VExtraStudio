@@ -2,7 +2,7 @@
 (function () {
   const listeners = {};
   const Forge = {
-    version: '1.0.0',
+    version: '2.0.0',
     host: {},                 // filled in by app.js
     commands: new Map(),      // id -> {id,title,run,plugin}
     statusItems: new Map(),   // id -> {id,text,align,onClick,plugin}
@@ -88,6 +88,8 @@
         /** Add a placeable object type to the game editor (2D: draw(ctx,obj); 3D: build(THREE,obj) → Object3D). */
         registerObjectType(def) { return VX.game.registerObjectType(def, pluginId, track, note); },
         current: () => VX.game.currentProject?.() ?? null,
+        /** Resolves to the exported single-file HTML of a project (default: the open game). */
+        exportHTML: (project) => VX.gameExport.toHTML(project || VX.game.currentProject?.()),
       },
       docs: {
         /** Add a documentation page that shows up under Docs → Plugins → <your plugin>. Markdown. */
@@ -115,6 +117,8 @@
       fs: {
         readFile: (p) => window.native.readFile(p),
         writeFile: (p, c) => window.native.writeFile(p, c),
+        writeBase64: (p, b64) => window.native.writeBase64(p, b64),
+        exists: (p) => window.native.exists(p),
         root: () => H().root?.() ?? null,
       },
       settings: {

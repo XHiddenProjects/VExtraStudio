@@ -8,7 +8,7 @@
   app.openFolder = async function () {
     try { const p = await window.native.openFolder(); if (!p) return; await app.openRoot(p); } catch (e) { VX.ui.toast('Could not open folder: ' + e.message, 'error'); }
   };
-  app.openRoot = async function (p) { app.setRoot(p); app.addRecent(p, VX.path.base(p), 'folder'); VX.sidebar.show('explorer'); VX.emit('status'); };
+  app.openRoot = async function (p) { app.settings.autoOpen = true; app.setRoot(p); app.addRecent(p, VX.path.base(p), 'folder'); VX.sidebar.show('explorer'); VX.emit('status'); };
   app.newProject = async function (preselect) {
     const T = VX.templates.list(); let chosen = preselect || T[0].id;
     const name = h('input', { value: 'my-project', placeholder: 'project-name' });
@@ -26,9 +26,10 @@
     m = VX.ui.modal({ title: 'New project', wide: false, body, actions: [h('button', { class: 'btn', onclick: () => m.close() }, 'Cancel'), h('button', { class: 'btn primary', onclick: go }, 'Create project')] });
     name.focus(); name.select();
   };
+  app.newUIExample = async function () { const t = await VX.tabs.open({ kind: 'ui', key: VX.uid('ui'), title: 'example.vxui', text: VX.Designer.example().serialize(), startDirty: true }); t && VX.sidebar.show('create'); };
   app.newUI = async function () { const t = await VX.tabs.open({ kind: 'ui', key: VX.uid('ui'), title: 'untitled.vxui', text: VX.Designer.blank().serialize(), startDirty: true }); t && VX.sidebar.show('create'); };
-  app.newGame = async function (dim) {
-    const proj = VX.GameProject.blank({ name: dim === '3d' ? 'My 3D game' : 'My 2D game', dim, sample: true });
+  app.newGame = async function (dim, example) {
+    const proj = VX.GameProject.blank({ name: (example ? 'Demo ' : 'My ') + (dim === '3d' ? '3D game' : '2D game'), dim, sample: !!example });
     const t = await VX.tabs.open({ kind: 'game', key: VX.uid('game'), title: 'untitled.vxgame', text: JSON.stringify(proj, null, 2), startDirty: true }); t && VX.sidebar.show('create');
   };
   app.openSettings = () => VX.tabs.open({ kind: 'page', key: 'page:settings', title: 'Settings', icon: 'settings', render: renderSettings });
@@ -36,6 +37,8 @@
 
   /* ---------- welcome ---------- */
   function renderWelcome(c) {
+    if (!c._vxRecent) { c._vxRecent = true; VX.on('recent', () => { if (c.isConnected) redraw(); }); }
+    const redraw = () => { const p = c.querySelector('.page.welcome'); if (p) p.remove(); renderWelcome(c); };
     const recent = VX.app.settings.recent || []; const acct = VX.cloud && VX.cloud.user;
     const tile = (icon, title, desc, fn) => h('div', { class: 'tile', onclick: fn }, h('div', { class: 'ti' }, VX.icon(icon)), h('b', {}, title), h('span', { class: 'd' }, desc));
     c.append(h('div', { class: 'page welcome' },
@@ -46,7 +49,7 @@
         tile('blocks', 'UI designer', 'Drag components onto a canvas', () => app.newUI()), tile('globe', 'Web project', 'Templates, live preview, devices', () => app.newProject()),
         tile('folder', 'Open folder', 'Work on an existing project', () => app.openFolder()), tile('docs', 'Documentation', 'Guides, block reference, plugins', () => VX.docs.open()),
         tile('cloud', acct ? 'Signed in as ' + acct.username : 'Account', acct ? 'Share, collaborate & publish' : 'Create an account to publish & collaborate', () => VX.sidebar.show('cloud')), tile('plugin', 'Plugins', 'Extend the editor, add blocks & objects', () => VX.sidebar.show('plugins'))),
-      recent.length ? h('div', {}, h('h2', {}, 'Recent'), h('div', { class: 'recent' }, recent.map((r) => h('div', { class: 'tree-row', onclick: () => (r.kind === 'folder' ? app.openRoot(r.path) : VX.tabs.open({ path: r.path })) }, VX.icon(r.kind === 'folder' ? 'folder' : 'file'), h('span', { class: 'name' }, r.name), h('small', { style: 'color:var(--muted)' }, r.path))))) : null,
+      recent.length ? h('div', {}, h('h2', {}, 'Recent ', h('button', { class: 'btn', style: 'font-size:11px;margin-left:8px', title: 'Remove every item from the recent list (files on disk are not touched)', onclick: () => { app.clearRecent(); redraw(); } }, 'Clear all')), h('div', { class: 'recent' }, recent.map((r) => h('div', { class: 'tree-row', onclick: () => (r.kind === 'folder' ? app.openRoot(r.path) : VX.tabs.open({ path: r.path })) }, VX.icon(r.kind === 'folder' ? 'folder' : 'file'), h('span', { class: 'name' }, r.name), h('small', { style: 'color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis' }, r.path), h('button', { class: 'icon-btn', title: 'Remove from recent', 'aria-label': 'Remove from recent', style: 'margin-left:auto', onclick: (ev) => { ev.stopPropagation(); app.removeRecent(r.path); redraw(); } }, '✕'))))) : null,
       h('h2', {}, 'Handy shortcuts'),
       h('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px 24px;color:var(--muted)' }, [['Command palette', 'Ctrl+Shift+P'], ['Quick open file', 'Ctrl+P'], ['Save', 'Ctrl+S'], ['Find in files', 'Ctrl+Shift+F'], ['Play game / preview', 'F5'], ['Toggle sidebar', 'Ctrl+B'], ['Bottom panel', 'Ctrl+J'], ['Documentation', 'F1']].map(([a, b]) => h('div', { style: 'display:flex;justify-content:space-between' }, a, h('span', { class: 'kbd' }, b)))),
       h('div', { style: 'margin-top:22px' }, h('label', { style: 'display:flex;gap:8px;align-items:center;color:var(--muted)' }, (() => { const i = h('input', { type: 'checkbox' }); i.checked = VX.app.settings.welcome !== false; i.onchange = () => app.set('welcome', i.checked); return i; })(), 'Show this page on start'))));

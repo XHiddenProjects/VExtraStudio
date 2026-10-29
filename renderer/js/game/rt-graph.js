@@ -31,7 +31,9 @@
     }
     for (const w of graph.wires || []) {
       const a = map.get(w.from), b = map.get(w.to); if (!a || !b) continue;
-      (a.out[w.out || 'out'] ||= []).push({ node: b, port: w.in || 'in' });
+      let po = w.out || 'out', pi = w.in || 'in';
+      try { const oa = VXRT.ports(a.def, a.p, a).outputs.map((x) => x.id), ib = VXRT.ports(b.def, b.p, b).inputs.map((x) => x.id); if (oa.length && !oa.includes(po)) po = oa[0]; if (ib.length && !ib.includes(pi)) pi = ib[0]; } catch { /* dynamic ports */ }
+      (a.out[po] ||= []).push({ node: b, port: pi });
     }
     const res = { map, list };
     g.later(() => { for (const n of list) { if (n.dead) continue; try { n.def.init && n.def.init(n, g); } catch (e) { g.nodeError(n, e); } if (n.def.update && !n.dead) g.updating.add(n); } });

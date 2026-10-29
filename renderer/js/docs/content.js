@@ -462,18 +462,73 @@ Blocks and object types appear in the editor palettes as soon as the plugin is e
 | Accelerometer | arrow keys | device tilt |
 | Vibrate | brief screen shake | vibration motor |
 | Touch Check | mouse | multi-touch |
-| Ad | simulated house ad | your ad network via \`game.adProvider\` |
+| Ad | simulated house ad (or your chosen service) | your chosen ad service |
 | Game Center | local + cloud leaderboards | \`window.VextraNative.gameCenter\` when wrapped |
 | Device Check | detects mobile/tablet/OS/orientation | same |
 | Exit Game | thanks screen | \`window.VextraNative.exit\` |
 
+## The Ad block and its service
+
+The **Ad** block has a **Type** (interstitial, rewarded or banner) and an **Ad service**:
+
+| Service | What it does |
+|---|---|
+| House ad | A simulated placeholder so you can design the flow (default). |
+| Image + link | Shows your own image; clicking opens the Click-through URL. |
+| Custom HTML / ad tag | Runs your HTML or an ad-network tag inside a sandboxed frame. |
+| Google AdSense | Enter your own publisher id (\`ca-pub-…\`) and slot id; needs an approved AdSense site and internet access. |
+| My own code | Calls \`game.adProvider\` (below). |
+
+**Banners are part of the game GUI**: choose a *Banner position* (any screen anchor), size, and use the \`hideBanner\` input to remove it. Fullscreen ads pause the game and show a *Close / Claim reward* button after the wait time. The Ad block also has a \`click\` output.
+
 ## Connecting a real ad network
 
 \`\`\`js
-game.adProvider = (kind, done) => { MyAds.show(kind).then((r) => done({ rewarded: r.completed })); };
+game.adProvider = (kind, done, options) => { MyAds.show(kind).then((r) => done({ rewarded: r.completed })); };
 \`\`\`
 
 Set it from a *Custom Behavior* block or the exported HTML. Until then, ads are **simulated** so you can design the flow.`);
+
+  A('web-backend', 'Websites', 'Database, PHP & exporting a site', `# Database, PHP & exporting a site
+
+## Any file type
+Create files of **any** type from the Explorer (**New file**): \`index.php\`, \`schema.sql\`, \`.htaccess\`, \`nginx.conf\`, \`Dockerfile\`, \`.env\`, \`app.py\` … The editor picks the right highlighting (PHP, SQL, nginx, Apache, YAML, INI, Python, Shell, Rust, Go, Java, C/C++ and more), and server files such as \`.htaccess\` and \`nginx.conf\` start with sensible content.
+
+## The built-in database
+Open it with the **Database** button in the Explorer header (or the Command Palette → *Open project database*). Each project folder has **one SQLite database**, stored as \`database.sqlite\` in the project and saved automatically.
+
+- Browse tables, **double-click a cell to edit it**, add and delete rows.
+- **＋ Table** builds a table without writing SQL; the editor runs any SQL with **Ctrl+Enter**.
+- **Import .sql**, **Open .sqlite**, **Export .sql**, **Export .sqlite**.
+
+### Using it from a live preview
+Pages in the **Live preview** can talk to the project database through \`window.VXDB\`:
+
+\`\`\`js
+await VXDB.exec('CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY, text TEXT)');
+await VXDB.run('INSERT INTO todos (text) VALUES (?)', ['Buy milk']);
+const rows = await VXDB.query('SELECT * FROM todos');   // array of objects
+const one  = await VXDB.get('SELECT * FROM todos WHERE id = ?', [1]);
+\`\`\`
+
+\`VXDB\` exists only inside the preview. A deployed site needs a real backend – see PHP below.
+
+## PHP
+Edit PHP anywhere. In the **desktop app**, **Run PHP** (toolbar on \`.php\` files) starts PHP's built-in server for your project and shows the page. This needs **PHP installed on your computer** (and the \`pdo_sqlite\` extension for databases). Use the **PHP + SQLite site** template for a working example. PHP's built-in server does not read \`.htaccess\`, so it is for development only.
+
+## Local server preview
+In the preview bar, **🌐 Local server** (desktop app) serves the page over a real \`http://127.0.0.1\` address, so relative \`fetch()\`, ES modules and storage behave like a real site. It reloads when you save.
+
+## Export the whole site
+**Export website** (Explorer header, Command Palette, or **📦 Export site** on web files) packs the project into a **ZIP** or **tar.gz** containing:
+
+- all your files in one folder (not \`node_modules\`, \`.git\` or hidden folders),
+- a ready **\`.htaccess\`** and **\`nginx.conf\`** (yours are kept if they already exist),
+- optionally the **database** (\`db/database.sql\`, \`db/database.sqlite\`, or both), blocked from the web by both configs,
+- a short **README-DEPLOY.txt**.
+
+Check the generated server configs before going live: set your real domain, enable HTTPS, and make \`db/\` writable by the web-server user only if your site writes to it.
+`);
 
   A('uninstall', 'Reference', 'Uninstalling & cleaning', `# Uninstalling & cleaning
 

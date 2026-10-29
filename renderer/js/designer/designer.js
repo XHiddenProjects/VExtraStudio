@@ -22,7 +22,8 @@
       this.undoStack = []; this.redoStack = [];
       this.root = this._build(); this._snapshot(true); this.render(); this.fit();
     }
-    static blank() { return new Designer(null); }
+    static blank() { return new Designer({ format: 'vextra-ui', width: 1024, height: 640, bg: '#14161b', items: [] }); }
+    static example() { return new Designer(null); }
     static fromText(text, hooks) {
       let doc; try { doc = JSON.parse(text); } catch { doc = null; }
       if (!doc || !Array.isArray(doc.items)) doc = templateDoc();
@@ -40,6 +41,7 @@
       this.side = h('div', { class: 'dz-side' });
       const root = h('div', { class: 'dz' }, this.canvas, this.side);
       this.canvas.addEventListener('mousedown', (e) => this._canvasDown(e));
+      this._ro = new ResizeObserver(() => { if (this._auto !== false && this.canvas.clientWidth > 0) this.fit(); }); this._ro.observe(this.canvas); this._auto = true;
       this.canvas.addEventListener('wheel', (e) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); this.setZoom(this.zoom * (e.deltaY < 0 ? 1.1 : 0.9)); }, { passive: false });
       this.canvas.addEventListener('keydown', (e) => this._key(e));
       // palette drops (pointer-based, see core/dnd.js)
@@ -135,11 +137,11 @@
     select(ids) { this.sel = Array.isArray(ids) ? ids : ids ? [ids] : []; this._applyStageItems(); this._drawOverlay(); this._drawSide(); }
 
     /* ----- zoom ----- */
-    setZoom(z) { this.zoom = VX.clamp(z, 0.2, 3); this._applyZoom(); this.hooks.onZoom && this.hooks.onZoom(this.zoom); }
-    fit() { requestAnimationFrame(() => { const w = this.canvas.clientWidth - 90, hh = this.canvas.clientHeight - 90; if (w > 0 && hh > 0) this.setZoom(Math.min(1, w / this.doc.width, hh / this.doc.height)); else this._applyZoom(); }); }
+    setZoom(z, auto) { if (!auto) this._auto = false; this.zoom = VX.clamp(z, 0.2, 3); this._applyZoom(); this.hooks.onZoom && this.hooks.onZoom(this.zoom); }
+    fit() { this._auto = true; requestAnimationFrame(() => { const w = this.canvas.clientWidth - 90, hh = this.canvas.clientHeight - 90; if (w > 0 && hh > 0) this.setZoom(Math.min(1, w / this.doc.width, hh / this.doc.height), true); else this._applyZoom(); }); }
     _applyZoom() {
       const z = this.zoom;
-      Object.assign(this.stage.style, { width: this.doc.width + 'px', height: this.doc.height + 'px', background: this.doc.bg, transform: `scale(${z})`, left: '40px', top: '40px' });
+      Object.assign(this.stage.style, { width: this.doc.width + 'px', height: this.doc.height + 'px', background: this.doc.bg, transform: `scale(${z})`, left: '0px', top: '0px' });
       this.wrap.style.width = this.doc.width * z + 80 + 'px'; this.wrap.style.height = this.doc.height * z + 80 + 'px';
       Object.assign(this.overlay.style, { width: this.doc.width + 'px', height: this.doc.height + 'px', transform: `scale(${z})`, left: '40px', top: '40px' });
       this.stage.classList.toggle('grid', this.showGrid); this._drawOverlay();
@@ -236,7 +238,7 @@
         s.append(h('div', { class: 'group-title' }, `${def?.label || it.type} properties`));
         const g = h('div', { class: 'geom' });
         for (const k of ['x', 'y', 'w', 'h']) g.append(h('div', {}, h('label', {}, k.toUpperCase()), this._num(it[k], (v) => { it[k] = v; this.refreshItem(it, k === 'w' || k === 'h'); }, { 'data-geom': k })));
-        s.append(g, F('Rotation', this._num(it.rot || 0, (v) => { it.rot = v; this.refreshItem(it); }, { 'data-geom': 'rot' })));
+        const rotRow = F('Rotation', this._num(it.rot || 0, (v) => { it.rot = v; this.refreshItem(it); }, { 'data-geom': 'rot' })); rotRow.classList.add('adv'); s.append(g, rotRow);
         for (const f of def?.schema || []) {
           const v = it.props[f.key]; let input;
           if (f.type === 'color') input = h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(v) ? v : '#000000' });
@@ -247,8 +249,8 @@
           input.addEventListener('input', () => { it.props[f.key] = f.type === 'number' ? parseFloat(input.value) || 0 : input.value; this.refreshItem(it, true); });
           input.addEventListener('change', () => this.commit()); s.append(F(f.label, input));
         }
-        s.append(h('div', { class: 'group-title' }, 'Arrange'), this._arrangeRow());
-        s.append(h('div', { class: 'row', style: 'margin-top:6px' }, [['⇤', 'left', 'Align left'], ['↔', 'center', 'Center horizontally on canvas'], ['⇥', 'right', 'Align right'], ['⤒', 'top', 'Align top'], ['↕', 'middle', 'Center vertically on canvas'], ['⤓', 'bottom', 'Align bottom']].map(([l, k, t]) => h('button', { class: 'btn sm', title: t, onclick: () => this.align(k) }, l))));
+        s.append(h('div', { class: 'group-title adv' }, 'Arrange')); { const ar = this._arrangeRow(); ar.classList.add('adv'); s.append(ar); }
+        s.append(h('div', { class: 'row adv', style: 'margin-top:6px' }, [['⇤', 'left', 'Align left'], ['↔', 'center', 'Center horizontally on canvas'], ['⇥', 'right', 'Align right'], ['⤒', 'top', 'Align top'], ['↕', 'middle', 'Center vertically on canvas'], ['⤓', 'bottom', 'Align bottom']].map(([l, k, t]) => h('button', { class: 'btn sm', title: t, onclick: () => this.align(k) }, l))));
       }
       s.append(h('div', { class: 'group-title' }, `Layers (${this.doc.items.length})`));
       [...this.doc.items].reverse().forEach((i) => {
@@ -268,8 +270,8 @@
     toolbar() {
       const btn = (label, fn, cls = '', title = '') => h('button', { class: 'btn sm ' + cls, onclick: fn, title }, label);
       const zl = h('span', { class: 'zoomlabel' }, Math.round(this.zoom * 100) + '%'); this.hooks.onZoom = (z) => { zl.textContent = Math.round(z * 100) + '%'; };
-      const snap = btn('Snap', () => { this.snap = !this.snap; snap.classList.toggle('on', this.snap); }, this.snap ? 'on' : '', 'Snap to the 8px grid (hold Alt to bypass)');
-      const grid = btn('Grid', () => { this.showGrid = !this.showGrid; grid.classList.toggle('on', this.showGrid); this._applyZoom(); }, this.showGrid ? 'on' : '', 'Show grid');
+      const snap = btn('Snap', () => { this.snap = !this.snap; snap.classList.toggle('on', this.snap); }, 'adv' + (this.snap ? ' on' : ''), 'Snap to the 8px grid (hold Alt to bypass)');
+      const grid = btn('Grid', () => { this.showGrid = !this.showGrid; grid.classList.toggle('on', this.showGrid); this._applyZoom(); }, 'adv' + (this.showGrid ? ' on' : ''), 'Show grid');
       return [btn([VX.icon('undo', 14), 'Undo'], () => this.undo(), '', 'Ctrl+Z'), btn([VX.icon('redo', 14), 'Redo'], () => this.redo(), '', 'Ctrl+Shift+Z'), h('span', { class: 'sep' }),
         btn('−', () => this.setZoom(this.zoom / 1.2)), zl, btn('+', () => this.setZoom(this.zoom * 1.2)), btn('Fit', () => this.fit()), h('span', { class: 'sep' }), snap, grid, h('span', { class: 'spacer' }),
         btn([VX.icon('play', 13), 'Preview'], () => this.hooks.preview && this.hooks.preview(this), 'primary'), btn([VX.icon('code', 14), 'Export HTML'], () => this.hooks.exportCode && this.hooks.exportCode(this))];

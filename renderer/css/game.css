@@ -116,3 +116,17 @@ input.n { width: 100%; }
 .play-stage { flex: 1; min-height: 0; position: relative; display: grid; place-items: center; overflow: hidden; } .play-frame { border: 0; background: #000; display: block; } .play-frame.dev { border-radius: 22px; box-shadow: 0 0 0 10px #1c1f2b, 0 0 0 11px #353a4d, 0 20px 60px rgba(0,0,0,.6); }
 .gl-tab { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .lg-body.m-split .ge-side { display: none; } .lg-body.m-split .ge-pal { width: 150px; } .lg-body.codemode .ge-pal { display: none; } .lg-body.m-split .lg-graph { flex: 3; } .lg-body.m-split .lg-codewrap { flex: 2; }
+
+/* graph editor: collapsible panels + nodes, responsive widths */
+.ge-pal { width: clamp(130px, 18%, 190px); } .ge-side { width: clamp(170px, 22%, 240px); }
+.ge.pal-hidden .ge-pal, .ge.side-hidden .ge-side { display: none; }
+.ge-tools { position: absolute; top: 8px; right: 10px; display: flex; gap: 4px; z-index: 4; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 20px); }
+.ge-crumbs { top: 40px; }
+.ge-tog { background: var(--bg2); color: var(--fg, inherit); border: 1px solid var(--border); border-radius: 7px; padding: 3px 9px; font-size: 11.5px; cursor: pointer; } .ge-tog:hover { border-color: var(--accent); } .ge-tog.on { background: var(--sel); border-color: var(--accent); }
+.ge-fold { margin-right: 4px; width: 18px; padding: 0; background: transparent; border: 0; color: #fff; cursor: pointer; }
+.ge-node.collapsed { opacity: .92; } .ge-node.collapsed .ge-head { border-radius: 8px; }
+
+/* editor panels: responsive + collapsible */
+.gl-left { width: clamp(170px, 22%, 230px); } .gl-right { width: clamp(200px, 26%, 300px); } .lg-left { width: clamp(130px, 20%, 190px); }
+.gl.hide-left .gl-left, .gl.hide-left .resizer[data-for=left], .gl.hide-right .gl-right, .gl.hide-right .resizer[data-for=right] { display: none; }
+.gl-tabs .btn.on { border-color: var(--accent); color: var(--accent); } .gl-tabs { flex-wrap: wrap; }

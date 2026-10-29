@@ -4,6 +4,9 @@
   const NODE_W = 196, HEAD = 28, ROW = 22;
   const SVGNS = 'http://www.w3.org/2000/svg';
 
+  const ADV_IDS = new Set(['customBehavior', 'expression', 'rayCast', 'calendar', 'fetchUrl', 'clipboard', 'cloud', 'userInfo', 'gamePhysics', 'extractor', 'shader', 'blending', 'displayOrder', 'joint', 'pushMotor', 'spinMotor', 'attacher', 'router', 'logicGate', 'bundle', 'bundleInput', 'bundleOutput', 'custom', 'sensor', 'textSanitize', 'listModify', 'listOrder', 'listEach', 'listCount', 'textList', 'numberList', 'gesture', 'controller', 'mailbox', 'ease', 'repeater', 'gameSave', 'saveValue']);
+  const simpleHide = (b) => !!(window.VX && VX.app && VX.app.settings && VX.app.settings.mode === 'simple') && (ADV_IDS.has(b.id) || b.cat === 'mobile');
+  VX.isAdvancedBlock = (b) => ADV_IDS.has(b.id) || b.cat === 'mobile';
   class GraphEditor {
     constructor(ctx = {}) {
       this.ctx = ctx; this.readOnly = false; this.root = { nodes: [], wires: [] }; this.path = []; // path of bundle node ids we are inside
@@ -30,21 +33,28 @@
       this.canvas.addEventListener('dblclick', (e) => { if (e.target === this.canvas || e.target === this.world || e.target === this.svg) this.quickAdd(e.clientX, e.clientY); });
       this.canvas.addEventListener('keydown', (e) => this._key(e)); this.canvas.addEventListener('contextmenu', (e) => { if (e.target === this.canvas || e.target === this.world || e.target.tagName === 'svg') { e.preventDefault(); this.quickAdd(e.clientX, e.clientY); } });
       VX.dnd.target(this.canvas, (d, cx, cy) => { if (this.readOnly) return VX.ui.toast('Convert to code or switch to Blocks mode to edit', 'warn'); const p = this.toWorld(cx, cy); this.addBlock(d.type, p.x - NODE_W / 2, p.y - 14); }, (d) => d && d.kind === 'block');
+      this.root_ = root; const tog = (cls, label, title) => h('button', { class: 'ge-tog ' + cls + ' on', title, onclick: () => this.setPanel(cls, root.classList.contains(cls + '-hidden')) }, label);
+      this.tools = h('div', { class: 'ge-tools' }, tog('pal', '☰ Blocks', 'Show / hide the block palette'), h('button', { class: 'ge-tog', title: 'Collapse every block to its title bar', onclick: () => this.collapseAll(true) }, '▸ Collapse all'), h('button', { class: 'ge-tog', title: 'Expand every block', onclick: () => this.collapseAll(false) }, '▾ Expand all'), h('button', { class: 'ge-tog', title: 'Fit all blocks in view', onclick: () => this.fit() }, '⤢ Fit'), tog('side', 'ⓘ Settings', 'Show / hide the block settings panel'));
+      this.canvas.append(this.tools); this._ro = new ResizeObserver(() => { this._autoPanels(); clearTimeout(this._rt); this._rt = setTimeout(() => { if (!this._moved) this.fit(); }, 120); }); this._ro.observe(root); setTimeout(() => this._autoPanels(), 0);
       this._unreg = [VX.on('gameBlocks', () => { this.drawPalette(); this.render(); })];
       return root;
     }
-    dispose() { this._unreg.forEach((f) => f()); }
+    toggleCollapse(ids) { const ns = this.graph.nodes.filter((n) => ids.includes(n.id)); const to = !ns.every((n) => n.collapsed); for (const n of ns) n.collapsed = to; this.render(); this.changed && this.changed(); }
+    collapseAll(on) { for (const n of this.graph.nodes) n.collapsed = !!on; this.render(); this.fit(); this.changed && this.changed(); }
+    setPanel(which, open) { this['_' + which + 'User'] = true; this.root_.classList.toggle(which + '-hidden', !open); this.root_.querySelector('.ge-tog.' + which).classList.toggle('on', open); this.fit(); }
+    _autoPanels() { const w = this.root_.clientWidth; if (!w) return; if (!this._palUser) { this.root_.classList.toggle('pal-hidden', w < 720); this.root_.querySelector('.ge-tog.pal').classList.toggle('on', w >= 720); } if (!this._sideUser) { this.root_.classList.toggle('side-hidden', w < 980); this.root_.querySelector('.ge-tog.side').classList.toggle('on', w >= 980); } }
+    dispose() { if (this._ro) this._ro.disconnect(); this._unreg.forEach((f) => f()); }
     toWorld(cx, cy) { const r = this.canvas.getBoundingClientRect(); return { x: (cx - r.left - this.view.x) / this.view.z, y: (cy - r.top - this.view.y) / this.view.z }; }
     applyView() { this.world.style.transform = `translate(${this.view.x}px,${this.view.y}px) scale(${this.view.z})`; this.canvas.style.backgroundSize = `${24 * this.view.z}px ${24 * this.view.z}px`; this.canvas.style.backgroundPosition = `${this.view.x}px ${this.view.y}px`; }
-    zoomAt(px, py, f) { const z = VX.clamp(this.view.z * f, 0.25, 2); const k = z / this.view.z; this.view.x = px - (px - this.view.x) * k; this.view.y = py - (py - this.view.y) * k; this.view.z = z; this.applyView(); }
-    fit() { requestAnimationFrame(() => { const ns = this.graph.nodes; if (!ns.length) { this.view = { x: 40, y: 30, z: 1 }; return this.applyView(); } const minX = Math.min(...ns.map((n) => n.x || 0)), minY = Math.min(...ns.map((n) => n.y || 0)), maxX = Math.max(...ns.map((n) => (n.x || 0) + NODE_W)), maxY = Math.max(...ns.map((n) => (n.y || 0) + this.nodeHeight(n))); const W = this.canvas.clientWidth || 800, H = this.canvas.clientHeight || 500; const z = VX.clamp(Math.min((W - 80) / (maxX - minX), (H - 80) / (maxY - minY), 1), 0.3, 1); this.view = { z, x: 40 - minX * z + (W - 80 - (maxX - minX) * z) / 2, y: 40 - minY * z }; this.applyView(); }); }
+    zoomAt(px, py, f) { this._moved = true; const z = VX.clamp(this.view.z * f, 0.25, 2); const k = z / this.view.z; this.view.x = px - (px - this.view.x) * k; this.view.y = py - (py - this.view.y) * k; this.view.z = z; this.applyView(); }
+    fit() { this._moved = false; requestAnimationFrame(() => { const ns = this.graph.nodes; if (!ns.length) { this.view = { x: 40, y: 30, z: 1 }; return this.applyView(); } const minX = Math.min(...ns.map((n) => n.x || 0)), minY = Math.min(...ns.map((n) => n.y || 0)), maxX = Math.max(...ns.map((n) => (n.x || 0) + NODE_W)), maxY = Math.max(...ns.map((n) => (n.y || 0) + this.nodeHeight(n))); const W = this.canvas.clientWidth || 800, H = this.canvas.clientHeight || 500; const z = VX.clamp(Math.min((W - 80) / (maxX - minX), (H - 80) / (maxY - minY), 1), 0.3, 1); this.view = { z, x: 40 - minX * z + (W - 80 - (maxX - minX) * z) / 2, y: 40 - minY * z }; this.applyView(); }); }
 
     /* ---------------- palette ---------------- */
     drawPalette() {
       const el = this.paletteEl; el.textContent = ''; const q = this.search.toLowerCase(); const inp = h('input', { class: 'search-input', placeholder: 'Search blocks…', value: this.search }); inp.addEventListener('input', () => { this.search = inp.value; this.drawPalette(); const n = this.paletteEl.querySelector('input'); n && (n.focus(), n.setSelectionRange(n.value.length, n.value.length)); });
       el.append(inp);
       for (const cat of VXRT.CATEGORIES) {
-        const defs = Object.values(VXRT.blocks).filter((b) => b.cat === cat.id && (!q || b.label.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || (b.desc || '').toLowerCase().includes(q))); if (!defs.length) continue;
+        const defs = Object.values(VXRT.blocks).filter((b) => !simpleHide(b) && b.cat === cat.id && (!q || b.label.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || (b.desc || '').toLowerCase().includes(q))); if (!defs.length) continue;
         const open = q || this._open?.[cat.id] !== false; const head = h('div', { class: 'ge-cat', onclick: () => { (this._open ||= {})[cat.id] = !open; this.drawPalette(); } }, h('span', { class: 'ge-dot', style: `background:${cat.color}` }), cat.label, h('small', {}, defs.length));
         el.append(head); if (!open) continue;
         for (const d of defs) { const it = h('div', { class: 'ge-item', title: d.desc, onclick: () => !this.readOnly && this.addBlockCenter(d.id) }, h('span', { class: 'ge-dot', style: `background:${cat.color}` }), d.label); VX.dnd.draggable(it, () => ({ kind: 'block', type: d.id }), d.label); el.append(it); }
@@ -53,14 +63,14 @@
     quickAdd(cx, cy) {
       if (this.readOnly) return VX.ui.toast('This behaviour is in code mode. Press “Convert to blocks” or use the Code view to edit it.', 'warn');
       const p = this.toWorld(cx, cy); const input = h('input', { class: 'big', placeholder: 'Add a block…' }); const list = h('div', { class: 'cmd-list' }); const box = h('div', { class: 'modal' }, input, list); const rec = VX.ui.layer(box, { align: 'top' }); let sel = 0, shown = [];
-      const draw = () => { const q = input.value.toLowerCase(); shown = Object.values(VXRT.blocks).filter((b) => !q || b.label.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.cat.includes(q)).slice(0, 60); sel = Math.min(sel, Math.max(0, shown.length - 1)); list.textContent = ''; shown.forEach((b, i) => list.append(h('div', { class: 'cmd' + (i === sel ? ' sel' : ''), onclick: () => pick(b) }, h('span', {}, h('span', { class: 'ge-dot', style: `background:${VXRT.catColor(b.cat)};margin-right:8px` }), b.label), h('small', {}, (b.desc || '').slice(0, 60))))); };
+      const draw = () => { const q = input.value.toLowerCase(); shown = Object.values(VXRT.blocks).filter((b) => !simpleHide(b) && (!q || b.label.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.cat.includes(q))).slice(0, 60); sel = Math.min(sel, Math.max(0, shown.length - 1)); list.textContent = ''; shown.forEach((b, i) => list.append(h('div', { class: 'cmd' + (i === sel ? ' sel' : ''), onclick: () => pick(b) }, h('span', {}, h('span', { class: 'ge-dot', style: `background:${VXRT.catColor(b.cat)};margin-right:8px` }), b.label), h('small', {}, (b.desc || '').slice(0, 60))))); };
       const pick = (b) => { rec.close(); this.addBlock(b.id, p.x, p.y); };
       input.addEventListener('input', () => { sel = 0; draw(); }); input.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { sel = Math.min(shown.length - 1, sel + 1); draw(); e.preventDefault(); } else if (e.key === 'ArrowUp') { sel = Math.max(0, sel - 1); draw(); e.preventDefault(); } else if (e.key === 'Enter' && shown[sel]) pick(shown[sel]); }); draw(); input.focus();
     }
 
     /* ---------------- nodes ---------------- */
     ports(n) { const def = VXRT.blocks[n.type]; if (!def) return { inputs: [{ id: 'in', label: 'in' }], outputs: [{ id: 'out', label: 'out' }], missing: true }; return VXRT.ports(def, Object.assign(VXRT.paramDefaults(def), n.params || {}), n); }
-    nodeHeight(n) { const p = this.ports(n); return HEAD + Math.max(p.inputs.length, p.outputs.length, 1) * ROW + this.summary(n).length * 15 + 8; }
+    nodeHeight(n) { if (n.collapsed) return HEAD; const p = this.ports(n); return HEAD + Math.max(p.inputs.length, p.outputs.length, 1) * ROW + this.summary(n).length * 15 + 8; }
     summary(n) { const def = VXRT.blocks[n.type]; if (!def) return ['Missing block type “' + n.type + '”']; const d = VXRT.paramDefaults(def); const out = []; for (const p of def.params || []) { const v = (n.params || {})[p.key]; if (v === undefined || JSON.stringify(v) === JSON.stringify(d[p.key])) continue; out.push(`${p.label}: ${String(Array.isArray(v) ? v.join(',') : v).slice(0, 22)}`); if (out.length >= 3) break; } if (n.type === 'bundle') out.push(((n.graph && n.graph.nodes.length) || 0) + ' blocks inside – double-click'); return out; }
     addBlockCenter(type) { const r = this.canvas.getBoundingClientRect(); const p = this.toWorld(r.left + r.width / 2, r.top + r.height / 2); this.addBlock(type, p.x - NODE_W / 2 + (Math.random() - 0.5) * 60, p.y - 30 + (Math.random() - 0.5) * 60); }
     addBlock(type, x, y, params) { const def = VXRT.blocks[type]; if (!def) return null; const n = { id: VX.uid('n'), type, params: Object.assign({}, VXRT.paramDefaults(def), params || {}), x: Math.round(x / 8) * 8, y: Math.round(y / 8) * 8 }; if (type === 'bundle') n.graph = { nodes: [], wires: [] }; if (type === 'bundleInput' || type === 'bundleOutput') n.params.name = (type === 'bundleInput' ? 'in' : 'out') + (this.graph.nodes.filter((q) => q.type === type).length + 1); this.graph.nodes.push(n); this.sel = new Set([n.id]); this.selWire = null; this.changed(); this.render(); this.drawSide(); return n; }
@@ -70,17 +80,18 @@
     }
     _nodeEl(n) {
       const def = VXRT.blocks[n.type]; const p = this.ports(n); const color = def ? VXRT.catColor(def.cat) : '#ef5b5b'; const rows = Math.max(p.inputs.length, p.outputs.length, 1);
-      const el = h('div', { class: 'ge-node' + (this.sel.has(n.id) ? ' sel' : '') + (def ? '' : ' missing') + (n.type === 'bundle' ? ' bundle' : ''), 'data-id': n.id, style: `left:${n.x || 0}px;top:${n.y || 0}px;width:${NODE_W}px` });
-      el.append(h('div', { class: 'ge-head', style: `background:${color}` }, h('span', { class: 'ge-title' }, n.label || (n.type === 'bundle' ? (n.params && n.params.name) || 'Bundle' : def ? def.label : n.type)), def ? h('button', { class: 'ge-q', title: 'Open the documentation for this block', onmousedown: (e) => e.stopPropagation(), onclick: (e) => { e.stopPropagation(); VX.docs.openBlock(def); } }, '?') : null));
+      const el = h('div', { class: 'ge-node' + (this.sel.has(n.id) ? ' sel' : '') + (def ? '' : ' missing') + (n.type === 'bundle' ? ' bundle' : '') + (n.collapsed ? ' collapsed' : ''), 'data-id': n.id, style: `left:${n.x || 0}px;top:${n.y || 0}px;width:${NODE_W}px` });
+      el.append(h('div', { class: 'ge-head', style: `background:${color}` }, h('button', { class: 'ge-q ge-fold', title: n.collapsed ? 'Expand' : 'Collapse', onmousedown: (e) => e.stopPropagation(), onclick: (e) => { e.stopPropagation(); this.toggleCollapse([n.id]); } }, n.collapsed ? '▸' : '▾'), h('span', { class: 'ge-title' }, n.label || (n.type === 'bundle' ? (n.params && n.params.name) || 'Bundle' : def ? def.label : n.type)), def ? h('button', { class: 'ge-q', title: 'Open the documentation for this block', onmousedown: (e) => e.stopPropagation(), onclick: (e) => { e.stopPropagation(); VX.docs.openBlock(def); } }, '?') : null));
       const body = h('div', { class: 'ge-ports', style: `height:${rows * ROW}px` });
       p.inputs.forEach((pt, i) => { const s = h('div', { class: 'ge-port in', 'data-port': pt.id, style: `top:${i * ROW}px` }, h('i', {}), h('span', {}, pt.label || pt.id)); s.addEventListener('mousedown', (e) => this._portDown(e, n, pt, 'in')); body.append(s); });
       p.outputs.forEach((pt, i) => { const s = h('div', { class: 'ge-port out', 'data-port': pt.id, style: `top:${i * ROW}px` }, h('span', {}, pt.label || pt.id), h('i', {})); s.addEventListener('mousedown', (e) => this._portDown(e, n, pt, 'out')); body.append(s); });
+      if (n.collapsed) { el.addEventListener('mousedown', (e) => this._nodeDown(e, n)); el.addEventListener('dblclick', (e) => { e.stopPropagation(); if (n.type === 'bundle') this.enter(n.id); }); el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); if (!this.sel.has(n.id)) { this.sel = new Set([n.id]); this.render(); this.drawSide(); } this.nodeMenu(e.clientX, e.clientY, n); }); return el; }
       el.append(body); const sm = this.summary(n); if (sm.length) el.append(h('div', { class: 'ge-sum' }, sm.map((t) => h('div', {}, t))));
       el.addEventListener('mousedown', (e) => this._nodeDown(e, n)); el.addEventListener('dblclick', (e) => { e.stopPropagation(); if (n.type === 'bundle') this.enter(n.id); });
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); if (!this.sel.has(n.id)) { this.sel = new Set([n.id]); this.render(); this.drawSide(); } this.nodeMenu(e.clientX, e.clientY, n); });
       return el;
     }
-    portPos(n, id, side) { const p = this.ports(n); const list = side === 'in' ? p.inputs : p.outputs; let i = list.findIndex((x) => x.id === id); if (i < 0) i = 0; return { x: (n.x || 0) + (side === 'in' ? 0 : NODE_W), y: (n.y || 0) + HEAD + i * ROW + ROW / 2 }; }
+    portPos(n, id, side) { if (n.collapsed) return { x: (n.x || 0) + (side === 'in' ? 0 : NODE_W), y: (n.y || 0) + HEAD / 2 }; const p = this.ports(n); const list = side === 'in' ? p.inputs : p.outputs; let i = list.findIndex((x) => x.id === id); if (i < 0) i = 0; return { x: (n.x || 0) + (side === 'in' ? 0 : NODE_W), y: (n.y || 0) + HEAD + i * ROW + ROW / 2 }; }
     drawWires(extra) {
       const g = this.graph; this.svg.textContent = ''; const byId = new Map(g.nodes.map((n) => [n.id, n])); let i = 0;
       const path = (a, b) => { const dx = Math.max(40, Math.abs(b.x - a.x) * 0.5); return `M${a.x},${a.y} C${a.x + dx},${a.y} ${b.x - dx},${b.y} ${b.x},${b.y}`; };
@@ -118,6 +129,7 @@
         this.drawWires(); }; addEventListener('mousemove', move); addEventListener('mouseup', up);
     }
     _key(e) {
+      e.vxHandled = true;
       const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase(); if (e.target.matches('input,textarea,select')) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && !this.readOnly) { e.preventDefault(); this.deleteSel(); }
       else if (mod && k === 'z') { e.preventDefault(); if (this.readOnly) return; e.shiftKey ? this.doRedo() : this.doUndo(); } else if (mod && k === 'y') { e.preventDefault(); this.doRedo(); }

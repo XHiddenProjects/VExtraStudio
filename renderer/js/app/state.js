@@ -11,11 +11,18 @@
     get settings() { return S.settings; },
     async loadSettings() { try { const d = await window.native.settings.load(); S.settings = Object.assign({}, DEFAULTS, d || {}); } catch (e) { console.warn('settings', e); } return S.settings; },
     saveSettings() { clearTimeout(t); t = setTimeout(() => { window.native.settings.save(S.settings).catch((e) => console.warn('save settings', e)); }, 250); },
-    set(k, v) { S.settings[k] = v; app.saveSettings(); VX.emit('settings', k, v); },
-    addRecent(path, name, kind) { const r = S.settings.recent.filter((x) => x.path !== path); r.unshift({ path, name: name || VX.path.base(path), kind: kind || 'folder', at: Date.now() }); S.settings.recent = r.slice(0, 12); app.saveSettings(); },
+    set(k, v) { S.settings[k] = v; app.saveSettings(); if (k === 'mode') { document.body.dataset.mode = v; VX.emit('gameBlocks'); VX.emit('modeChanged', v); } VX.emit('settings', k, v); },
+    addRecent(path, name, kind) { const r = S.settings.recent.filter((x) => x.path !== path); r.unshift({ path, name: name || VX.path.base(path), kind: kind || 'folder', at: Date.now() }); S.settings.recent = r.slice(0, 12); app.saveSettings(); VX.emit('recent'); },
+    removeRecent(path) { S.settings.recent = (S.settings.recent || []).filter((x) => x.path !== path); app.saveSettings(); VX.emit('recent'); },
+    clearRecent() { S.settings.recent = []; app.saveSettings(); VX.emit('recent'); },
+    /** Close the current workspace folder (closes its tabs first; asks about unsaved changes). */
+    async closeWorkspace() {
+      if (!S.root) return false; if (VX.tabs && !(await VX.tabs.closeAll())) return false;
+      S.settings.autoOpen = false; app.saveSettings(); S.root = null; VX.emit('root', null); VX.emit('status'); if (VX.sidebar) VX.sidebar.show('explorer'); if (app.showWelcome) app.showWelcome(); return true;
+    },
     setRoot(path) { S.root = path; VX.emit('root', path); },
     rel: (p) => (S.root ? VX.path.rel(S.root, p) : VX.path.base(p)),
-    version: '1.0.0',
+    version: '2.0.0',
   });
   /* file classification */
   const IMG = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg', 'avif']);

@@ -38,6 +38,9 @@
       const out = [h('button', { class: 'btn sm', onclick: () => T.save(t) }, VX.icon('save', 14), 'Save'), h('button', { class: 'btn sm', title: 'Format document (Shift+Alt+F)', onclick: () => { if (!code.format()) VX.ui.toast('No formatter for ' + t.lang, 'warn'); } }, VX.icon('wand', 14), 'Format')];
       const ext = VX.path.ext(t.path || t.title || '');
       if (['html', 'htm', 'md', 'markdown', 'svg'].includes(ext)) out.push(h('button', { class: 'btn sm primary', onclick: () => VX.web.openPreview(t) }, VX.icon('play', 13), 'Live preview'));
+      if (['php', 'phtml'].includes(ext)) out.push(h('button', { class: 'btn sm primary', title: 'Run this PHP file with PHP\'s built-in server (needs PHP installed)', onclick: () => VX.web.openPhp(t) }, VX.icon('play', 13), 'Run PHP'));
+      if (ext === 'sql') out.push(h('button', { class: 'btn sm', title: 'Open the project database', onclick: () => VX.web.openDatabase() }, '🗄 Database'));
+      if (['html', 'htm', 'php', 'css', 'js'].includes(ext)) out.push(h('button', { class: 'btn sm', title: 'Pack the whole site into a ZIP or tar.gz with .htaccess and nginx.conf', onclick: () => VX.web.exportSite() }, '📦 Export site'));
       if (['html', 'htm'].includes(ext)) out.push(h('button', { class: 'btn sm', title: 'Preview in a phone-sized frame', onclick: () => VX.web.openPreview(t, 'phone') }, VX.icon('phone', 14)));
       out.push(h('span', { class: 'spacer' }));
       for (const it of Forge.toolbarItems.values()) if (!it.when || it.when(t.lang, t.path)) out.push(h('button', { class: 'btn sm', onclick: () => { try { it.run(); } catch (e) { VX.ui.toast(e.message, 'error'); } } }, it.label));

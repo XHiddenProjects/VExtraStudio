@@ -83,7 +83,7 @@
     });
     I.listen(window, 'deviceorientation', (e) => { I.motion.ax = e.beta || 0; I.motion.ay = e.gamma || 0; I.motion.az = e.alpha || 0; });
     I.listen(window, 'message', (e) => {
-      const d = e.data; if (!d || d.vx !== 'sim') return;
+      const d = e.data; const ch = g.opts && g.opts.channel; if (!d || d.vx !== 'sim' || e.source !== window.parent || window.parent === window || !ch || d.token !== ch.token) return; // only the editor that started this game may drive it
       if (d.type === 'shake') I.emit('shake', { force: 20 });
       if (d.type === 'tilt') { Object.assign(I.motion, d.value || {}); }
       if (d.type === 'key') { const k = d.key; if (d.down) { if (!I.keys.has(k)) I.pressed.add(k); I.keys.add(k); I.emit('keydown', { key: k, code: k }); } else { I.keys.delete(k); I.released.add(k); I.emit('keyup', { key: k, code: k }); } }

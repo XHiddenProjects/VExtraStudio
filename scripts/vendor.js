@@ -22,8 +22,12 @@ const lic = nm('ace-builds', 'LICENSE'); if (fs.existsSync(lic)) cp(lic, path.jo
 
 /* three.js (single-file module build, pinned) */
 const t = out('three'); fs.rmSync(t, { recursive: true, force: true });
-cp(nm('three', 'build', 'three.module.min.js'), path.join(t, 'three.module.min.js')); n++;
+// three >= r17x splits build/three.module.js + three.core.js; bundle them into ONE minified module (the game export inlines a single file)
+fs.mkdirSync(t, { recursive: true });
+require('esbuild').buildSync({ entryPoints: [nm('three', 'build', 'three.module.js')], bundle: true, format: 'esm', minify: true, legalComments: 'none', outfile: path.join(t, 'three.module.min.js') }); n++;
 for (const f of ['OrbitControls', 'TransformControls']) { cp(nm('three', 'examples', 'jsm', 'controls', f + '.js'), path.join(t, f + '.js')); n++; }
 const lic3 = nm('three', 'LICENSE'); if (fs.existsSync(lic3)) cp(lic3, path.join(t, 'LICENSE'));
 // examples import from the bare specifier 'three'; index.html maps that to ./vendor/three/three.module.min.js
+/* sql.js (SQLite compiled to WebAssembly) – powers the built-in database tool */
+if (fs.existsSync(nm('sql.js', 'dist', 'sql-wasm.js'))) { const q = out('sqljs'); fs.rmSync(q, { recursive: true, force: true }); cp(nm('sql.js', 'dist', 'sql-wasm.js'), path.join(q, 'sql-wasm.js')); cp(nm('sql.js', 'dist', 'sql-wasm.wasm'), path.join(q, 'sql-wasm.wasm')); const l = nm('sql.js', 'LICENSE'); if (fs.existsSync(l)) cp(l, path.join(q, 'LICENSE')); n += 2; }
 console.log('[vendor] copied', n, 'files into renderer/vendor');

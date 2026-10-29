@@ -74,6 +74,7 @@
     focusSelection() { const rec = this.map.get(this.sel[0]); const T = this.T; let c = new T.Vector3(0, 1, 0), r = 5; if (rec) { const b = new T.Box3().setFromObject(rec.root); if (!b.isEmpty()) { b.getCenter(c); r = Math.max(3, b.getSize(new T.Vector3()).length() * 1.8); } } const dir = this.cam.position.clone().sub(this.orbit.target).normalize(); this.orbit.target.copy(c); this.cam.position.copy(c).addScaledVector(dir, r); this.orbit.update(); this.render(); }
     fit() { this.orbit.target.set(0, 1, 0); this.cam.position.set(9, 7, 11); this.orbit.update(); this.render(); }
     _key(e) {
+      e.vxHandled = true;
       const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
       if (k === 'w' && !mod) { this.setTool('translate'); this.ctx.onTool && this.ctx.onTool('translate'); } else if (k === 'e' && !mod) { this.setTool('rotate'); this.ctx.onTool && this.ctx.onTool('rotate'); } else if (k === 'r' && !mod) { this.setTool('scale'); this.ctx.onTool && this.ctx.onTool('scale'); }
       else if (k === 'f' && !mod) this.focusSelection(); else if ((k === 'delete' || k === 'backspace') && this.sel.length) { e.preventDefault(); this.ctx.onDelete && this.ctx.onDelete(this.sel.slice()); }

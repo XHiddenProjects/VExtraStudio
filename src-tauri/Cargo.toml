@@ -1,6 +1,6 @@
 [package]
 name = "vextra-studio"
-version = "1.0.0"
+version = "2.0.0"
 description = "Vextra Studio – web development and 2D/3D game creation"
 authors = ["Vextra"]
 edition = "2021"

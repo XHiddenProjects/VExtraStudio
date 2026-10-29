@@ -3,9 +3,11 @@
   ace.config.set('basePath', 'vendor/ace');
   ace.config.set('modePath', 'vendor/ace');
   ace.config.set('workerPath', 'vendor/ace');
-  const MODE = { javascript: 'javascript', typescript: 'typescript', html: 'html', css: 'css', json: 'json', markdown: 'markdown', python: 'python', xml: 'xml', sql: 'sql', java: 'java', cpp: 'c_cpp', rust: 'rust', php: 'php', yaml: 'yaml', shell: 'sh', go: 'golang', ruby: 'ruby', lua: 'lua', csharp: 'csharp', kotlin: 'kotlin', swift: 'swift', toml: 'toml', ini: 'ini', plaintext: 'text' };
+  const MODE = { javascript: 'javascript', typescript: 'typescript', html: 'html', css: 'css', json: 'json', markdown: 'markdown', python: 'python', xml: 'xml', sql: 'sql', java: 'java', cpp: 'c_cpp', rust: 'rust', php: 'php', yaml: 'yaml', shell: 'sh', go: 'golang', ruby: 'ruby', lua: 'lua', csharp: 'csharp', kotlin: 'kotlin', swift: 'swift', toml: 'toml', ini: 'ini', plaintext: 'text', apache: 'apache_conf', nginx: 'nginx', dockerfile: 'dockerfile', makefile: 'makefile', mysql: 'mysql', pgsql: 'pgsql', blade: 'php_laravel_blade' };
   const EXT = { js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript', html: 'html', htm: 'html', css: 'css', scss: 'css', json: 'json', forgeui: 'json', forgescene: 'json', vxui: 'json', vxgame: 'json', vxmodel: 'json', webmanifest: 'json', jsonc: 'json', vue: 'html', svelte: 'html', less: 'css', sass: 'css', mts: 'typescript', markdown: 'markdown', txt: 'plaintext', env: 'ini', csv: 'plaintext', md: 'markdown', py: 'python', xml: 'xml', svg: 'xml', sql: 'sql', java: 'java', c: 'cpp', h: 'cpp', cpp: 'cpp', hpp: 'cpp', cc: 'cpp', rs: 'rust', php: 'php', yml: 'yaml', yaml: 'yaml', sh: 'shell', bash: 'shell', go: 'go', rb: 'ruby', lua: 'lua', cs: 'csharp', kt: 'kotlin', swift: 'swift', toml: 'toml', ini: 'ini', cfg: 'ini' };
-  const langFromName = (name) => EXT[(String(name).split('.').pop() || '').toLowerCase()] || 'plaintext';
+  const BASE = { '.htaccess': 'apache', 'httpd.conf': 'apache', '.htpasswd': 'plaintext', 'nginx.conf': 'nginx', 'dockerfile': 'dockerfile', 'makefile': 'makefile', 'gnumakefile': 'makefile', '.env': 'ini', '.gitignore': 'plaintext', '.editorconfig': 'ini', 'composer.json': 'json', 'package.json': 'json', '.babelrc': 'json', '.eslintrc': 'json', 'php.ini': 'ini', '.user.ini': 'ini' };
+  Object.assign(EXT, { phtml: 'php', inc: 'php', php3: 'php', php4: 'php', php5: 'php', php7: 'php', phps: 'php', conf: 'nginx', htaccess: 'apache', nginx: 'nginx', mysql: 'mysql', pgsql: 'pgsql', sqlite: 'sql', ddl: 'sql', dump: 'sql', twig: 'html', ejs: 'html', njk: 'html', hbs: 'html', tpl: 'html', xhtml: 'html', rss: 'xml', xsl: 'xml', xsd: 'xml', plist: 'xml', mk: 'makefile', dockerfile: 'dockerfile', env: 'ini', htpasswd: 'plaintext', log: 'plaintext', lock: 'json', 'blade.php': 'blade', pl: 'plaintext', r: 'plaintext', dart: 'java', scala: 'java', gradle: 'java', groovy: 'java', bat: 'plaintext', ps1: 'plaintext', zsh: 'shell', fish: 'shell', vue: 'html', astro: 'html' });
+  const langFromName = (name) => { const base = String(name).split(/[\\/]/).pop().toLowerCase(); if (/\.blade\.php$/.test(base)) return 'blade'; if (/^\.env(\.|$)/.test(base)) return 'ini'; return BASE[base] || EXT[(base.split('.').pop() || '')] || 'plaintext'; };
   const hex = (c, d) => (c ? (c[0] === '#' ? c : '#' + c) : d);
   const BEAUTIFY = new Set(['html', 'css', 'javascript', 'php', 'xml']);
   let themeN = 0;
@@ -61,12 +63,12 @@ ${P} .ace_scrollbar-v::-webkit-scrollbar-thumb,${P} .ace_scrollbar-h::-webkit-sc
     ed.selection.on('changeCursor', () => { const p = ed.getCursorPosition(); onCursor && onCursor(p.row + 1, p.column + 1); });
     new ResizeObserver(() => ed.resize()).observe(host);
     const api = {
-      createDoc(text, langId, readOnly) {
+      createDoc(text, langId, readOnly, opts = {}) {
         const session = ace.createEditSession(text, 'ace/mode/' + (MODE[langId] || 'text'));
         session.setUseSoftTabs(true); applySession(session);
         const doc = { session, lang: langId, readOnly: !!readOnly };
         const lintable = ['javascript', 'json', 'css', 'html'].includes(langId); session.setUseWorker(lintable);
-        session.on('changeAnnotation', () => { doc.problems = session.getAnnotations().map((a) => ({ row: a.row + 1, col: (a.column || 0) + 1, type: a.type, text: a.text })); api.onProblems && api.onProblems(doc); });
+        session.on('changeAnnotation', () => { if (opts.gameScript) { const all = session.getAnnotations(), keep = all.filter((x) => !/is not defined/.test(x.text || '')); if (keep.length !== all.length) { session.setAnnotations(keep); return; } } doc.problems = session.getAnnotations().map((a) => ({ row: a.row + 1, col: (a.column || 0) + 1, type: a.type, text: a.text })); api.onProblems && api.onProblems(doc); });
         session.on('change', () => { if (cur === doc) onChange && onChange(); });
         return doc;
       },

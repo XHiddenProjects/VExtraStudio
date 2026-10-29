@@ -1,4 +1,4 @@
-/* Vextra blocks – 1. Triggers (14). Triggers start logic: they have no required inputs and emit signals when something happens. */
+/* Vextra blocks – 1. Triggers (15). Triggers start logic: they have no required inputs and emit signals when something happens. */
 (function () {
   const VXRT = window.VXRT, U = VXRT.util, B = VXRT.registerBlock;
   const P = (VXRT.P = {
@@ -22,6 +22,12 @@
     init(n) { n.st.t = -U.num(n.p.delay); n.st.run = !!n.p.autoStart; n.st.count = 0; },
     onInput(n, port) { if (port === 'start') n.st.run = true; else if (port === 'stop') n.st.run = false; else if (port === 'reset') { n.st.t = -U.num(n.p.delay); n.st.count = 0; } },
     update(n, dt, g) { if (!n.st.run) return; n.st.t += dt; const iv = Math.max(0.005, U.num(n.p.interval, 1)); while (n.st.t >= iv) { n.st.t -= iv; n.st.count++; g.send(n, 'tick', n.st.count); if (!n.p.repeat) { n.st.run = false; break; } } } });
+
+  B({ id: 'once', cat: 'triggers', label: 'Once', desc: 'Fires exactly one time, then stays silent until reset. "At start" fires after the delay when the game starts; "On first signal" lets only the first incoming signal through (a one-shot gate). Send "reset" to arm it again.',
+    inputs: ['fire', 'reset'], outputs: ['out'], params: [P.sel('when', 'Fire', [['start', 'At game start'], ['signal', 'On first signal']]), P.num('delay', 'Delay (s)', 0, { min: 0, step: 0.1 })],
+    init(n) { n.st.done = false; n.st.t = 0; n.st.pend = n.p.when === 'start'; },
+    onInput(n, port, v, g) { if (port === 'reset') { n.st.done = false; n.st.t = 0; n.st.pend = n.p.when === 'start'; return; } if (n.st.done) return; if (U.num(n.p.delay) > 0) { n.st.pend = true; n.st.t = 0; n.st.val = v; return; } n.st.done = true; g.send(n, 'out', v === undefined ? 1 : v); },
+    update(n, dt, g) { if (!n.st.pend || n.st.done) return; n.st.t += dt; if (n.st.t >= U.num(n.p.delay)) { n.st.pend = false; n.st.done = true; g.send(n, 'out', n.st.val === undefined ? 1 : n.st.val); } } });
 
   const btnOK = (p, b) => p === 'any' || (p === 'left' && b === 0) || (p === 'middle' && b === 1) || (p === 'right' && b === 2);
   B({ id: 'mouseClick', cat: 'triggers', label: 'Mouse Click', desc: 'Fires when the mouse (or a finger) is pressed, released or clicked – anywhere or on this object. Outputs the pointer position.',

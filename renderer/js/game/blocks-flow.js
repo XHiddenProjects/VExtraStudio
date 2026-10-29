@@ -96,9 +96,16 @@
     inputs: [], outputs: ['out'], params: [P.num('force', 'Sensitivity threshold', 15, { min: 5, max: 40 }), P.text('testKey', 'Desktop test key', 'h'), P.num('cooldown', 'Cooldown (s)', 0.8, { step: 0.1 })],
     init(n, g) { const fire = (f) => { if (g.time - (n.st.last ?? -99) < U.num(n.p.cooldown, 0.8)) return; n.st.last = g.time; g.send(n, 'out', f); }; n.cleanups.push(g.input.on('shake', (e) => { if ((e.force || 99) >= U.num(n.p.force, 15) - 1) fire(e.force); })); if (n.p.testKey) n.cleanups.push(g.input.on('keydown', (e) => { if (!e.repeat && e.key === String(n.p.testKey).toLowerCase()) fire(20); })); } });
 
-  B({ id: 'ad', cat: 'mobile', label: 'Ad', desc: 'Shows an interstitial, rewarded or banner ad. Out of the box it shows a simulated house ad so you can design the flow; connect a real ad network by setting game.adProvider (see Docs → Mobile).',
-    inputs: ['in', 'hideBanner'], outputs: ['shown', 'rewarded', 'closed'], params: [P.sel('kind', 'Type', ['interstitial', 'rewarded', 'banner'])],
-    onInput(n, port, v, g) { g.showAd(n.p.kind, (r) => { g.send(n, 'shown', 1); if (r && r.rewarded) g.send(n, 'rewarded', 1); g.send(n, 'closed', 1); }); } });
+  B({ id: 'ad', cat: 'mobile', label: 'Ad', desc: 'Shows an interstitial, rewarded or banner ad. Banners live in the game GUI (pin them to any screen anchor). Pick the ad SERVICE: a simulated house ad (default, for designing the flow), your own image + link, custom HTML / ad-network tag, Google AdSense (your publisher + slot id), or your own code via game.adProvider.',
+    inputs: ['in', 'hideBanner'], outputs: ['shown', 'rewarded', 'closed', 'click'],
+    params: [P.sel('kind', 'Type', ['interstitial', 'rewarded', 'banner']), P.sel('service', 'Ad service', [['house', 'House ad (simulated)'], ['image', 'Image + link'], ['html', 'Custom HTML / ad tag'], ['adsense', 'Google AdSense'], ['provider', 'My own code (game.adProvider)']]),
+      P.sel('anchor', 'Banner position (GUI)', ['bottom', 'top', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'left', 'right', 'center']), P.num('w', 'Banner width', 320, { min: 50 }), P.num('h', 'Banner height', 50, { min: 20 }),
+      P.text('text', 'House ad text', 'ADVERTISEMENT · your ad here'), P.text('image', 'Image URL (Image service)', ''), P.text('link', 'Click-through URL', ''), P.area('html', 'HTML / ad tag (HTML service)', ''),
+      P.text('client', 'AdSense publisher id (ca-pub-…)', ''), P.text('slot', 'AdSense slot id', ''), P.num('seconds', 'Seconds before it can be closed', 5, { min: 0, max: 30 })],
+    onInput(n, port, v, g) {
+      if (port === 'hideBanner') return VXRT.gui.show(g, gid(n, 'adbanner'), false);
+      const o = { service: n.p.service, anchor: n.p.anchor, w: n.p.w, h: n.p.h, text: n.p.text, image: n.p.image, link: n.p.link, html: n.p.html, client: n.p.client, slot: n.p.slot, seconds: n.p.seconds, id: gid(n, 'adbanner'), onClick: () => g.send(n, 'click', 1) };
+      g.showAd(n.p.kind, (r) => { g.send(n, 'shown', 1); if (r && r.rewarded) g.send(n, 'rewarded', 1); g.send(n, 'closed', 1); }, o); } });
 
   B({ id: 'vibrate', cat: 'mobile', label: 'Vibrate', desc: 'Vibrates the device (pattern in milliseconds, e.g. "200" or "100,50,100"). On desktop the game view shakes briefly instead so you can see it.',
     inputs: ['in'], outputs: ['out'], params: [P.text('pattern', 'Pattern (ms)', '150')],

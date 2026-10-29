@@ -7,7 +7,9 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
-    process::Command,
+    net::TcpListener,
+    process::{Child, Command, Stdio},
+    sync::Mutex,
     time::Duration,
 };
 use tauri::{
@@ -213,17 +215,17 @@ async fn fs_exists(path: String) -> Res<bool> {
 
 #[tauri::command]
 async fn fs_reveal(path: String) -> Res<()> {
-    let p = Path::new(&path);
     #[cfg(target_os = "windows")]
     {
         Command::new("explorer").arg(format!("/select,{}", path)).spawn().map_err(err)?;
     }
     #[cfg(target_os = "macos")]
     {
-        Command::new("open").arg("-R").arg(p).spawn().map_err(err)?;
+        Command::new("open").arg("-R").arg(Path::new(&path)).spawn().map_err(err)?;
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
+        let p = Path::new(&path);
         let dir = if p.is_dir() { p.to_path_buf() } else { p.parent().unwrap_or(p).to_path_buf() };
         Command::new("xdg-open").arg(dir).spawn().map_err(err)?;
     }
@@ -557,9 +559,241 @@ fn build_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
     MenuBuilder::new(app).item(&file).item(&edit).item(&view).item(&cloud).item(&help).build()
 }
 
+/* ---------- PHP preview: runs PHP's built-in web server (`php -S`) for a project folder. Needs PHP installed on this computer. ---------- */
+#[derive(Default)]
+struct PhpState(Mutex<HashMap<String, Child>>);
+
+#[derive(Serialize)]
+struct PhpInfo {
+    url: String,
+    port: u16,
+    version: String,
+}
+
+fn php_bin() -> String {
+    std::env::var("VEXTRA_PHP").unwrap_or_else(|_| "php".into())
+}
+
+fn php_version() -> Res<String> {
+    let out = Command::new(php_bin())
+        .arg("-v")
+        .output()
+        .map_err(|_| "PHP was not found on this computer. Install PHP (php.net/downloads) and make sure `php` is on your PATH, or set the VEXTRA_PHP environment variable to its full path.".to_string())?;
+    Ok(String::from_utf8_lossy(&out.stdout).lines().next().unwrap_or("PHP").to_string())
+}
+
+#[tauri::command]
+async fn php_check() -> Res<String> {
+    php_version()
+}
+
+#[tauri::command]
+async fn php_start(state: tauri::State<'_, PhpState>, root: String) -> Res<PhpInfo> {
+    let version = php_version()?;
+    let mut map = state.inner().0.lock().map_err(err)?;
+    if let Some(mut old) = map.remove(&root) {
+        let _ = old.kill();
+        let _ = old.wait();
+    }
+    let port = TcpListener::bind("127.0.0.1:0").map_err(err)?.local_addr().map_err(err)?.port();
+    let child = Command::new(php_bin())
+        .args(["-S", &format!("127.0.0.1:{}", port), "-t", &root])
+        .current_dir(&root)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(err)?;
+    map.insert(root, child);
+    drop(map);
+    std::thread::sleep(Duration::from_millis(450));
+    Ok(PhpInfo { url: format!("http://127.0.0.1:{}/", port), port, version })
+}
+
+#[tauri::command]
+async fn php_stop(state: tauri::State<'_, PhpState>, root: Option<String>) -> Res<()> {
+    let mut map = state.inner().0.lock().map_err(err)?;
+    match root {
+        Some(r) => {
+            if let Some(mut c) = map.remove(&r) {
+                let _ = c.kill();
+                let _ = c.wait();
+            }
+        }
+        None => {
+            for (_, mut c) in map.drain() {
+                let _ = c.kill();
+                let _ = c.wait();
+            }
+        }
+    }
+    Ok(())
+}
+
+/* ---------- Local preview server: serves a project folder over http://127.0.0.1:<port>/ so previews run with a real origin
+   (localStorage, fetch of relative files, ES modules, service workers all work). Read-only, loopback only, no directory traversal. ---------- */
+struct StaticServer {
+    port: u16,
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+#[derive(Default)]
+struct ServeState(Mutex<HashMap<String, StaticServer>>);
+
+fn mime_for(p: &Path) -> &'static str {
+    match p.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase().as_str() {
+        "html" | "htm" => "text/html; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "js" | "mjs" => "text/javascript; charset=utf-8",
+        "json" | "webmanifest" => "application/json; charset=utf-8",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "ico" => "image/x-icon",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "ttf" => "font/ttf",
+        "mp3" => "audio/mpeg",
+        "ogg" => "audio/ogg",
+        "wav" => "audio/wav",
+        "mp4" => "video/mp4",
+        "webm" => "video/webm",
+        "wasm" => "application/wasm",
+        "txt" | "md" | "sql" | "log" => "text/plain; charset=utf-8",
+        "xml" => "application/xml",
+        _ => "application/octet-stream",
+    }
+}
+
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let (Some(h), Some(l)) = ((b[i + 1] as char).to_digit(16), (b[i + 2] as char).to_digit(16)) {
+                out.push((h * 16 + l) as u8);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).to_string()
+}
+
+fn handle_conn(mut stream: std::net::TcpStream, root: &Path) {
+    use std::io::{Read, Write};
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+    let mut buf = [0u8; 8192];
+    let n = match stream.read(&mut buf) {
+        Ok(n) if n > 0 => n,
+        _ => return,
+    };
+    let req = String::from_utf8_lossy(&buf[..n]).to_string();
+    let mut parts = req.lines().next().unwrap_or("").split_whitespace();
+    let method = parts.next().unwrap_or("");
+    let target = parts.next().unwrap_or("/");
+    let reply = |stream: &mut std::net::TcpStream, code: &str, ctype: &str, body: &[u8], head_only: bool| {
+        let h = format!("HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n", code, ctype, body.len());
+        let _ = stream.write_all(h.as_bytes());
+        if !head_only {
+            let _ = stream.write_all(body);
+        }
+    };
+    if method != "GET" && method != "HEAD" {
+        return reply(&mut stream, "405 Method Not Allowed", "text/plain", b"Only GET is supported by the preview server", false);
+    }
+    let path_only = target.split(|c| c == '?' || c == '#').next().unwrap_or("/");
+    let decoded = percent_decode(path_only);
+    let mut file = root.to_path_buf();
+    for seg in decoded.split('/') {
+        if seg.is_empty() || seg == "." {
+            continue;
+        }
+        if seg == ".." || seg.contains('\\') || seg.contains(':') {
+            return reply(&mut stream, "403 Forbidden", "text/plain", b"Forbidden", method == "HEAD");
+        }
+        file.push(seg);
+    }
+    if file.is_dir() {
+        file.push("index.html");
+    }
+    // the resolved file must still live inside the root (defends against symlinks)
+    let ok = match (fs::canonicalize(&file), fs::canonicalize(root)) {
+        (Ok(f), Ok(r)) => f.starts_with(r),
+        _ => false,
+    };
+    if !ok || !file.is_file() {
+        return reply(&mut stream, "404 Not Found", "text/plain; charset=utf-8", format!("404 – {} not found", decoded).as_bytes(), method == "HEAD");
+    }
+    match fs::read(&file) {
+        Ok(bytes) => reply(&mut stream, "200 OK", mime_for(&file), &bytes, method == "HEAD"),
+        Err(_) => reply(&mut stream, "500 Internal Server Error", "text/plain", b"Could not read the file", method == "HEAD"),
+    }
+}
+
+#[tauri::command]
+async fn serve_start(state: tauri::State<'_, ServeState>, root: String) -> Res<String> {
+    let mut map = state.inner().0.lock().map_err(err)?;
+    if let Some(s) = map.get(&root) {
+        return Ok(format!("http://127.0.0.1:{}/", s.port));
+    }
+    let listener = TcpListener::bind("127.0.0.1:0").map_err(err)?;
+    let port = listener.local_addr().map_err(err)?.port();
+    listener.set_nonblocking(true).map_err(err)?;
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = stop.clone();
+    let base = PathBuf::from(&root);
+    std::thread::spawn(move || {
+        while !flag.load(std::sync::atomic::Ordering::Relaxed) {
+            match listener.accept() {
+                Ok((stream, _)) => {
+                    let _ = stream.set_nonblocking(false);
+                    let b = base.clone();
+                    std::thread::spawn(move || handle_conn(stream, &b));
+                }
+                Err(_) => std::thread::sleep(Duration::from_millis(25)),
+            }
+        }
+    });
+    map.insert(root, StaticServer { port, stop });
+    Ok(format!("http://127.0.0.1:{}/", port))
+}
+
+#[tauri::command]
+async fn serve_stop(state: tauri::State<'_, ServeState>, root: Option<String>) -> Res<()> {
+    let mut map = state.inner().0.lock().map_err(err)?;
+    let keys: Vec<String> = match root {
+        Some(r) => vec![r],
+        None => map.keys().cloned().collect(),
+    };
+    for k in keys {
+        if let Some(s) = map.remove(&k) {
+            s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(PhpState::default())
+        .manage(ServeState::default())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                if let Ok(mut map) = window.app_handle().state::<PhpState>().inner().0.lock() {
+                    for (_, mut c) in map.drain() {
+                        let _ = c.kill();
+                        let _ = c.wait();
+                    }
+                }
+            }
+        })
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let menu = build_menu(app.handle())?;
@@ -573,7 +807,7 @@ pub fn run() {
             fs_open_folder, fs_open_file, fs_save_as, fs_pick_files, fs_read_dir, fs_read_file, fs_read_base64, fs_write_file,
             fs_write_base64, fs_create, fs_remove, fs_rename, fs_exists, fs_reveal, fs_list_files, fs_search, ext_list, ext_save,
             ext_remove, ext_import, ext_open_dir, settings_load, settings_save, secret_get, secret_set, app_info, app_clean,
-            http_request
+            http_request, php_check, php_start, php_stop, serve_start, serve_stop
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vextra Studio");

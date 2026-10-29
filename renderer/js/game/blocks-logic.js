@@ -9,11 +9,11 @@
     inputs: ['in'], outputs: ['out'], params: [P.num('value', 'Value', 1, { step: 0.1 }), P.bool('onStart', 'Send once at start', false)],
     init(n, g) { if (n.p.onStart) g.send(n, 'out', U.num(n.p.value)); }, onInput(n, port, v, g) { g.send(n, 'out', U.num(n.p.value)); } });
 
-  B({ id: 'expression', cat: 'logic', label: 'Expression', desc: 'Evaluates an arithmetic expression. Variables: a, b, c, d (inputs), value (last "in"), time, dt, any global variable name, and self.x / self.y / self.speed… Functions: sin cos abs min max floor round sqrt pow clamp lerp rand… Operators: + - * / % ^ < > == && || ?:',
-    inputs: ['in', 'a', 'b', 'c', 'd'], outputs: ['out', 'error'], params: [P.text('expr', 'Expression', 'a * 2 + 1'), P.sel('trigger', 'Calculate when', [['any', 'Any input arrives'], ['in', 'Only "in" arrives']])],
-    init(n) { n.st.v = { a: 0, b: 0, c: 0, d: 0, value: 0 }; },
+  B({ id: 'expression', cat: 'logic', label: 'Expression', desc: 'Evaluates an arithmetic expression. Variables: a, b, c, d, e, f (inputs), value (last "in"), time, dt, any global variable name, and self.x / self.y / self.speed… Functions: sin cos abs min max floor round sqrt pow clamp lerp rand… Operators: + - * / % ^ < > == && || ?:',
+    inputs: ['in', 'a', 'b', 'c', 'd', 'e', 'f'], outputs: ['out', 'error'], params: [P.text('expr', 'Expression', 'a * 2 + 1'), P.sel('trigger', 'Calculate when', [['any', 'Any input arrives'], ['in', 'Only "in" arrives']])],
+    init(n) { n.st.v = n.st.v || { a: 0, b: 0, c: 0, d: 0, e: 0, f: 0, value: 0 }; },
     onInput(n, port, v, g) {
-      const s = n.st; if (s.src !== n.p.expr) { try { s.fn = VXRT.compileExpr(n.p.expr); s.src = n.p.expr; s.err = null; } catch (e) { s.err = e.message; s.src = n.p.expr; } }
+      const s = n.st; s.v = s.v || { a: 0, b: 0, c: 0, d: 0, e: 0, f: 0, value: 0 }; if (s.src !== n.p.expr) { try { s.fn = VXRT.compileExpr(n.p.expr); s.src = n.p.expr; s.err = null; } catch (e) { s.err = e.message; s.src = n.p.expr; } }
       const x = isNum(v) ? +v : v === true ? 1 : v === false ? 0 : U.num(v); if (port === 'in') { s.v.value = x; s.v.a = x; } else s.v[port] = x;
       if (n.p.trigger === 'in' && port !== 'in') return; if (s.err) return g.send(n, 'error', s.err);
       const ctx = { get: (name) => { if (name in s.v) return s.v[name]; if (name === 'time') return g.time; if (name === 'dt') return g.dt; if (name.startsWith('self.')) return U.num(g.getProp(n.owner, name.slice(5))); const gv = g.vars[name]; return gv === undefined ? 0 : U.num(gv); } };

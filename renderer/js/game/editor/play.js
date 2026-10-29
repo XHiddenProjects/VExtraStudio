@@ -17,21 +17,22 @@
         h('span', { class: 'sp' }), h('label', { class: 'mini' }, 'Device'), dev, h('button', { class: 'btn sm', title: 'Simulate a device shake', onclick: () => this.send('shake') }, '📳 Shake'), h('label', { class: 'mini' }, 'Tilt'), this.tilt,
         h('button', { class: 'btn sm', onclick: () => this.ctx.onStop && this.ctx.onStop() }, '■ Stop'));
       this.el = h('div', { class: 'play' }, this.bar, this.stage);
-      this.msg = (e) => { if (e.source !== this.frame.contentWindow) return; const d = e.data; if (d && d.vx === 'log') this.ctx.onLog && this.ctx.onLog(d.level, d.text); };
+      this.msg = (e) => { if (e.source !== this.frame.contentWindow) return; const d = e.data; if (d && d.vx === 'log' && this.chan && d.token === this.chan.token) this.ctx.onLog && this.ctx.onLog(d.level, d.text); };
       window.addEventListener('message', this.msg); this.ro = new ResizeObserver(() => this.layout()); this.ro.observe(this.stage);
     }
-    send(type, value) { try { this.frame.contentWindow.postMessage({ vx: 'sim', type, value }, '*'); } catch { /* not ready */ } }
+    /* The game frame is sandboxed without allow-same-origin, so its origin is opaque and "*" is the only possible target. Every message carries a one-time token the game verifies, and carries no secrets. */
+    send(type, value) { if (!this.chan) return; try { this.frame.contentWindow.postMessage({ vx: 'sim', token: this.chan.token, type, value }, '*'); } catch { /* not ready */ } }
     layout() {
       const s = this.stage.getBoundingClientRect(), st = this.ctx.project().settings; let w, hh;
-      if (this.device === 'fit') { this.frame.style.cssText = 'width:100%;height:100%'; this.frame.classList.remove('dev'); return; }
+      if (this.device === 'fit') { this.frame.style.cssText = 'position:absolute;inset:0;width:100%;height:100%'; this.frame.classList.remove('dev'); return; }
       if (this.device === 'actual') { w = st.width; hh = st.height; } else [w, hh] = this.device.split('x').map(Number);
-      const k = Math.min(1, (s.width - 24) / w, (s.height - 24) / hh); this.frame.classList.add('dev');
-      this.frame.style.cssText = `width:${w}px;height:${hh}px;transform:scale(${k});transform-origin:center center;`;
+      if (s.width < 40 || s.height < 40) return; const k = Math.max(0.05, Math.min(1, (s.width - 44) / w, (s.height - 44) / hh)); this.frame.classList.add('dev');
+      this.frame.style.cssText = `position:absolute;left:50%;top:50%;width:${w}px;height:${hh}px;transform:translate(-50%,-50%) scale(${k});transform-origin:center center;`;
     }
     async start() {
       const my = ++this.token; this.paused = false; this.pb && (this.pb.textContent = '⏸ Pause');
       try {
-        const html = await VX.gameExport.toHTML(this.ctx.project()); if (my !== this.token) return;
+        this.chan = { token: VX.channel.token(), origin: VX.channel.origin() }; const html = await VX.gameExport.toHTML(this.ctx.project(), { channel: this.chan }); if (my !== this.token) return;
         this.frame.srcdoc = html; this.layout(); this.frame.onload = () => { this.send('debug', this.debug); this.send('mute', this.muted); this.frame.focus(); };
         this.ctx.onLog && this.ctx.onLog('info', '▶ Game started');
       } catch (e) { this.ctx.onLog && this.ctx.onLog('error', 'Could not start: ' + e.message); VX.ui.toast('Could not start game: ' + e.message, 'error'); }

@@ -2,7 +2,7 @@
 // Handy for UI work and automated tests. The real app is `npm start` (Tauri).
 const http = require('http'), fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..', 'renderer'), ext = (k) => path.join(__dirname, '..', k);
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.md': 'text/markdown' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.md': 'text/markdown', '.wasm': 'application/wasm' };
 const port = +process.env.PORT || 5173;
 http.createServer((req, res) => {
   const u = decodeURIComponent(req.url.split('?')[0]);

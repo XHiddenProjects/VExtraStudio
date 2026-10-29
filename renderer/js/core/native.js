@@ -25,6 +25,8 @@
       exists: (path) => inv('fs_exists', { path }),
       reveal: (path) => inv('fs_reveal', { path }),
       listFiles: (root, limit) => inv('fs_list_files', { root, limit }),
+      serve: { start: (root) => inv('serve_start', { root }), stop: (root) => inv('serve_stop', { root: root || null }) },
+      php: { check: () => inv('php_check'), start: (root) => inv('php_start', { root }), stop: (root) => inv('php_stop', { root: root || null }) },
       search: (root, query, caseSensitive, useRegex) => inv('fs_search', { root, query, caseSensitive: !!caseSensitive, useRegex: !!useRegex }),
       async importAssets(extensions) {
         const paths = await inv('fs_pick_files', { extensions: extensions || [] });
@@ -82,6 +84,7 @@
     async rename(path, newName) { const p = norm(path), np = norm(VX.path.dir(p) + '/' + newName); for (const k of files()) if (k === p || k.startsWith(p + '/')) { store[np + k.slice(p.length)] = store[k]; delete store[k]; } persist(); return np; },
     async exists(path) { const p = norm(path); return store[p] !== undefined || dirs().has(p); },
     async reveal() { /* nothing to reveal in a browser */ },
+    php: { async check() { throw new Error('Running PHP needs the desktop app (it starts PHP\'s built-in server on your computer). In the browser version you can still edit PHP and export the site.'); }, async start() { return this.check(); }, async stop() {} },
     async listFiles(root) { const r = norm(root); return files().filter((k) => k.startsWith(r + '/')).map((k) => k.slice(r.length + 1)); },
     async search(root, query, cs, rx) {
       const r = norm(root), hits = []; let re = null; if (rx) re = new RegExp(query, cs ? '' : 'i');
@@ -108,7 +111,7 @@
     },
     settings: { async load() { return lsSettings; }, async save(data) { lsSettings = data; localStorage.setItem('vx-settings', JSON.stringify(data)); } },
     secret: { async get(k) { return localStorage.getItem('vx-secret-' + k); }, async set(k, v) { v == null ? localStorage.removeItem('vx-secret-' + k) : localStorage.setItem('vx-secret-' + k, v); } },
-    async info() { return { name: 'Vextra Studio', version: '1.0.0', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
+    async info() { return { name: 'Vextra Studio', version: '2.0.0', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
     async clean(what) { const removed = []; const all = what.includes('all'); if (all || what.includes('settings')) { localStorage.removeItem('vx-settings'); removed.push('settings'); } for (const k of ['plugins', 'themes']) if (all || what.includes(k)) { localStorage.removeItem('vx-ext-' + k); removed.push(k); } if (all || what.includes('secrets')) { Object.keys(localStorage).filter((k) => k.startsWith('vx-secret-')).forEach((k) => localStorage.removeItem(k)); removed.push('secrets'); } return removed; },
     async http({ method, url, headers, body }) { const r = await fetch(url, { method, headers, body }); return { status: r.status, body: await r.text() }; },
     onMenu() { return Promise.resolve(() => {}); },

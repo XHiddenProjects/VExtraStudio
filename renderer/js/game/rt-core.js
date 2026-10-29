@@ -148,7 +148,7 @@
     log(level, ...args) {
       const text = args.map((a) => (typeof a === 'string' ? a : (() => { try { return JSON.stringify(a); } catch { return String(a); } })())).join(' ');
       if (this.opts.onLog) this.opts.onLog(level, text); else (console[level] || console.log)('[game]', text);
-      try { if (this.opts.host && window.parent !== window) window.parent.postMessage({ vx: 'log', level, text }, '*'); } catch { /* ignore */ }
+      try { if (this.opts.host && window.parent !== window) { const ch = this.opts.channel; if (ch) window.parent.postMessage({ vx: 'log', token: ch.token, level, text }, ch.origin); }; } catch { /* ignore */ }
     }
 
     /* ----- storage ----- */
@@ -194,6 +194,7 @@
       this.teardownScene(); this.sceneIndex = idx; this.scene = sc; this.dim = sc.dim || '2d';
       this.sceneVars = {}; this.camera2d = { x: this.settings.width / 2, y: this.settings.height / 2, zoom: 1, shake: 0, follow: null, lerp: 1, offX: 0, offY: 0 };
       if (sc.camera2d) Object.assign(this.camera2d, { x: sc.camera2d.x ?? this.camera2d.x, y: sc.camera2d.y ?? this.camera2d.y, zoom: sc.camera2d.zoom ?? 1 });
+      { const cs = sc.camera2d, vw = +cs.viewW || 0, vh = +cs.viewH || 0; if (vw > 0 || vh > 0) this.camera2d.zoom = Math.min(vw > 0 ? this.settings.width / vw : Infinity, vh > 0 ? this.settings.height / vh : Infinity); }
       const g = sc.gravity || {}; this.gravity = { x: g.x ?? 0, y: g.y ?? (this.dim === '2d' ? 980 : 0), z: g.z ?? 0 }; if (this.dim === '3d') this.gravity = { x: g.x ?? 0, y: g.y ?? -25, z: g.z ?? 0 };
       VXRT.setupScene(this, sc);
       const root = this.addObject({ id: '__scene__', name: 'Scene', type: 'empty', behaviors: sc.behaviors || [], visible: false });
@@ -206,7 +207,7 @@
       this.pending.length = 0;
       for (const o of [...this.objects]) this.removeObject(o, true);
       for (const c of this.sceneCleanups.splice(0)) { try { c(); } catch { /* ignore */ } }
-      this.objects = []; this.byId.clear(); this.updating.clear(); for (const g of [...this.guiItems]) g.remove(); this.guiItems.clear();
+      this.objects = []; this.byId.clear(); this.updating.clear(); for (const g of [...this.guiItems]) g.remove(); this.guiItems.clear(); if (this.guiMap) this.guiMap.clear();
       this.bus.forEach((s, k) => { if (k.startsWith('scene:')) s.clear(); });
     }
     restart(full) { if (full) { this.vars = {}; this.lists = {}; } this.loadScene(full ? (this.data.settings?.startScene ?? 0) : this.sceneIndex); }

@@ -47,7 +47,9 @@
       /* center: tabs + views */
       const tabs = [['scene', '🎬 Scene'], ['logic', '🧩 Logic'], ['assets', '🎨 Assets'], ['play', '▶ Play']];
       this.tabBtns = tabs.map(([k, l]) => h('button', { class: 'gl-tab', onclick: () => this.setView(k) }, l));
-      this.tabBar = h('div', { class: 'gl-tabs' }, this.tabBtns, h('span', { class: 'sp' }), this.viewTools = h('div', { class: 'gl-vtools' }));
+      this.panBtns = { left: h('button', { class: 'btn sm on', title: 'Show / hide the scenes + objects panel', onclick: () => this.togglePanel('left') }, '◧'), right: h('button', { class: 'btn sm on', title: 'Show / hide the inspector', onclick: () => this.togglePanel('right') }, '◨') };
+      this.tabBar = h('div', { class: 'gl-tabs' }, this.tabBtns, h('span', { class: 'sp' }), this.viewTools = h('div', { class: 'gl-vtools' }), this.panBtns.left, this.panBtns.right);
+      this._pan = {}; this._ro = new ResizeObserver(() => this.autoPanels()); this._ro.observe(this.root);
       this.sceneView = h('div', { class: 'gl-view v-scene' }); this.logicView = h('div', { class: 'gl-view v-logic' }); this.assetView = h('div', { class: 'gl-view v-assets' }); this.playView = h('div', { class: 'gl-view v-play' });
       this.assetsView = this.assetView; this.centerEl.append(this.tabBar, this.sceneView, this.logicView, this.assetView, this.playView);
       this.buildLogic(); this.buildAssets();
@@ -60,7 +62,7 @@
     }
     fitSoon() { requestAnimationFrame(() => { const v = this.vpNow(); v && v.resize && v.resize(); }); }
     onKey(e) {
-      if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.closest('.ace_editor')) return; const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+      if (e.vxHandled || e.defaultPrevented) return; if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.closest('.ace_editor')) return; const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
       if (mod && k === 'd') { e.preventDefault(); this.duplicate(); } else if (mod && k === 'c') this.copy(); else if (mod && k === 'v') this.paste(); else if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); } else if (mod && k === 'y') { e.preventDefault(); this.redo(); }
       else if (k === 'delete' && this.view === 'scene') this.deleteObjects(this.sel);
     }
@@ -68,8 +70,14 @@
     onShow() { this.fitSoon(); this.applyCodeLook(); if (this.pendingLayoutFit) { this.pendingLayoutFit = false; setTimeout(() => { const v = this.vpNow(); v && v.fit && v.fit(); }, 60); } }
     dispose() { this.offs && this.offs.forEach((f) => f && f()); Object.values(this.vp).forEach((v) => v && v.dispose && v.dispose()); this.graph && this.graph.dispose && this.graph.dispose(); this.playPanel && this.playPanel.dispose(); this.docs && this.docs.dispose && this.docs.dispose(); }
 
+    togglePanel(side) { const hid = this.root.classList.contains('hide-' + side); this._pan[side] = hid ? 'show' : 'hide'; this._panSticky = true; this.autoPanels(); }
+    autoPanels() {
+      const w = this.root.clientWidth; if (!w) return; const auto = { left: w < 760, right: w < 900 || (this.view === 'logic' && w < 1300) };
+      for (const side of ['left', 'right']) { const hide = this._pan[side] ? this._pan[side] === 'hide' : auto[side]; this.root.classList.toggle('hide-' + side, hide); this.panBtns[side].classList.toggle('on', !hide); }
+      clearTimeout(this._art); this._art = setTimeout(() => { for (const vp of [this.vp2d, this.vp3d]) if (vp && vp.resize) try { vp.resize(); } catch { /* ignore */ } window.dispatchEvent(new Event('resize')); }, 60);
+    }
     setView(v) {
-      this.view = v; ['scene', 'logic', 'assets', 'play'].forEach((k, i) => { this[k + 'View'].style.display = k === v ? '' : 'none'; this.tabBtns[i].classList.toggle('on', k === v); });
+      this.view = v; if (this._pan) { for (const k of ['left', 'right']) if (!this._panSticky) delete this._pan[k]; this.autoPanels(); } ['scene', 'logic', 'assets', 'play'].forEach((k, i) => { this[k + 'View'].style.display = k === v ? '' : 'none'; this.tabBtns[i].classList.toggle('on', k === v); });
       if (v === 'play') { this.ensurePlay(); this.playPanel.start(); } else if (this.playPanel) this.playPanel.stop();
       if (v === 'logic') { this.renderBehList(); this.loadBehavior(); setTimeout(() => this.graph && this.graph.fit(), 30); }
       if (v === 'scene') { this.ensureViewport(); this.fitSoon(); }
@@ -117,7 +125,7 @@
       const b = (l, fn, cls, title) => h('button', { class: 'btn sm ' + (cls || ''), title: title || '', onclick: fn }, l);
       return [b([VX.icon('undo', 14), 'Undo'], () => this.undo(), '', 'Ctrl+Z'), b([VX.icon('redo', 14), 'Redo'], () => this.redo(), '', 'Ctrl+Shift+Z'), h('span', { class: 'sep' }),
         h('span', { class: 'tag' }, this.project.settings.title), h('span', { class: 'spacer' }),
-        b('⚙ Game settings', () => this.gameSettings()), b('📖 Blocks docs', () => this.opts.openDocs && this.opts.openDocs('logic')), b('⬇ Export HTML', () => this.exportHTML()), b('🌐 Publish', () => VX.cloudUI && VX.cloudUI.publish(), '', 'Host it on a public URL'), b([VX.icon('play', 13), 'Play'], () => this.play(), 'primary', 'Run the game')];
+        b('⚙ Game settings', () => this.gameSettings()), b('📖 Blocks docs', () => this.opts.openDocs && this.opts.openDocs('logic')), b('⬇ Export HTML', () => this.exportHTML()), b('🌐 Publish', () => VX.cloudUI && VX.cloudUI.publish(), '', 'Host it on a public URL'), b('📦 Store export', () => { const c = window.Forge && Forge.commands.get('store-export.package'); c ? c.run() : VX.ui.toast('Enable the “Store Export” plugin (Plugins panel) to package for Steam, Google Play and the App Store.', 'warn'); }, 'adv', 'Package for Steam / Google Play / App Store'), b([VX.icon('play', 13), 'Play'], () => this.play(), 'primary', 'Run the game')];
     }
     play() { this.setView('play'); }
     ensurePlay() {
@@ -196,7 +204,7 @@
     }
     updateInspectorValues() { const o = this.selObjs()[0]; if (!o || !this.inspIn) return; for (const [k, list] of Object.entries(this.inspIn)) for (const i of list) if (document.activeElement !== i && o[k] !== undefined) i.value = +(+o[k]).toFixed(3); }
     row(label, ...ctrls) { return h('div', { class: 'ins-row' }, h('label', {}, label), h('div', { class: 'ctl' }, ctrls)); }
-    sec(title, ...kids) { return h('div', { class: 'ins-sec' }, h('div', { class: 'ins-h' }, title), ...kids); }
+    sec(title, ...kids) { return h('div', { class: 'ins-sec' + (/^(Data|Environment|Game camera)$/.test(title) ? ' adv' : '') }, h('div', { class: 'ins-h' }, title), ...kids); }
     txtIn(t, key, { ph, onSet } = {}) { const i = h('input', { value: t[key] ?? '', placeholder: ph || '' }); i.addEventListener('input', () => { t[key] = i.value; onSet && onSet(); }); i.addEventListener('change', () => this.commit(true)); return i; }
     colorIn(o, key, { target, scope } = {}) { const t = target || o; const i = h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(t[key]) ? t[key] : '#ffffff' }); i.addEventListener('input', () => { t[key] = i.value; this.touch(scope === 'scene' ? null : o); }); i.addEventListener('change', () => this.commit()); return i; }
     boolIn(t, key, after) { const c = h('input', { type: 'checkbox' }); c.checked = !!t[key]; c.addEventListener('change', () => { t[key] = c.checked; this.commit(); after && after(); }); return c; }
@@ -254,7 +262,7 @@
     inspectScene(box) {
       const s = this.scene, is3 = this.is3d; box.append(h('div', { class: 'ins-title' }, h('span', { class: 'ico' }, is3 ? '🧊' : '🟦'), this.txtIn(s, 'name', { onSet: () => this.renderSceneList() }), h('span', { class: 'tag' }, is3 ? '3D scene' : '2D scene')));
       const rows = [this.row('Background', this.colorIn(null, 'bg', { target: s, scope: 'scene' }))];
-      if (!is3) { s.camera2d = s.camera2d || { x: 480, y: 270, zoom: 1 }; s.gravity = s.gravity || { x: 0, y: 980, z: 0 }; rows.push(this.row('Camera', ...['x', 'y'].map((k) => h('div', { class: 'nf' }, h('span', {}, k.toUpperCase()), this.numIn(null, k, { target: s.camera2d, scope: 'scene' }))), h('div', { class: 'nf' }, h('span', {}, 'Zoom'), this.numIn(null, 'zoom', { target: s.camera2d, step: 0.1, min: 0.1, scope: 'scene' }))), this.row('Gravity Y', this.numIn(null, 'y', { target: s.gravity, step: 20, scope: 'scene' }))); }
+      if (!is3) { s.camera2d = s.camera2d || { x: 480, y: 270, zoom: 1 }; s.gravity = s.gravity || { x: 0, y: 980, z: 0 }; rows.push(this.row('Camera', ...['x', 'y'].map((k) => h('div', { class: 'nf' }, h('span', {}, k.toUpperCase()), this.numIn(null, k, { target: s.camera2d, scope: 'scene' }))), h('div', { class: 'nf' }, h('span', {}, 'Zoom'), this.numIn(null, 'zoom', { target: s.camera2d, step: 0.1, min: 0.1, scope: 'scene' }))), this.row('View size', ...[['viewW', 'W'], ['viewH', 'H']].map(([k, l]) => h('div', { class: 'nf' }, h('span', {}, l), this.numIn(null, k, { target: s.camera2d, step: 10, min: 0, scope: 'scene' }))), h('div', { class: 'hint' }, '0 = use zoom')), this.row('Gravity Y', this.numIn(null, 'y', { target: s.gravity, step: 20, scope: 'scene' }))); }
       box.append(this.sec('Scene', ...rows));
       if (is3) { s.env = s.env || {}; const e = s.env; s.camera3d = s.camera3d || { mode: 'fixed', fov: 60, pos: { x: 8, y: 6, z: 10 }, target: { x: 0, y: 1, z: 0 } }; const c = s.camera3d; s.gravity = s.gravity || { x: 0, y: -25, z: 0 };
         box.append(this.sec('Environment', this.row('Sky colour', this.colorIn(null, 'sky', { target: e })), this.row('Ambient', this.colorIn(null, 'ambientColor', { target: e }), this.numIn(null, 'ambientIntensity', { target: e, step: 0.05, min: 0, scope: 'scene' })), this.row('Fog', this.boolIn(e, 'fog', () => this.refreshView()), this.colorIn(null, 'fogColor', { target: e })), this.row('Fog range', this.numIn(null, 'fogNear', { target: e, scope: 'scene' }), this.numIn(null, 'fogFar', { target: e, scope: 'scene' })), this.row('Gravity Y', this.numIn(null, 'y', { target: s.gravity, step: 1, scope: 'scene' }))),
@@ -297,17 +305,17 @@
       const b = this.curB(); this.begToolbar.textContent = ''; this.renderBehList(); if (this.doc) { this.code.releaseDoc && this.code.releaseDoc(this.doc); this.doc = null; }
       if (!b) { this.graph.setGraph({ nodes: [], wires: [] }, { readOnly: true }); this.begToolbar.append(h('span', { class: 'lg-hint' }, 'Select or create a behaviour on the left.')); this.lgBody.className = 'lg-body m-blocks'; this.codeStatus.textContent = ''; this.inspect(); return; }
       const modeBtn = (k, l) => h('button', { class: 'btn sm' + (this.logicMode === k ? ' on' : ''), onclick: () => { this.logicMode = k; this.loadBehavior(); setTimeout(() => this.graph.fit(), 20); } }, l);
-      this.begToolbar.append(h('b', { class: 'lg-name', title: 'Click to rename', onclick: () => this.renameBehavior(b) }, b.name), h('span', { class: 'tag' }, b.mode === 'code' ? 'code script' : 'blocks'), h('span', { class: 'sp' }), modeBtn('blocks', '🧩 Blocks'), modeBtn('split', '◫ Split'), modeBtn('code', '﹛﹜ Code'), h('span', { class: 'sep' }),
-        ...(b.mode === 'graph' ? [h('button', { class: 'btn sm', title: 'Turn this block graph into an editable script', onclick: () => this.toCode() }, '→ Convert to code')] : [b.graphBackup ? h('button', { class: 'btn sm', title: 'Discard script edits and restore the blocks', onclick: () => this.revertToBlocks() }, '↩ Revert to blocks') : null, h('button', { class: 'btn sm primary', title: 'Rebuild blocks from this script (dry run)', onclick: () => this.applyCode() }, '→ Apply code to blocks')]),
+      this.begToolbar.append(h('b', { class: 'lg-name', title: 'Click to rename', onclick: () => this.renameBehavior(b) }, b.name), h('span', { class: 'tag' }, b.mode === 'code' ? 'code script' : 'blocks'), h('span', { class: 'sp' }), h('span', { class: 'adv', style: 'display:inline-flex;gap:4px' }, modeBtn('blocks', '🧩 Blocks'), modeBtn('split', '◫ Split'), modeBtn('code', '﹛﹜ Code'), h('span', { class: 'sep' })),
+        ...(b.mode === 'graph' ? [h('button', { class: 'btn sm adv', title: 'Turn this block graph into an editable script', onclick: () => this.toCode() }, '→ Convert to code')] : [b.graphBackup ? h('button', { class: 'btn sm', title: 'Discard script edits and restore the blocks', onclick: () => this.revertToBlocks() }, '↩ Revert to blocks') : null, h('button', { class: 'btn sm primary', title: 'Rebuild blocks from this script (dry run)', onclick: () => this.applyCode() }, '→ Apply code to blocks')]),
         h('button', { class: 'btn sm', onclick: () => this.attachCurrent(b.id), title: 'Attach to the selected object (or this scene)' }, '📎 Attach'), h('button', { class: 'btn sm', onclick: () => this.opts.openDocs && this.opts.openDocs(b.mode === 'code' ? 'scripting' : 'logic') }, '📖'));
       this.lgBody.className = 'lg-body m-' + this.logicMode + (b.mode === 'code' ? ' codemode' : '');
       if (b.mode === 'graph') { this.graph.setGraph(b.graph, { readOnly: false }); this.regenCode(true); }
-      else { this.doc = this.code.createDoc(b.code || '', 'javascript', false); this.code.setDoc(this.doc); this.previewFromCode(); this.applyCodeLook(); }
+      else { this.doc = this.code.createDoc(b.code || '', 'javascript', false, { gameScript: true }); this.code.setDoc(this.doc); this.previewFromCode(); this.applyCodeLook(); }
       this.inspect(); setTimeout(() => this.graph && this.graph.fit(), 40);
     }
     regenCode(fresh) {
       const b = this.curB(); if (!b || b.mode !== 'graph') return; const res = VX.codegen.graphToCode(b.graph, b.name); this.genMap = res;
-      if (fresh || !this.doc) { if (this.doc) this.code.releaseDoc(this.doc); this.doc = this.code.createDoc(res.code, 'javascript', true); this.code.setDoc(this.doc); this.applyCodeLook(); } else { this.suppress = true; this.code.setValue(res.code); this.suppress = false; }
+      if (fresh || !this.doc) { if (this.doc) this.code.releaseDoc(this.doc); this.doc = this.code.createDoc(res.code, 'javascript', true, { gameScript: true }); this.code.setDoc(this.doc); this.applyCodeLook(); } else { this.suppress = true; this.code.setValue(res.code); this.suppress = false; }
       this.codeStatus.textContent = 'Generated from the blocks – read only. Use “Convert to code” to edit as a script.'; this.codeStatus.className = 'lg-status';
     }
     onNodeSelected(id) {

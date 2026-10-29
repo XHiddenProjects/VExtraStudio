@@ -74,6 +74,7 @@
       const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); this.ctx.onChange && this.ctx.onChange(); }; addEventListener('mousemove', mv); addEventListener('mouseup', up);
     }
     _key(e) {
+      e.vxHandled = true; // tell the editor root this key was already handled (prevents double copy/paste/undo)
       if (e.key === ' ') { this._space = true; this.canvas.style.cursor = 'grab'; const up = (ev) => { if (ev.key === ' ') { this._space = false; removeEventListener('keyup', up); } }; addEventListener('keyup', up); e.preventDefault(); return; }
       const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase(); const os = this.objs();
       if ((k === 'delete' || k === 'backspace') && os.length) { e.preventDefault(); this.ctx.onDelete && this.ctx.onDelete(this.sel.slice()); }

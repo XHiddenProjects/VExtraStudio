@@ -7,7 +7,7 @@
 
   /* ---------- GUI elements ---------- */
   function place(e, o) {
-    const a = ANCH[o.anchor] || ANCH.topLeft; e.style.position = 'absolute'; e.style.left = `calc(${a[0]}% + ${U.num(o.x, 0)}px)`; e.style.top = `calc(${a[1]}% + ${U.num(o.y, 0)}px)`; e.style.transform = `translate(-${a[0]}%,-${a[1]}%)`;
+    const a = ANCH[o.anchor] || ANCH.topLeft; e.style.position = 'absolute'; const ox = U.num(o.x, 0) * (a[0] === 100 ? -1 : 1), oy = U.num(o.y, 0) * (a[1] === 100 ? -1 : 1); e.style.left = `calc(${a[0]}% + ${ox}px)`; e.style.top = `calc(${a[1]}% + ${oy}px)`; e.style.maxWidth = '94%'; e.style.transform = `translate(-${a[0]}%,-${a[1]}%)`;
   }
   const gm = (g) => g.guiMap || (g.guiMap = new Map());
   function register(g, id, node, extra) {
@@ -16,7 +16,7 @@
   const guiVars = (g) => Object.assign({}, g.vars, g.sceneVars);
   VXRT.gui = {
     label(g, id, o) {
-      let rec = gm(g).get(id); if (!rec) { const e = el('div', 'pointer-events:none;white-space:pre;'); rec = register(g, id, e, {}); }
+      let rec = gm(g).get(id); if (rec && !rec.el.isConnected) { gm(g).delete(id); rec = null; } if (!rec) { const e = el('div', 'pointer-events:none;white-space:pre-wrap;'); rec = register(g, id, e, {}); }
       rec.o = Object.assign(rec.o || {}, o); const q = rec.o, e = rec.el; e.style.font = `${q.bold ? 700 : 500} ${U.num(q.size, 22)}px system-ui,sans-serif`; e.style.color = q.color || '#fff'; e.style.textShadow = q.shadow === false ? '' : '0 2px 6px rgba(0,0,0,.55)';
       e.style.background = q.bg || 'transparent'; e.style.padding = q.bg ? '6px 12px' : '0'; e.style.borderRadius = '8px'; e.style.display = q.hidden ? 'none' : 'block';
       rec.tpl = q.text; rec.refresh = () => { e.textContent = U.tpl(rec.tpl ?? '', guiVars(g)); if (!q.follow) place(e, q); }; rec.refresh(); return rec;
@@ -25,6 +25,12 @@
       let rec = gm(g).get(id); if (!rec) { const e = el('div', 'pointer-events:none;overflow:hidden;'), f = el('div', 'height:100%;width:0;transition:width .12s'); e.append(f); rec = register(g, id, e, { fill: f }); rec.value = 1; }
       rec.o = Object.assign(rec.o || {}, o); const q = rec.o, e = rec.el; Object.assign(e.style, { width: U.num(q.w, 220) + 'px', height: U.num(q.h, 18) + 'px', background: q.bg || 'rgba(0,0,0,.45)', borderRadius: U.num(q.radius, 9) + 'px', border: '1px solid rgba(255,255,255,.25)', display: q.hidden ? 'none' : 'block' });
       rec.fill.style.background = q.color || '#4cc38a'; rec.fill.style.width = U.clamp(rec.value, 0, 1) * 100 + '%'; if (!q.follow) place(e, q); return rec;
+    },
+    /** Banner ad in the game GUI. o.service: house | image | html | adsense. */
+    ad(g, id, o) {
+      let rec = gm(g).get(id); if (rec && !rec.el.isConnected) { gm(g).delete(id); rec = null; } if (!rec) rec = register(g, id, el('div', 'pointer-events:auto;overflow:hidden;z-index:40;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.4)'), {});
+      rec.o = Object.assign(rec.o || {}, o); const q = rec.o, e = rec.el; e.textContent = ''; Object.assign(e.style, { width: U.num(q.w, 320) + 'px', height: U.num(q.h, 50) + 'px', maxWidth: '100%', display: q.hidden ? 'none' : 'block', background: q.bg || '#2b2f4a', position: 'absolute' });
+      e.append(VXRT.adContent(g, q, q.onClick), el('span', 'position:absolute;top:0;right:0;background:rgba(0,0,0,.55);color:#fff;font:700 9px system-ui;padding:1px 5px;border-bottom-left-radius:4px;pointer-events:none', 'Ad')); place(e, q); return rec;
     },
     setBar(g, id, v) { const r = gm(g).get(id); if (r) { r.value = v; r.fill.style.width = U.clamp(v, 0, 1) * 100 + '%'; } },
     show(g, id, on) { const r = gm(g).get(id); if (r) { r.o.hidden = !on; r.el.style.display = on ? 'block' : 'none'; } },
@@ -111,13 +117,36 @@
     return this.store.get('lb:' + board, []).slice(0, n);
   };
 
-  /* ---------- ads (simulated "house" ads; plug a real provider into game.adProvider) ---------- */
-  G.showAd = function (kind, cb) {
-    if (typeof this.adProvider === 'function') return this.adProvider(kind, cb);
-    if (kind === 'banner') { const b = el('div', 'position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(468px,100%);height:50px;background:linear-gradient(90deg,#2b2f4a,#3a2f55);color:#cfd4ff;display:flex;align-items:center;justify-content:center;font:600 12px system-ui;letter-spacing:.08em;pointer-events:auto;z-index:40', 'ADVERTISEMENT · your banner ad goes here'); this.guiEl.append(b); this.guiItems.add(b); cb && cb({ shown: true }); return; }
-    const wrap = el('div', 'position:absolute;inset:0;background:#0b0d16;display:grid;place-items:center;pointer-events:auto;z-index:95;color:#fff;font-family:system-ui'); const box = el('div', 'text-align:center;padding:30px');
-    const secs = kind === 'rewarded' ? 5 : 3; const info = el('div', 'font:700 12px system-ui;letter-spacing:.12em;opacity:.6', (kind === 'rewarded' ? 'REWARDED ' : 'INTERSTITIAL ') + 'AD'); const hero = el('div', 'font:800 34px system-ui;margin:14px 0', 'Your ad here'); const sub = el('div', 'opacity:.7;font-size:14px', 'Simulated ad – connect an ad network via game.adProvider'); const btn = el('button', 'margin-top:20px;padding:10px 24px;border:0;border-radius:10px;background:#333a55;color:#8b93a1;font:700 14px system-ui', 'Wait ' + secs + 's');
-    box.append(info, hero, sub, btn); wrap.append(box); this.guiEl.append(wrap); this.guiItems.add(wrap); this.pause(true); let t = secs;
-    const iv = setInterval(() => { t--; if (t > 0) btn.textContent = 'Wait ' + t + 's'; else { clearInterval(iv); btn.textContent = kind === 'rewarded' ? 'Claim reward' : 'Close'; btn.style.cssText += ';background:#6c8cff;color:#fff;cursor:pointer'; btn.onclick = () => { wrap.remove(); this.guiItems.delete(wrap); this.pause(false); cb && cb({ shown: true, rewarded: kind === 'rewarded' }); }; } }, 1000);
+  /* ---------- ads: pick a service per Ad block; simulated "house" ads by default; or game.adProvider for your own code ---------- */
+  const safeUrl = (u) => (/^(https?:|data:image\/|\.{0,2}\/)/i.test(String(u || '').trim()) ? String(u).trim() : '');
+  /** The visual content of one ad, for any service. Fills its container. */
+  VXRT.adContent = function (g, q, onClick) {
+    const click = () => { const u = safeUrl(q.link); if (onClick) onClick(); if (!u) return; if (typeof g.adClick === 'function') g.adClick(u); else try { window.open(u, '_blank', 'noopener'); } catch { /* ignore */ } };
+    const svc = q.service || 'house';
+    if (svc === 'image' && safeUrl(q.image)) { const im = document.createElement('img'); im.src = safeUrl(q.image); im.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;cursor:pointer;background:#0b0d16'; im.onclick = click; return im; }
+    if (svc === 'html' && q.html) { const f = document.createElement('iframe'); f.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox'); f.srcdoc = '<body style="margin:0">' + String(q.html); f.style.cssText = 'width:100%;height:100%;border:0;display:block;background:transparent'; return f; }
+    if (svc === 'adsense' && /^ca-pub-\d+$/.test(String(q.client || '')) && /^\d+$/.test(String(q.slot || ''))) {
+      const f = document.createElement('iframe'); f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox'); f.setAttribute('scrolling', 'no');
+      f.srcdoc = `<body style="margin:0;background:transparent"><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${q.client}" crossorigin="anonymous"><\/script><ins class="adsbygoogle" style="display:inline-block;width:${U.num(q.w, 320)}px;height:${U.num(q.h, 50)}px" data-ad-client="${q.client}" data-ad-slot="${q.slot}"></ins><script>(adsbygoogle=window.adsbygoogle||[]).push({});<\/script>`;
+      f.style.cssText = 'width:100%;height:100%;border:0;display:block'; return f;
+    }
+    const t = el('div', 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;color:#cfd4ff;font:600 12px system-ui;letter-spacing:.06em;background:linear-gradient(90deg,#2b2f4a,#3a2f55);cursor:' + (safeUrl(q.link) ? 'pointer' : 'default'), (svc === 'adsense' ? 'AdSense: enter a valid publisher id (ca-pub-…) and slot id' : svc === 'image' ? 'Add an Image URL in the Ad block' : svc === 'html' ? 'Add your ad HTML in the Ad block' : q.text || 'ADVERTISEMENT · your ad here')); t.onclick = click; return t;
+  };
+  G.showAd = function (kind, cb, o = {}) {
+    if (o.service === 'provider' || (typeof this.adProvider === 'function' && !o.service)) {
+      if (typeof this.adProvider === 'function') return this.adProvider(kind, cb, o);
+      this.log('warn', 'Ad service is "My own code" but game.adProvider is not set – showing the house ad instead.'); o = Object.assign({}, o, { service: 'house' });
+    }
+    if (kind === 'banner') { VXRT.gui.ad(this, o.id || 'adbanner', Object.assign({ anchor: 'bottom', hidden: false }, o)); cb && cb({ shown: true }); return; }
+    const wrap = el('div', 'position:absolute;inset:0;background:#0b0d16;display:grid;place-items:center;pointer-events:auto;z-index:95;color:#fff;font-family:system-ui'); const box = el('div', 'text-align:center;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:100%');
+    const secs = o.seconds !== undefined ? Math.max(0, U.num(o.seconds)) : kind === 'rewarded' ? 5 : 3;
+    const info = el('div', 'font:700 12px system-ui;letter-spacing:.12em;opacity:.6', (kind === 'rewarded' ? 'REWARDED ' : 'INTERSTITIAL ') + 'AD');
+    const hero = el('div', `width:min(${Math.max(300, U.num(o.w, 320))}px,92vw);height:${Math.max(250, U.num(o.h, 250))}px;position:relative;overflow:hidden;border-radius:10px;background:#141828`);
+    const big = o.service && o.service !== 'house' ? VXRT.adContent(this, o, o.onClick) : el('div', 'height:100%;display:grid;place-items:center;font:800 30px system-ui', 'Your ad here');
+    hero.append(big); const sub = el('div', 'opacity:.7;font-size:13px', (o.service || 'house') === 'house' ? 'Simulated ad – choose an ad service in the Ad block' : '');
+    const btn = el('button', 'padding:10px 24px;border:0;border-radius:10px;background:#333a55;color:#8b93a1;font:700 14px system-ui', secs > 0 ? 'Wait ' + secs + 's' : kind === 'rewarded' ? 'Claim reward' : 'Close');
+    box.append(info, hero, sub, btn); wrap.append(box); this.guiEl.append(wrap); this.guiItems.add(wrap); this.pause(true); let t = secs, iv = 0;
+    const enable = () => { btn.textContent = kind === 'rewarded' ? 'Claim reward' : 'Close'; btn.style.cssText += ';background:#6c8cff;color:#fff;cursor:pointer'; btn.onclick = () => { wrap.remove(); this.guiItems.delete(wrap); this.pause(false); cb && cb({ shown: true, rewarded: kind === 'rewarded' }); }; };
+    if (secs <= 0) enable(); else iv = setInterval(() => { t--; if (t > 0) btn.textContent = 'Wait ' + t + 's'; else { clearInterval(iv); enable(); } }, 1000);
   };
 })();

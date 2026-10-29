@@ -8,13 +8,13 @@
   const BUILTIN = [
     { id: 'explorer', icon: 'files', title: 'Explorer (Ctrl+Shift+E)' }, { id: 'search', icon: 'search', title: 'Search in files (Ctrl+Shift+F)' },
     { id: 'create', icon: 'create', title: 'Create – drag items onto the canvas' }, { id: 'cloud', icon: 'cloud', title: 'Account, sharing & publishing' }, '-',
-    { id: 'plugins', icon: 'plugin', title: 'Plugins' }, { id: 'themes', icon: 'theme', title: 'Themes' },
+    { id: 'plugins', icon: 'plugin', title: 'Plugins', adv: true }, { id: 'themes', icon: 'theme', title: 'Themes', adv: true },
   ];
   SB.renderActivity = function () {
     const bar = $('#activity'); bar.textContent = '';
     const add = (v) => {
-      if (v === '-') return bar.append(h('div', { class: 'act-sep' }));
-      bar.append(h('button', { class: 'act' + (SB.current === v.id ? ' active' : ''), title: v.title, 'data-view': v.id, onclick: () => (SB.current === v.id && !$('#sidebar').classList.contains('collapsed') ? SB.collapse(true) : SB.show(v.id)) }, VX.icon(v.icon)));
+      if (v === '-') return bar.append(h('div', { class: 'act-sep adv' }));
+      bar.append(h('button', { class: 'act' + (v.adv ? ' adv' : '') + (SB.current === v.id ? ' active' : ''), title: v.title, 'data-view': v.id, onclick: () => (SB.current === v.id && !$('#sidebar').classList.contains('collapsed') ? SB.collapse(true) : SB.show(v.id)) }, VX.icon(v.icon)));
     };
     BUILTIN.forEach(add);
     for (const p of Forge.panels.values()) add({ id: 'panel:' + p.id, icon: p.icon, title: p.title + ' (plugin)' });
@@ -69,12 +69,12 @@
       { label: 'Reveal in folder', run: () => window.native.reveal(it.path) }, { label: 'Copy path', run: () => navigator.clipboard && navigator.clipboard.writeText(it.path) },
     ].filter(Boolean));
   }
-  SB.newFile = async (dir) => { dir = dir || S.root; if (!dir) return VX.app.openFolder(); const n = await VX.ui.ask('New file name', '', { hint: 'e.g. index.html, style.css, player.vxgame, menu.vxui' }); if (!n) return; try { const p = await window.native.create(dir, n, false); if (VX.path.ext(n) === 'vxgame') await window.native.writeFile(p, JSON.stringify(VX.GameProject.blank({ name: VX.path.stem(n) }), null, 2)); else if (VX.path.ext(n) === 'vxui') await window.native.writeFile(p, VX.Designer.blank().serialize()); expanded.add(dir); SB.refresh(); VX.tabs.open({ path: p }); } catch (e) { VX.ui.toast(e.message, 'error'); } };
+  SB.newFile = async (dir) => { dir = dir || S.root; if (!dir) return VX.app.openFolder(); const n = await VX.ui.ask('New file name', '', { hint: 'Any file type: index.php, schema.sql, .htaccess, nginx.conf, app.py, config.yml … (or player.vxgame, menu.vxui)' }); if (!n) return; try { const p = await window.native.create(dir, n, false); const starter = VX.templates && VX.templates.starter && VX.templates.starter(n); if (starter) await window.native.writeFile(p, starter); if (VX.path.ext(n) === 'vxgame') await window.native.writeFile(p, JSON.stringify(VX.GameProject.blank({ name: VX.path.stem(n) }), null, 2)); else if (VX.path.ext(n) === 'vxui') await window.native.writeFile(p, VX.Designer.blank().serialize()); expanded.add(dir); SB.refresh(); VX.tabs.open({ path: p }); } catch (e) { VX.ui.toast(e.message, 'error'); } };
   SB.newFolder = async (dir) => { dir = dir || S.root; if (!dir) return VX.app.openFolder(); const n = await VX.ui.ask('New folder name'); if (!n) return; try { await window.native.create(dir, n, true); expanded.add(dir); expanded.add(VX.path.join(dir, n)); SB.refresh(); } catch (e) { VX.ui.toast(e.message, 'error'); } };
 
   SB.views.explorer = {
     title: 'Explorer',
-    actions: () => [abtn('file', 'New file', () => SB.newFile()), abtn('folder', 'New folder', () => SB.newFolder()), abtn('refresh', 'Refresh', () => SB.refresh()), abtn('plus', 'New project…', () => VX.app.newProject())],
+    actions: () => [abtn('file', 'New file', () => SB.newFile()), abtn('folder', 'New folder', () => SB.newFolder()), abtn('refresh', 'Refresh', () => SB.refresh()), abtn('plus', 'New project…', () => VX.app.newProject()), abtn('files', 'Database', () => VX.web.openDatabase()), abtn('globe', 'Export website (ZIP / tar.gz)', () => VX.web.exportSite()), ...(S.root ? [abtn('close', 'Close workspace', () => VX.app.closeWorkspace())] : [])],
     render(c) {
       if (!S.root) { c.append(h('div', { class: 'empty' }, h('p', {}, 'No folder open.'), h('button', { class: 'btn primary', onclick: () => VX.app.openFolder() }, VX.icon('folder', 14), 'Open folder'), h('div', {}, h('button', { class: 'btn', onclick: () => VX.app.newProject() }, VX.icon('plus', 14), 'New project')))); return; }
       c.append(h('div', { class: 'group-title', title: S.root }, VX.path.base(S.root), h('span', { class: 'tag' }, VX.app.settings.mode)));

@@ -111,4 +111,10 @@
   };
   VX.icon = (name, size) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico'); if (size) { s.style.width = s.style.height = size + 'px'; } s.innerHTML = P[name] || P.file; return s; };
   VX.iconHTML = (name) => `<svg class="ico" viewBox="0 0 24 24">${P[name] || P.file}</svg>`;
+
+  /** Secure parent <-> preview/game messaging: a random per-session token plus a pinned origin (never "*" when the origin is known). */
+  VX.channel = {
+    token: () => { const a = new Uint8Array(16); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => (a[i] = Math.floor(Math.random() * 256))); return [...a].map((b) => b.toString(16).padStart(2, '0')).join(''); },
+    origin: () => (location.origin && location.origin !== 'null' && /^[a-z][a-z0-9+.-]*:\/\/[^/]+$/i.test(location.origin) ? location.origin : '*'),
+  };
 })();

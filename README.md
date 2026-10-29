@@ -39,9 +39,18 @@ Your own projects and games are never deleted. The same clean-up of app data is 
 ## Write a plugin
 Drop a `.js` file in the plugins folder (Plugins panel → Open folder) with a `/** @forge-plugin {...} */` manifest and an optional `/** @forge-docs ... */` block. See `plugins/` for examples and Docs → Plugins → Plugin API.
 
+## What's new in this version
+- Web projects: any file type, a built-in SQLite database (browse/edit/SQL/import/export), `window.VXDB` in previews, PHP run (desktop, needs PHP installed), local-server preview, and **Export website** to ZIP / tar.gz with `.htaccess`, `nginx.conf`, database and deploy notes.
+- Games: `Once` trigger, Expression variables a–f, camera view width/height, GUI banner ads with an ad-service choice (house, image, HTML tag, AdSense, own code), first-person 3D demo, blank new projects (demos under the Command Palette), labels that survive restarts, working device frames in Play.
+- Editor: collapsible block palette / settings / nodes, panels that adapt to window size, real Simple vs Advanced modes.
+- Markdown Preview plugin: outline, syntax-highlighted code with line numbers and a Copy button that follows the scroll. Docs use the same code blocks.
+
 ## Known limits (please read)
-- The Rust side (`src-tauri`) was written but **not compiled** in the environment this was built in. The whole front end, game runtime, and server were run and tested in a headless browser. Expect to fix small compile errors on first `npm start`.
+- The Rust side (`src-tauri`) was written but **not compiled** in the environment this was built in. The whole front end, game runtime, and server were run and tested in a headless browser. The PHP-server and local-preview-server code was compiled and run on its own (std only) but not inside Tauri. Expect to fix small compile errors on first `npm start`.
+- PHP features need PHP installed on your computer. AdSense / ad tags need your own approved account and internet access. Store export prepares build-ready projects; signing and uploading need your own developer accounts.
 - Ads, Game Center, achievements and device features are web fallbacks / simulations with hooks, not native SDK integrations.
 - No glTF import (voxel, primitive-group and OBJ models only).
 - Plugin blocks must be self-contained functions to survive export.
 - Legacy `.forgescene` files are converted best-effort. Data from the old McDev app folder is not migrated.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes and [SECURITY.md](SECURITY.md) for the security policy and known advisories.

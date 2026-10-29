@@ -33,7 +33,7 @@
 <meta name="generator" content="Vextra Studio"><title>${title}</title>
 <style>html,body{margin:0;height:100%;background:${bg};overflow:hidden;overscroll-behavior:none}#vx-game{position:fixed;inset:0;width:100%;height:100%}#vx-boot{position:fixed;inset:0;display:grid;place-items:center;color:#9aa3bd;font:14px system-ui,sans-serif}</style></head>
 <body><div id="vx-game"></div><div id="vx-boot">Loading…</div>
-<script>window.VXRT = window.VXRT || {};${opts.cloudUrl ? `window.VX_CLOUD = { url: ${JSON.stringify(opts.cloudUrl)} };` : ''}</script>
+<script>window.VXRT = window.VXRT || {};${opts.channel ? `window.__VX_CH = ${JSON.stringify({ token: String(opts.channel.token), origin: String(opts.channel.origin) })};` : ''}${opts.cloudUrl ? `window.VX_CLOUD = { url: ${JSON.stringify(opts.cloudUrl)} };` : ''}</script>
 <script type="module">
 const DATA = ${json};
 ${has3d ? `const THREE_SRC = ${lit(threeSrc)};
@@ -43,11 +43,11 @@ const RT = ${lit(scripts.join("\n;\n"))};
 (0, eval)(RT);
 const boot = document.getElementById('vx-boot');
 try {
-  const g = new VXRT.Game(DATA, { host: window.parent !== window });
+  const g = new VXRT.Game(DATA, { host: window.parent !== window, channel: window.__VX_CH || null });
   window.__vxGame = g; g.start(document.getElementById('vx-game')); boot.remove();
   window.addEventListener('error', (e) => g.log('error', e.message));
   window.addEventListener('unhandledrejection', (e) => g.log('error', String(e.reason && e.reason.message || e.reason)));
-} catch (e) { boot.textContent = 'Could not start the game: ' + e.message; console.error(e); if (window.parent !== window) window.parent.postMessage({ vx: 'log', level: 'error', text: e.stack || e.message }, '*'); }
+} catch (e) { boot.textContent = 'Could not start the game: ' + e.message; console.error(e); if (window.parent !== window) window.parent.postMessage({ vx: 'log', token: window.__VX_CH && window.__VX_CH.token, level: 'error', text: e.stack || e.message }, window.__VX_CH ? window.__VX_CH.origin : location.origin); }
 </script></body></html>`;
   }
 

@@ -13,7 +13,10 @@ a { color: var(--accent); }
 .btn.ghost { background: transparent; border: 1px solid #2c3445; color: var(--text); }
 `;
 
-  add({ id: 'blank', name: 'Blank website', desc: 'index.html, style.css and script.js', icon: 'globe', open: ['index.html'],
+  add({ id: 'empty', name: 'Blank page', desc: 'One empty index.html – start from nothing', icon: 'globe', open: ['index.html'],
+    files: () => ({ 'index.html': '' }) });
+
+  add({ id: 'blank', name: 'Starter website', desc: 'index.html, style.css and script.js', icon: 'globe', open: ['index.html'],
     files: (n) => ({
       'index.html': `<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>${cap(n)}</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <main class="container">\n    <h1>${cap(n)}</h1>\n    <p>Edit this page and press <b>Live preview</b> – it updates as you type.</p>\n    <button class="btn" id="hello">Click me</button>\n  </main>\n  <script src="script.js"></script>\n</body>\n</html>\n`,
       'style.css': baseCss + `main { padding: 12vh 0; }\nh1 { font-size: clamp(2rem, 6vw, 3.6rem); margin: 0 0 .4em; }\n`,
@@ -41,9 +44,32 @@ a { color: var(--accent); }
     }) });
 
   const gameTpl = (id, name, desc, icon, dim) => add({ id, name, desc, icon, open: ['game.vxgame'], files: (n) => ({ 'game.vxgame': JSON.stringify(VX.GameProject.blank({ name: cap(n), dim, sample: true }), null, 2), 'README.md': `# ${cap(n)}\n\nOpen **game.vxgame** to edit the game. Press **F5** (Play) to test it, then use **Export** to publish.\n` }) });
-  gameTpl('game2d', '2D game', 'Platformer starter with block logic', 'game', '2d');
-  gameTpl('game3d', '3D game', 'First 3D scene with orbit camera', 'cube', '3d');
+  gameTpl('game2d', '2D game', 'Empty 2D scene – build from scratch', 'game', '2d');
+  gameTpl('game3d', '3D game', 'Empty 3D scene – build from scratch', 'cube', '3d');
   add({ id: 'uidesign', name: 'UI design', desc: 'Visual layout you can export to HTML', icon: 'blocks', open: ['design.vxui'], files: () => ({ 'design.vxui': VX.Designer.blank().serialize() }) });
 
-  VX.templates = { list: () => T, get: (id) => T.find((t) => t.id === id) || T[0] };
+  add({ id: 'php-sqlite', name: 'PHP + SQLite site', desc: 'Dynamic site with a database (guestbook). Runs with “Run PHP”', icon: 'globe', open: ['index.php', 'schema.sql'],
+    files: (n) => ({
+      'index.php': `<?php\ndeclare(strict_types=1);\nrequire __DIR__ . '/db.php';\n\n$db = db();\nif ($_SERVER['REQUEST_METHOD'] === 'POST') {\n    $name = trim((string)($_POST['name'] ?? ''));\n    $msg  = trim((string)($_POST['message'] ?? ''));\n    if ($name !== '' && $msg !== '') {\n        $st = $db->prepare('INSERT INTO messages (name, message) VALUES (?, ?)');\n        $st->execute([mb_substr($name, 0, 60), mb_substr($msg, 0, 500)]);\n    }\n    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));\n    exit;\n}\n$rows = $db->query('SELECT name, message, created_at FROM messages ORDER BY id DESC LIMIT 50')->fetchAll();\nfunction e(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }\n?>\n<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>${cap(n)}</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <main class="container">\n    <h1>${cap(n)}</h1>\n    <p>A tiny guestbook stored in SQLite. Edit <code>schema.sql</code> or open the <b>Database</b> tool to browse the data.</p>\n    <form method="post" class="card">\n      <input name="name" placeholder="Your name" required maxlength="60">\n      <textarea name="message" placeholder="Say something…" required maxlength="500"></textarea>\n      <button class="btn">Post</button>\n    </form>\n    <?php foreach ($rows as $r): ?>\n      <article class="card"><b><?= e($r['name']) ?></b> <small><?= e($r['created_at']) ?></small><p><?= nl2br(e($r['message'])) ?></p></article>\n    <?php endforeach; ?>\n    <?php if (!$rows): ?><p class="muted">No messages yet – be the first.</p><?php endif; ?>\n  </main>\n</body>\n</html>\n`,
+      'db.php': `<?php\n// Opens (and creates) the SQLite database. When exported, the database lives in db/ which the server blocks from downloads.\nfunction db(): PDO {\n    static $pdo = null;\n    if ($pdo) return $pdo;\n    $path = is_dir(__DIR__ . '/db') ? __DIR__ . '/db/database.sqlite' : __DIR__ . '/database.sqlite';\n    $new = !file_exists($path);\n    $pdo = new PDO('sqlite:' . $path, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);\n    $pdo->exec(file_get_contents(__DIR__ . '/schema.sql'));\n    return $pdo;\n}\n`,
+      'schema.sql': `-- Runs every time the page loads, so use IF NOT EXISTS.\nCREATE TABLE IF NOT EXISTS messages (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL,\n  message TEXT NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);\n`,
+      'style.css': baseCss + `main { padding: 6vh 0; } .card { background: var(--card); border: 1px solid #232a38; border-radius: 12px; padding: 14px 16px; margin: 12px 0; } form.card { display: grid; gap: 10px; } input, textarea { background: #0e1117; color: var(--text); border: 1px solid #2c3445; border-radius: 8px; padding: 10px; font: inherit; } small, .muted { color: var(--muted); }\n`,
+    }) });
+
+  /** Starter content for any new file, by name. */
+  const stem = (n) => String(n).replace(/\.[^.]+$/, '');
+  const STARTERS = {
+    php: () => '<?php\ndeclare(strict_types=1);\n\n', sql: (n) => `-- ${n}\n`, py: () => '#!/usr/bin/env python3\n\n', sh: () => '#!/usr/bin/env bash\nset -euo pipefail\n\n',
+    yml: () => '# configuration\n', yaml: () => '# configuration\n', env: () => '# KEEP SECRETS OUT OF GIT\n', md: (n) => `# ${cap(stem(n))}\n\n`, html: (n) => `<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>${cap(stem(n))}</title>\n</head>\n<body>\n  \n</body>\n</html>\n`,
+  };
+  const starter = (name) => {
+    const base = String(name).split('/').pop(); const lower = base.toLowerCase(); const sc = (VX.web && VX.web.serverConfigs) ? VX.web.serverConfigs({ name: 'mysite' }) : null;
+    if (lower === '.htaccess') return sc ? sc.htaccess : '';
+    if (lower === 'nginx.conf') return sc ? sc.nginx : '';
+    if (lower === 'dockerfile') return 'FROM php:8.3-apache\nCOPY . /var/www/html/\nRUN docker-php-ext-install pdo pdo_sqlite\n';
+    if (lower === '.gitignore') return 'node_modules/\n*.log\n.env\ndb/*.sqlite\n';
+    const ext = lower.includes('.') ? lower.split('.').pop() : ''; const f = STARTERS[ext]; return f ? f(base) : '';
+  };
+
+  VX.templates = { list: () => T, get: (id) => T.find((t) => t.id === id) || T[0], starter };
 })();
