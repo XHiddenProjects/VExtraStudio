@@ -14,3 +14,4 @@ src-tauri/resources/server/sea-*
 *.deb
 dist-web/
 src-tauri/updater/enable.conf.json
+src-tauri/windows/sign.conf.json

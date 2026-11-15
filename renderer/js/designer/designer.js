@@ -228,6 +228,8 @@
         s.append(F('Background', bg));
         const presets = h('div', { class: 'row' }, [['Desktop', 1280, 800], ['Laptop', 1024, 640], ['Tablet', 768, 1024], ['Phone', 390, 844]].map(([n, w, hh]) => h('button', { class: 'btn sm', onclick: () => { this.doc.width = w; this.doc.height = hh; this._applyZoom(); this.commit(); this._drawSide(); this.fit(); } }, n)));
         s.append(F('Size presets', presets));
+        const rs = h('select', {}, [['auto', 'Auto – scale to the screen, stack on phones'], ['scale', 'Scale to the screen only'], ['fixed', 'Fixed size']].map(([v, l]) => h('option', { value: v }, l))); rs.value = this.doc.responsive || 'auto'; rs.addEventListener('change', () => { this.doc.responsive = rs.value; this.commit(); });
+        s.append(F('Responsive layout', rs), F('Stack below (px)', this._num(this.doc.breakpoint || 640, (v) => { this.doc.breakpoint = Math.max(320, v); })));
         s.append(h('div', { class: 'empty left' }, 'Drag components from the Create panel onto the canvas. Click one to select it, drag to move, use the handles to resize, arrow keys to nudge (Shift = 10px), Shift-click or drag a box to select several.'));
       } else if (!it) {
         s.append(h('div', { class: 'group-title' }, `${its.length} items selected`));
@@ -249,6 +251,10 @@
           input.addEventListener('input', () => { it.props[f.key] = f.type === 'number' ? parseFloat(input.value) || 0 : input.value; this.refreshItem(it, true); });
           input.addEventListener('change', () => this.commit()); s.append(F(f.label, input));
         }
+        s.append(h('div', { class: 'group-title' }, 'Responsive & links'));
+        const txt = (key, ph) => { const i = h('input', { type: 'text', value: it[key] || '', placeholder: ph }); i.addEventListener('input', () => { it[key] = i.value; }); i.addEventListener('change', () => { this.commit(); this._drawSide(); }); return i; };
+        const mob = h('select', {}, [['stack', 'Stack in reading order'], ['full', 'Stack, full width'], ['hide', 'Hide on phones']].map(([v, l]) => h('option', { value: v }, l))); mob.value = it.mobile || 'stack'; mob.addEventListener('change', () => { it.mobile = mob.value; this.commit(); });
+        s.append(F('Anchor name', txt('anchor', 'e.g. pricing  →  link to #pricing')), F('Show on page', txt('page', 'empty = every page; e.g. about  →  #about')), F('On phones', mob));
         s.append(h('div', { class: 'group-title adv' }, 'Arrange')); { const ar = this._arrangeRow(); ar.classList.add('adv'); s.append(ar); }
         s.append(h('div', { class: 'row adv', style: 'margin-top:6px' }, [['⇤', 'left', 'Align left'], ['↔', 'center', 'Center horizontally on canvas'], ['⇥', 'right', 'Align right'], ['⤒', 'top', 'Align top'], ['↕', 'middle', 'Center vertically on canvas'], ['⤓', 'bottom', 'Align bottom']].map(([l, k, t]) => h('button', { class: 'btn sm', title: t, onclick: () => this.align(k) }, l))));
       }

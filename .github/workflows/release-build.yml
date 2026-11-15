@@ -118,6 +118,46 @@ jobs:
             echo "::warning title=Auto-updater is off::Add the repository secret TAURI_SIGNING_PRIVATE_KEY (and TAURI_SIGNING_PRIVATE_KEY_PASSWORD) and commit src-tauri/updater/pubkey.txt – run 'npm run updater:keygen' once. The installers are still built."
           fi
 
+      # Windows code signing (reduces the Microsoft SmartScreen "unknown publisher" warning). Optional: with no secrets the installers are
+      # built unsigned exactly as before. Pick ONE method and add its repository secrets:
+      #   A) Azure Artifact Signing (formerly Trusted Signing, the cheapest trusted option): AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+      #      AZURE_SIGNING_ENDPOINT (e.g. https://eus.codesigning.azure.net), AZURE_SIGNING_ACCOUNT, AZURE_SIGNING_PROFILE
+      #   B) A code-signing certificate file (.pfx, OV or EV): WINDOWS_CERTIFICATE (the .pfx as base64) and WINDOWS_CERTIFICATE_PASSWORD
+      - name: prepare Windows code signing
+        id: sign
+        if: matrix.name == 'windows'
+        shell: pwsh
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $cfg = 'src-tauri/windows/sign.conf.json'
+          if ($env:AZURE_SIGNING_ENDPOINT -and $env:AZURE_SIGNING_ACCOUNT -and $env:AZURE_SIGNING_PROFILE -and $env:AZURE_CLIENT_SECRET) {
+            cargo install trusted-signing-cli --locked
+            $conf = @{ bundle = @{ windows = @{ signCommand = @{ cmd = 'trusted-signing-cli'; args = @('-e', $env:AZURE_SIGNING_ENDPOINT, '-a', $env:AZURE_SIGNING_ACCOUNT, '-c', $env:AZURE_SIGNING_PROFILE, '-d', 'Vextra Studio', '%1') } } } }
+            $conf | ConvertTo-Json -Depth 8 | Set-Content $cfg
+            "enabled=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host 'Windows code signing: ON (Azure Artifact Signing)'
+          } elseif ($env:WINDOWS_CERTIFICATE -and $env:WINDOWS_CERTIFICATE_PASSWORD) {
+            [IO.File]::WriteAllBytes("$PWD\cert.pfx", [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+            $pw = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+            $thumb = (Import-PfxCertificate -FilePath "$PWD\cert.pfx" -CertStoreLocation Cert:\CurrentUser\My -Password $pw).Thumbprint
+            Remove-Item "$PWD\cert.pfx" -Force
+            $conf = @{ bundle = @{ windows = @{ certificateThumbprint = $thumb; digestAlgorithm = 'sha256'; timestampUrl = 'http://timestamp.digicert.com' } } }
+            $conf | ConvertTo-Json -Depth 8 | Set-Content $cfg
+            "enabled=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host 'Windows code signing: ON (certificate file)'
+          } else {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host '::warning title=Windows installers are not code-signed::Windows SmartScreen will show an unknown-publisher warning. Add the Azure Artifact Signing secrets or WINDOWS_CERTIFICATE + WINDOWS_CERTIFICATE_PASSWORD (see the in-app docs, Windows SmartScreen). The installers are still built.'
+          }
+
       # Updater files (latest.json + signatures) are only uploaded when the updater is on.
       - name: build & upload to the release
         id: tauri
@@ -131,7 +171,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.prepare.outputs.release_id }}
-          args: ${{ matrix.args }}${{ steps.upd.outputs.enabled == 'true' && ' --config src-tauri/updater/enable.conf.json' || '' }}
+          args: ${{ matrix.args }}${{ steps.upd.outputs.enabled == 'true' && ' --config src-tauri/updater/enable.conf.json' || '' }}${{ steps.sign.outputs.enabled == 'true' && ' --config src-tauri/windows/sign.conf.json' || '' }}
           uploadUpdaterJson: ${{ steps.upd.outputs.enabled == 'true' }}
           uploadUpdaterSignatures: ${{ steps.upd.outputs.enabled == 'true' }}
 
@@ -144,7 +184,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.prepare.outputs.release_id }}
-          args: ${{ matrix.args }} --config src-tauri/windows/no-wix-fragment.conf.json${{ steps.upd.outputs.enabled == 'true' && ' --config src-tauri/updater/enable.conf.json' || '' }}
+          args: ${{ matrix.args }} --config src-tauri/windows/no-wix-fragment.conf.json${{ steps.upd.outputs.enabled == 'true' && ' --config src-tauri/updater/enable.conf.json' || '' }}${{ steps.sign.outputs.enabled == 'true' && ' --config src-tauri/windows/sign.conf.json' || '' }}
           uploadUpdaterJson: ${{ steps.upd.outputs.enabled == 'true' }}
           uploadUpdaterSignatures: ${{ steps.upd.outputs.enabled == 'true' }}
 

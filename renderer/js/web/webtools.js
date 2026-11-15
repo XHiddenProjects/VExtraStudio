@@ -24,7 +24,12 @@
     const inject = chan ? capture(chan.token, chan.origin) + Web.dbShim(chan.token, chan.origin) : ''; out = /<head[^>]*>/i.test(out) ? out.replace(/<head[^>]*>/i, (m) => m + inject) : inject + out;
     return { html: out, warnings };
   };
-  Web.markdownPage = (md, title) => `<!doctype html><meta charset="utf-8"><title>${VX.esc(title || '')}</title><style>body{font:16px/1.65 system-ui,sans-serif;max-width:820px;margin:32px auto;padding:0 20px;color:#1d2129}pre{background:#f3f4f7;padding:12px;border-radius:8px;overflow:auto}code{background:#f3f4f7;padding:1px 5px;border-radius:4px}pre code{background:none;padding:0}blockquote{border-left:4px solid #cbd;margin:0;padding:0 14px;color:#556}table{border-collapse:collapse}td,th{border:1px solid #ccd;padding:5px 10px}img{max-width:100%}</style>${VX.markdown.render(md, { plain: true })}`;
+  Web.markdownPage = (md, title) => {
+    /* syntax-highlighted code blocks (same renderer as the docs); light page, so use the light token colours */
+    const hl = (VX.highlightCSS || '').replace(/\.cb-pre\{/g, '.codeblock .cb-pre{').replace(/\.cb-pre code\{/g, '.codeblock .cb-pre code{');
+    const wire = `document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.cb-copy');if(!b)return;var t=[].map.call(b.closest('.codeblock').querySelectorAll('.cl'),function(l){return l.textContent.replace(/^\\u200b/,'').replace(/\\n$/,'')}).join('\\n');var d=function(){b.textContent='Copied \\u2713';setTimeout(function(){b.textContent='Copy'},1400)};if(navigator.clipboard)navigator.clipboard.writeText(t).then(d,function(){});else d()})`;
+    return `<!doctype html><html data-theme="light"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${VX.esc(title || '')}</title><style>:root{--border:#d5d9e2;--bg2:#f6f7fa;--bg3:#eceef4;--muted:#5b6475}body{font:16px/1.65 system-ui,sans-serif;max-width:820px;margin:32px auto;padding:0 20px;color:#1d2129;background:#fff}pre:not(.cb-pre){background:#f3f4f7;padding:12px;border-radius:8px;overflow:auto}code{background:#f3f4f7;padding:1px 5px;border-radius:4px}pre code,.codeblock code{background:none;padding:0}blockquote{border-left:4px solid #cbd;margin:0;padding:0 14px;color:#556}table{border-collapse:collapse}td,th{border:1px solid #ccd;padding:5px 10px}img{max-width:100%}ul:has(>li.task){list-style:none;padding-left:1.4em}li.task input{margin-right:6px}${hl}</style>${VX.markdown.render(md)}<script>${wire}<\/script>`;
+  };
 
   /** Open (or focus) a live-preview tab for a tab/file. */
   Web.openPreview = async function (src, device) {
@@ -52,7 +57,7 @@
       const mine = ++token; const live = VX.tabs.list().find((x) => x.id === src.id || (src.path && x.path === src.path && x.kind === 'code'));
       let text = live && live.doc ? VX.tabs.kinds.code.text(live) : await window.native.readFile(src.path);
       let html; try { if (ext === 'md' || ext === 'markdown') html = Web.markdownPage(text, src.title); else if (ext === 'svg') html = `<!doctype html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#fff">${text}`; else { const r = await Web.buildHtml(text, src.path, chan); html = r.html; r.warnings.forEach((w) => VX.bottom.log('warn', 'Preview: could not inline ' + w, 'preview')); } } catch (e) { html = `<pre style="color:#c00;padding:20px">${VX.esc(e.message)}</pre>`; }
-      if (mine === token) { frame.srcdoc = html; }
+      if (mine === token) { frame.srcdoc = VX.ui.guardHash ? VX.ui.guardHash(html) : html; }
     };
     const queue = (force) => { if (serverUrl && force !== true) return; clearTimeout(timer); timer = setTimeout(refresh, VX.app.settings.previewDelay || 400); };
     const offs = [VX.on('editorChange', (x) => { if (x && (x.id === src.id || x.path === src.path || /\.(css|js|json)$/i.test(x.path || ''))) queue(); }), VX.on('saved', () => queue(true))];

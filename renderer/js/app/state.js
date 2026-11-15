@@ -1,7 +1,7 @@
 /* Vextra Studio – application state: settings, workspace root, recent projects. */
 (function () {
   const DEFAULTS = {
-    mode: 'advanced', theme: 'vextra-dark', fontSize: 14, fontFamily: '', tabSize: 2, wrap: false, autosave: false, formatOnSave: false,
+    mode: 'advanced', theme: 'vextra-dark', fontSize: 14, fontFamily: '', tabSize: 2, wrap: false, liveSuggest: false, autosave: false, formatOnSave: false,
     disabledPlugins: [], plugins: {}, recent: [], updateCheck: true, skipVersion: '', lastUpdateCheck: 0, serverUrl: '', autoServer: false, sidebarWidth: 270, bottomHeight: 220, previewDelay: 400, lastView: 'explorer', welcome: true, language: 'auto', motion: 'system', uiZoom: 100, bigFocus: false,
   };
   const S = { root: null, settings: Object.assign({}, DEFAULTS), tabs: [], active: null, view: 'explorer' };
@@ -22,7 +22,7 @@
     },
     setRoot(path) { S.root = path; VX.emit('root', path); },
     rel: (p) => (S.root ? VX.path.rel(S.root, p) : VX.path.base(p)),
-    version: '3.12.0',
+    version: '4.0.0',
   });
   /* file classification */
   const IMG = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg', 'avif']);

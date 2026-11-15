@@ -20,7 +20,7 @@
     if (!code) return; const s = VX.app.settings, th = VX.theme.current(); if (!th) return;
     code.setLook(th, { fontSize: s.fontSize, tabSize: s.tabSize, wrap: s.wrap, fontFamily: s.fontFamily || 'JetBrains Mono, Cascadia Code, Consolas, Menlo, monospace' });
   }
-  VX.on('theme', applyLook); VX.on('settings', (k) => { if (['fontSize', 'tabSize', 'wrap', 'fontFamily'].includes(k)) applyLook(); });
+  VX.on('theme', applyLook); VX.on('settings', (k) => { if (['fontSize', 'tabSize', 'wrap', 'fontFamily', 'liveSuggest'].includes(k)) applyLook(); });
   T.code = () => ensureCode();
 
   const byId = (id) => S.tabs.find((t) => t.id === id);

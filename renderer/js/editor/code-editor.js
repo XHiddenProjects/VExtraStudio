@@ -54,7 +54,7 @@ ${P} .ace_scrollbar-v::-webkit-scrollbar-thumb,${P} .ace_scrollbar-h::-webkit-sc
   function create(host, { onChange, onCursor }) {
     const ed = ace.edit(host, {
       showPrintMargin: false, highlightActiveLine: true, useSoftTabs: true, behavioursEnabled: true, wrap: false, fixedWidthGutter: true,
-      enableBasicAutocompletion: true, enableLiveAutocompletion: true, enableSnippets: true, scrollPastEnd: 0.3, showFoldWidgets: true,
+      enableBasicAutocompletion: true, enableLiveAutocompletion: false, enableSnippets: true, scrollPastEnd: 0.3, showFoldWidgets: true,
       cursorStyle: 'smooth', animatedScroll: true, displayIndentGuides: true,
     });
     ed.renderer.setScrollMargin(8, 8);
@@ -82,6 +82,8 @@ ${P} .ace_scrollbar-v::-webkit-scrollbar-thumb,${P} .ace_scrollbar-h::-webkit-sc
       cursor: () => { const p = ed.getCursorPosition(); return { row: p.row + 1, col: p.column + 1 }; },
       setLook(theme, opts) {
         look = opts; ed.setTheme(defineTheme(theme)); ed.setFontSize(opts.fontSize);
+        /* suggestions never pop up on their own unless switched on in Settings; Ctrl+Space always opens them */
+        try { ed.setOption('enableLiveAutocompletion', !!(window.VX && VX.app && VX.app.settings && VX.app.settings.liveSuggest)); } catch { /* ignore */ }
         ed.setOption('fontFamily', opts.fontFamily || 'monospace'); if (cur) applySession(cur.session); ed.resize(true);
       },
       getSelection: () => ed.getSelectedText(),

@@ -111,9 +111,23 @@ Plugins can add more components. → [Plugin API](doc:plugin-api)
 - **Align and distribute** several items, reorder layers, lock or hide layers.
 - **Undo / Redo**, copy / paste / duplicate, zoom with Ctrl+wheel, **Fit**.
 
+## Responsive on every device
+
+Exported pages and previews adjust to the screen by themselves (**Canvas → Responsive layout**):
+
+- **Auto** (default) scales the whole design to the width of the screen, and on phones (narrower than **Stack below**, 640 px by default) reflows it into **one column in reading order**.
+- **Scale to the screen only** never stacks; **Fixed size** keeps the design at its exact pixel size.
+- For each item, **On phones** chooses *Stack*, *Stack, full width* or *Hide on phones*.
+
+## Links, anchors and pages (like a website builder)
+
+- Give an item an **Anchor name** (Properties → Responsive & links), then link to it with \`#name\` from a Link, Button, Navbar, Tabs or Footer. Navbar, Tabs and Footer lists take \`Label|#name\`.
+- Give items a **Show on page** name to build a multi-page site in one design: \`#about\` shows the items of the page *about* (items with no page show on every page). The first page you use is the home page.
+- A \`#\` link **never leaves the site or reloads the app**: the page scrolls or switches, and the address bar keeps the \`#name\` (also in previews).
+
 ## Export
 
-**Export HTML** writes a standalone page next to your design, and **Preview** opens it in a window. Use the exported HTML as a starting point in a website project.
+**Export HTML** writes a standalone page next to your design, and **Preview** opens it in a window. Use the exported HTML as a starting point in a website project. Hidden layers are not exported.
 
 > If dragging ever seems to do nothing: Vextra uses its own pointer-based drag and drop (not the browser's), so it works in the desktop app. Make sure you have a design tab open — the Create panel switches to that design's components.`);
 
@@ -266,6 +280,13 @@ Settings → About shows when a new version exists; **Install and restart** down
 3. Publish a release: the workflow signs the bundles and uploads \`latest.json\`.
 
 Builds made before the key was added cannot update themselves; install one new build by hand. Linux updates work for the AppImage only.
+
+## Windows SmartScreen ("Windows protected your PC")
+SmartScreen warns about installers it has not seen often and that are not signed by a known publisher. No setting in the app can switch that off; what removes it is **code signing**, and a signed publisher then builds trust over time. The release workflow signs the Windows installers when you add one of these repository secrets (Settings → Secrets and variables → Actions):
+- **Azure Artifact Signing** (formerly Trusted Signing): \`AZURE_TENANT_ID\`, \`AZURE_CLIENT_ID\`, \`AZURE_CLIENT_SECRET\`, \`AZURE_SIGNING_ENDPOINT\`, \`AZURE_SIGNING_ACCOUNT\`, \`AZURE_SIGNING_PROFILE\`.
+- **A certificate file** (OV or EV, \`.pfx\`): \`WINDOWS_CERTIFICATE\` (the file as base64) and \`WINDOWS_CERTIFICATE_PASSWORD\`.
+
+Without secrets the installers are built unsigned and the log says so. Until you sign: users can press *More info → Run anyway*, and you can send the installer to Microsoft at https://www.microsoft.com/wdsi/filesubmission to be checked. Keep one file name and download from the same GitHub release page every time.
 
 ## Uninstalling Vextra Studio
 

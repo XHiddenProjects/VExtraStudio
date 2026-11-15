@@ -2,7 +2,23 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [3.12.0] — current
+## [4.0.0] — current
+
+### Added
+- **vxui (UI designer) is responsive on every device.** Exported pages and previews scale to the screen and, on phones, reflow into one column in reading order. New canvas options *Responsive layout* (Auto / Scale / Fixed) and *Stack below*; per-item *On phones* (stack, full width, hide). Hidden layers are no longer exported.
+- **Site-builder style links and pages.** Items get an *Anchor name* and a *Show on page* name; `#anchor` links scroll, `#page` links switch the visible page (one design, several pages). Navbar, Tabs and Footer accept `Label|#target`.
+- **Windows code signing in the release workflow** (reduces the Microsoft SmartScreen warning): optional Azure Artifact Signing or a `.pfx` certificate through repository secrets; with no secrets the build is unsigned as before and the log says so. Installer metadata (copyright, homepage, description) and a SHA-256 timestamped signature are set. See *Windows SmartScreen* in the docs.
+- **Designer & Game Extras 2.0.0** rebuilt as a professional component pack: CTA banner, Announcement bar, Feature grid, Steps, FAQ accordion, Countdown and Status chip for the designer; Star, Coin and Heart (2D, animated) and Crystal, Orb and Portal ring (3D, glow, optional light) for games. All text is escaped, and the objects work in exported games.
+- Setting **Suggest while typing** (Settings → Code editor), off by default.
+
+### Changed
+- **Code suggestions no longer pop up on their own** while you type variables, labels or text. They open with Ctrl+Space; turn on *Suggest while typing* to get the old behaviour.
+
+### Fixed
+- **Preview of `#` links no longer shows the Vextra front end.** In a preview, a link such as `href="#top"` used to load the app itself inside the preview frame; every preview now keeps `#` links on the page (and `hashchange` still fires for hash routers).
+- **Syntax highlighting in the Preview tab for `.md` files** (the built-in preview rendered code blocks as plain text). Blocks with no language are detected, and the footer credit in a dark design is readable.
+
+## [3.12.0]
 
 ### Added
 - **Signed automatic updates (desktop).** Settings → About now offers **Install and restart**: the app downloads the update, checks its signature against the public key built into the app, installs it and restarts. Windows installs passively; macOS uses the `.app.tar.gz`; Linux updates the AppImage (the .deb has to be reinstalled).

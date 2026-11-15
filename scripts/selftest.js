@@ -27,7 +27,19 @@ const call = (method, p, body, token) => new Promise((res) => { const d = body ?
   const md = ctx.VX.markdown.render('# T\n\n- [x] a\n\n```php\n<?php echo 1;\n```\n');
   ok(/class="codeblock"/.test(md) && /class="cb-copy"/.test(md) && /class="ln"/.test(md) && /task/.test(md), 'markdown: code block with copy button + line numbers + task list');
   ok(!/<script/i.test(ctx.VX.markdown.render('<script>alert(1)</script>')), 'markdown escapes raw HTML');
+  { const g = ctx.VX.markdown.render('```\nconst a = 1; // x\n```\n\n```ts title="x"\nlet y: number = 2\n```\n\n  ```json\n  {"a": 1}\n  ```\n\n- [ ] t\n  - [x] n\n');
+    ok((g.match(/tk-/g) || []).length >= 6, 'markdown: unlabelled, titled and indented fences are highlighted');
+    ok((g.match(/class="task"/g) || []).length === 2, 'markdown: nested task items are rendered as tasks'); }
   ok(ctx.VX.archive.crc32(new TextEncoder().encode('123456789')) === 0xcbf43926, 'crc32 check value');
+  { ctx.VX.esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); load('js/designer/components.js');
+    const out = ctx.VX.components.uiToHTML({ width: 1000, height: 600, bg: '#101010', items: [
+      { id: 'a', type: 'navbar', x: 0, y: 0, w: 1000, h: 56, rot: 0, props: { brand: 'B', links: 'Home|#home, About|#about', bg: '#111', color: '#fff' } },
+      { id: 'b', type: 'heading', x: 10, y: 80, w: 200, h: 40, rot: 0, page: 'about', anchor: 'top', mobile: 'hide', props: { text: 'x', size: 20, color: '#fff', weight: 700, align: 'left' } },
+      { id: 'c', type: 'heading', x: 10, y: 90, w: 200, h: 40, rot: 0, hidden: true, props: { text: 'SECRET', size: 20, color: '#fff', weight: 700, align: 'left' } }] }, 't');
+    ok(/name="viewport"/.test(out) && /class="fit"/.test(out) && /\.stack \.it/.test(out), 'vxui export: responsive viewport, scaling stage and phone stacking');
+    ok(/href="#about"/.test(out) && /data-p="about"/.test(out) && /id="top"/.test(out) && /data-m="hide"/.test(out), 'vxui export: #links, pages, anchors and phone options');
+    ok(!/SECRET/.test(out), 'vxui export: hidden layers are not exported');
+    ok(!/javascript:/i.test(ctx.VX.components.uiToHTML({ width: 100, height: 100, bg: '#000', items: [{ id: 'z', type: 'link', x: 0, y: 0, w: 50, h: 20, rot: 0, props: { text: 'x', href: '#', color: '#fff', size: 12 } }] }, 't')), 'vxui export: no javascript: links'); }
   ctx.__done = false;
   (async () => { const es = [{ path: 'a/b.txt', data: 'hello '.repeat(200) }, { path: '.htaccess', data: 'x' }]; const z = await ctx.VX.archive.zip(es), t = await ctx.VX.archive.tarGz(es);
     const tmp = path.join(require('os').tmpdir(), 'vx-arch-' + process.pid); fs.mkdirSync(tmp, { recursive: true }); fs.writeFileSync(path.join(tmp, 'a.zip'), z); fs.writeFileSync(path.join(tmp, 'a.tgz'), t);

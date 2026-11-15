@@ -48,6 +48,13 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
 
+## v4.0.0 notes
+- **Windows signing secrets:** the certificate (`WINDOWS_CERTIFICATE`, base64 `.pfx`) is written to the runner only long enough to import it into the user store and is deleted immediately; Azure credentials are read from repository secrets and never written to files. `sign.conf.json` (thumbprint or signing command, no secrets) is generated per build and git-ignored. Signing changes nothing for users who verify the checksums.
+- **Hash links in previews:** the preview frame is still sandboxed; the injected handler only changes the page's own `location.hash` and scrolls. It does not read other frames or the parent.
+- **vxui export:** link targets and anchor names are sanitised (`#`, `/`, `http(s):`, `mailto:`, `tel:` only; anchor ids reduced to `A-Z a-z 0-9 _ -`), every value is HTML-escaped, and the countdown embeds only a number and an escaped string in its script. `javascript:` links are not produced.
+- **Extras plugin:** all text is escaped; the 2D/3D object code is self-contained and runs only inside the game's own sandbox.
+- **Editor suggestions:** not a security change, but nothing is sent anywhere – suggestions are local.
+
 ## v3.12.0 notes
 - **Auto-updater:** updates are verified with a minisign public key compiled from `src-tauri/updater/pubkey.txt`; an unsigned or tampered download is rejected. The private key lives only in GitHub secrets (never in the repo), the endpoint is HTTPS-only, no `dangerous*` options are used, and the updater commands are Rust-side only (no `updater:default` capability for the webview). The downgrade guard (`requireSignedVersion`) is not enabled yet.
 

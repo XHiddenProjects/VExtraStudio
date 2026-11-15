@@ -98,10 +98,18 @@
     return off;
   }
 
+  /** A srcdoc page resolves href="#x" against the PARENT address, so clicking one used to load the Vextra front end inside the preview.
+   *  This adds a tiny handler: "#" links change only the page's own hash (hashchange still fires for hash routers) and scroll to the target. */
+  const HASH_GUARD = `<script data-vextra-hash>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a||e.defaultPrevented)return;var h=a.getAttribute('href');if(!h||h.charAt(0)!=='#')return;e.preventDefault();var id=h.slice(1);try{id=decodeURIComponent(id)}catch(x){}var t=id&&(document.getElementById(id)||document.getElementsByName(id)[0]);try{if(location.hash!==h)location.hash=h}catch(x){}if(t&&t.scrollIntoView)t.scrollIntoView({behavior:'smooth',block:'start'});else if(!id)scrollTo({top:0,behavior:'smooth'})},true)<\/script>`;
+  function guardHash(html) {
+    html = String(html == null ? '' : html); if (/data-vextra-hash/.test(html)) return html;
+    return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + HASH_GUARD) : /<\/body\s*>/i.test(html) ? html.replace(/<\/body\s*>(?![\s\S]*<\/body\s*>)/i, HASH_GUARD + '</body>') : html + HASH_GUARD;
+  }
+
   /** Preview an HTML string in a sandboxed iframe inside a modal. */
   function preview(html, title) {
     const frame = h('iframe', { class: 'preview-frame', sandbox: 'allow-scripts allow-forms allow-modals allow-popups allow-pointer-lock' });
-    frame.srcdoc = html; return modal({ title: title || 'Preview', body: frame, wide: true, className: 'flush' });
+    frame.srcdoc = guardHash(html); return modal({ title: title || 'Preview', body: frame, wide: true, className: 'flush' });
   }
 
   /* form building blocks used by the inspectors */
@@ -109,5 +117,5 @@
   const sw = (on, fn) => { const b = h('button', { class: 'switch' + (on ? ' on' : ''), onclick: () => { on = !on; b.classList.toggle('on', on); fn(on); } }); return b; };
   const segmented = (opts, val, fn) => { const wrap = h('div', { class: 'seg' }); const draw = () => { wrap.textContent = ''; for (const [v, l, t] of opts) wrap.append(h('button', { class: v === val ? 'on' : '', title: t || '', onclick: () => { val = v; draw(); fn(v); } }, l)); }; draw(); wrap.set = (v) => { if (v !== val) { val = v; draw(); } }; return wrap; };
 
-  VX.ui = { toast, modal, ask, confirm, form, menu, preview, layer, field, sw, segmented };
+  VX.ui = { toast, modal, ask, confirm, form, menu, preview, guardHash, layer, field, sw, segmented };
 })();

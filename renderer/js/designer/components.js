@@ -18,6 +18,8 @@
   const F = 'width:100%;height:100%;box-sizing:border-box;';
   const SANS = "font-family:system-ui,-apple-system,'Segoe UI',sans-serif;";
   const R = (name, def) => register('ui', Object.assign({ type: name }, def));
+  /* "Label|#target" in comma lists becomes a real link on export; "#" targets stay on the page (they never reload the app) */
+  const lk = (entry, ex, style) => { const [label, target] = String(entry).split('|').map((x) => x.trim()); return ex && target ? `<a href="${esc(target)}" style="color:inherit;text-decoration:none;${style || ''}">${esc(label)}</a>` : `<span style="${style || ''}">${esc(label)}</span>`; };
   const list = (s) => String(s || '').split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
 
   /* ----- Layout ----- */
@@ -36,17 +38,17 @@
     schema: [{ key: 'title', label: 'Title', type: 'text' }, { key: 'sub', label: 'Subtitle', type: 'textarea' }, { key: 'cta', label: 'Button', type: 'text' }, C.bg, C.color, C.accent],
     html: (i) => `<div style="${F}background:${esc(i.props.bg)};color:${esc(i.props.color)};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:24px;${SANS}"><div style="font-size:42px;font-weight:800;letter-spacing:-.02em;line-height:1.1">${esc(i.props.title)}</div><div style="opacity:.7;font-size:17px;max-width:560px;line-height:1.5">${esc(i.props.sub)}</div><div style="margin-top:6px;background:${esc(i.props.accent)};color:#fff;padding:12px 26px;border-radius:10px;font-weight:700">${esc(i.props.cta)}</div></div>` });
   R('footer', { label: 'Footer', icon: '▁', w: 800, h: 80, category: 'Layout', props: { text: '© 2026 Your Company. All rights reserved.', links: 'Privacy, Terms, Contact', bg: '#101218', color: '#8b93a1' },
-    schema: [C.text, { key: 'links', label: 'Links (comma)', type: 'text' }, C.bg, C.color],
-    html: (i) => `<div style="${F}background:${esc(i.props.bg)};color:${esc(i.props.color)};display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:13px;${SANS}"><span>${esc(i.props.text)}</span><span style="display:flex;gap:18px">${list(i.props.links).map((l) => `<span>${esc(l)}</span>`).join('')}</span></div>` });
+    schema: [C.text, { key: 'links', label: 'Links (comma; Label|#page for a link)', type: 'text' }, C.bg, C.color],
+    html: (i, ex) => `<div style="${F}background:${esc(i.props.bg)};color:${esc(i.props.color)};display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:13px;${SANS}"><span>${esc(i.props.text)}</span><span style="display:flex;gap:18px">${list(i.props.links).map((l) => lk(l, ex)).join('')}</span></div>` });
   R('divider', { label: 'Divider', icon: '―', w: 300, h: 2, category: 'Layout', props: { bg: '#3b4254' }, schema: [C.bg], html: (i) => `<div style="${F}background:${esc(i.props.bg)}"></div>` });
 
   /* ----- Navigation ----- */
   R('navbar', { label: 'Navbar', icon: '☰', w: 800, h: 56, category: 'Navigation', props: { brand: 'Brand', links: 'Home, Features, Pricing, Contact', bg: '#1a1d24', color: '#e7e9ee' },
-    schema: [{ key: 'brand', label: 'Brand', type: 'text' }, { key: 'links', label: 'Links (comma)', type: 'text' }, C.bg, C.color],
-    html: (i) => `<div style="${F}background:${esc(i.props.bg)};color:${esc(i.props.color)};display:flex;align-items:center;gap:24px;padding:0 20px;${SANS}"><b style="font-size:18px;margin-right:auto">${esc(i.props.brand)}</b>${list(i.props.links).map((l) => `<span style="font-size:14px;opacity:.85">${esc(l)}</span>`).join('')}</div>` });
+    schema: [{ key: 'brand', label: 'Brand', type: 'text' }, { key: 'links', label: 'Links (comma; Label|#page for a link)', type: 'text' }, C.bg, C.color],
+    html: (i, ex) => `<div style="${F}background:${esc(i.props.bg)};color:${esc(i.props.color)};display:flex;align-items:center;gap:24px;padding:0 20px;${SANS}"><b style="font-size:18px;margin-right:auto">${esc(i.props.brand)}</b>${list(i.props.links).map((l) => lk(l, ex, 'font-size:14px;opacity:.85')).join('')}</div>` });
   R('tabs', { label: 'Tabs', icon: '⌸', w: 360, h: 40, category: 'Navigation', props: { items: 'Overview, Activity, Settings', active: 0, color: '#c3c8d2', accent: '#6c8cff' },
-    schema: [{ key: 'items', label: 'Tabs (comma)', type: 'text' }, { key: 'active', label: 'Active index', type: 'number', min: 0, max: 20 }, C.color, C.accent],
-    html: (i) => `<div style="${F}display:flex;border-bottom:1px solid #3b4254;${SANS}">${list(i.props.items).map((t, n) => `<div style="padding:0 18px;display:flex;align-items:center;font-size:14px;color:${n === +i.props.active ? esc(i.props.accent) : esc(i.props.color)};border-bottom:2px solid ${n === +i.props.active ? esc(i.props.accent) : 'transparent'};font-weight:${n === +i.props.active ? 700 : 500}">${esc(t)}</div>`).join('')}</div>` });
+    schema: [{ key: 'items', label: 'Tabs (comma; Label|#page for a link)', type: 'text' }, { key: 'active', label: 'Active index', type: 'number', min: 0, max: 20 }, C.color, C.accent],
+    html: (i, ex) => `<div style="${F}display:flex;border-bottom:1px solid #3b4254;${SANS}">${list(i.props.items).map((t, n) => `<div style="padding:0 18px;display:flex;align-items:center;font-size:14px;color:${n === +i.props.active ? esc(i.props.accent) : esc(i.props.color)};border-bottom:2px solid ${n === +i.props.active ? esc(i.props.accent) : 'transparent'};font-weight:${n === +i.props.active ? 700 : 500}">${lk(t, ex)}</div>`).join('')}</div>` });
   R('breadcrumb', { label: 'Breadcrumb', icon: '›', w: 320, h: 28, category: 'Navigation', props: { items: 'Home, Library, Data', color: '#8b93a1', size: 13 },
     schema: [{ key: 'items', label: 'Items (comma)', type: 'text' }, C.color, C.size],
     html: (i) => `<div style="${F}display:flex;align-items:center;gap:8px;color:${esc(i.props.color)};font-size:${+i.props.size}px;${SANS}">${list(i.props.items).map((t, n, a) => `<span style="${n === a.length - 1 ? 'color:#e7e9ee;font-weight:600' : ''}">${esc(t)}</span>`).join('<span style="opacity:.5">/</span>')}</div>` });
@@ -132,26 +134,61 @@
 
   /* ----- Export ----- */
   function uiToHTML(doc, title) {
-    const items = doc.items.map((i) => {
-      const def = registry.ui[i.type]; if (!def) return '';
-      return `    <div style="position:absolute;left:${i.x}px;top:${i.y}px;width:${i.w}px;height:${i.h}px;transform:rotate(${+i.rot || 0}deg)">${def.html(i, true)}</div>`;
+    const W = Math.max(100, +doc.width || 1024), H = Math.max(100, +doc.height || 640);
+    const mode = ['auto', 'scale', 'fixed'].includes(doc.responsive) ? doc.responsive : 'auto'; const bp = Math.max(320, +doc.breakpoint || 640);
+    const safeId = (x) => String(x || '').trim().replace(/[^A-Za-z0-9_-]/g, '-').replace(/^(?=\d)/, 'a-');
+    const vis = (doc.items || []).filter((i) => !i.hidden && registry.ui[i.type]);
+    const order = new Map([...vis].sort((a, b) => (a.y - b.y) || (a.x - b.x)).map((i, n) => [i.id, n]));
+    const pages = [...new Set(vis.map((i) => safeId(i.page)).filter(Boolean))];
+    const dark = (() => { const m = /^#?([0-9a-f]{6})$/i.exec(String(doc.bg || '')); if (!m) return true; const n = parseInt(m[1], 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 140; })();
+    const items = vis.map((i) => {
+      const def = registry.ui[i.type]; const id = safeId(i.anchor) || safeId(i.id); const m = ['stack', 'full', 'hide'].includes(i.mobile) ? i.mobile : 'stack';
+      return `    <div class="it" id="${esc(id)}"${i.page ? ` data-p="${esc(safeId(i.page))}"` : ''} data-m="${m}" style="left:${i.x}px;top:${i.y}px;width:${i.w}px;height:${i.h}px;--o:${order.get(i.id)};${+i.rot ? `transform:rotate(${+i.rot}deg)` : ''}">${def.html(i, true)}</div>`;
     }).join('\n');
+    const rt = `(function(){var W=${W},H=${H},BP=${bp},M=${JSON.stringify(mode)},P=${JSON.stringify(pages)},d=document,fit=d.querySelector('.fit'),st=d.querySelector('.stage'),cur=P[0]||'';
+function lay(){var vw=d.documentElement.clientWidth||innerWidth,stack=M==='auto'&&vw<=BP&&W>BP;d.body.classList.toggle('stack',stack);
+if(stack){st.style.transform='';st.style.left='';st.style.marginLeft='';fit.style.height='';return}
+var k=M==='fixed'?1:Math.min(vw/W,1.5);st.style.transform='scale('+k+')';st.style.marginLeft='0';st.style.left=Math.max(0,(vw-W*k)/2)+'px';fit.style.height=Math.round(H*k)+'px'}
+function show(p){cur=p;[].forEach.call(d.querySelectorAll('.it[data-p]'),function(e){e.hidden=e.getAttribute('data-p')!==p})}
+function go(id,smooth){id=decodeURIComponent(String(id||'').replace(/^\\/+/,''));
+if(id&&P.indexOf(id)>-1){show(id);scrollTo(0,0);return true}
+var e=id&&d.getElementById(id);if(e){e.scrollIntoView({behavior:smooth?'smooth':'auto',block:'start'});return true}
+if(!id){scrollTo({top:0,behavior:smooth?'smooth':'auto'});return true}return false}
+/* a "#" link never leaves the page: it scrolls to the anchor or switches the page, and the address bar is updated when the browser allows it */
+d.addEventListener('click',function(ev){var a=ev.target.closest&&ev.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href');if(h.charAt(0)!=='#')return;ev.preventDefault();go(h.slice(1),true);try{history.replaceState(null,'',h)}catch(x){}});
+addEventListener('hashchange',function(){go(location.hash.slice(1),true)});addEventListener('resize',lay);addEventListener('orientationchange',lay);
+if(P.length)show(cur);lay();if(location.hash.length>1&&location.protocol!=='about:')go(location.hash.slice(1),false)})();`;
     return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(title || 'Vextra UI')}</title>
 <style>
+  *{box-sizing:border-box}
   html, body { margin: 0; background: ${esc(doc.bg)}; min-height: 100%; }
-  .stage { position: relative; width: ${doc.width}px; height: ${doc.height}px; margin: 0 auto; background: ${esc(doc.bg)}; overflow: hidden; }
+  body { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+  .fit { position: relative; width: 100%; overflow: hidden; height: ${H}px; }
+  .stage { position: absolute; top: 0; left: 50%; margin-left: -${Math.round(W / 2)}px; width: ${W}px; height: ${H}px; transform-origin: 0 0; background: ${esc(doc.bg)}; }
+  .it { position: absolute; }
+  .it[hidden] { display: none !important; }
+  .it img, .it video, .it iframe { max-width: 100%; }
+  html { scroll-behavior: smooth; }
+  /* phones: the design reflows into one column, in reading order (top to bottom) */
+  .stack .fit { height: auto !important; overflow: visible; }
+  .stack .stage { position: static; margin-left: 0 !important; width: 100% !important; height: auto !important; transform: none !important; display: flex; flex-direction: column; gap: 12px; padding: 12px; }
+  .stack .it { position: static; width: 100% !important; transform: none !important; order: var(--o); }
+  .stack .it[data-m="hide"] { display: none !important; }
+  .stack .it[data-m="full"] { margin-left: -12px; margin-right: -12px; width: calc(100% + 24px) !important; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 </style>
 </head>
 <body>
-  <div class="stage">
+  <div class="fit"><div class="stage">
 ${items}
-  </div>
-${VX.credit ? VX.credit.footerHTML({ align: 'center', theme: 'auto' }) : ''}
+  </div></div>
+${VX.credit ? VX.credit.footerHTML({ align: 'center', theme: dark ? 'light' : 'dark' }) : ''}
+<script>${rt.replace(/<\/script/gi, '<\\/script')}</script>
 </body>
 </html>
 `;
