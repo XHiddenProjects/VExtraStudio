@@ -4,12 +4,12 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 4.0.x   | ✅ security fixes (current) |
+| 4.0.x   | ✅ security fixes (current; upgrade to 4.0.1) |
 | 3.12.x  | ✅ security fixes |
 | 3.11.x  | ⚠️ please upgrade to 4.0.x |
 | 3.10.x and older | ❌ please upgrade |
 
-Current version: **4.0.0** (see `VERSION`). This policy was last reviewed for 4.0.0.
+Current version: **4.0.1** (see `VERSION`). This policy was last reviewed for 4.0.1.
 
 ## Reporting a vulnerability
 
@@ -46,6 +46,10 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 ## v3.0.0 additions (still apply in 3.1.0)
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
+
+## v4.0.1 notes
+- **Updater diagnostics (release workflow):** the "prepare the signed updater" step prints only yes/no and the public key's length. The private key (`TAURI_SIGNING_PRIVATE_KEY`) and its password are read from repository secrets into an environment variable, are never echoed, and GitHub masks them in logs. A missing secret or placeholder public key keeps the updater **off** (fail closed) – installers are still built, and no unsigned update is ever offered.
+- **Keep the private key out of the repo and zips:** `C:\Users\<you>\.tauri\vextra-updater.key` stays outside the project. Do not overwrite your committed `src-tauri/updater/pubkey.txt` with the placeholder shipped in source archives.
 
 ## v4.0.0 notes
 - **Windows signing secrets:** the certificate (`WINDOWS_CERTIFICATE`, base64 `.pfx`) is written to the runner only long enough to import it into the user store and is deleted immediately; Azure credentials are read from repository secrets and never written to files. `sign.conf.json` (thumbprint or signing command, no secrets) is generated per build and git-ignored. Signing changes nothing for users who verify the checksums.

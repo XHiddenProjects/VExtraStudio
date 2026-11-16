@@ -2,7 +2,13 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.0.0] — current
+## [4.0.1] — current
+
+### Fixed
+- **Release workflow “Auto-updater is off”:** the warning now says *which* part is missing (private-key secret `TAURI_SIGNING_PRIVATE_KEY` not visible to the job, or `src-tauri/updater/pubkey.txt` absent / still the `NOT-SET` placeholder in that commit). The log prints yes/no for each check and the public key length – never the secret.
+- Security policy refreshed: supported-versions table and current version updated; older notes that said "no auto-updater" / "installers unsigned" now point to the signed updater and optional Windows signing.
+
+## [4.0.0]
 
 ### Added
 - **vxui (UI designer) is responsive on every device.** Exported pages and previews scale to the screen and, on phones, reflow into one column in reading order. New canvas options *Responsive layout* (Auto / Scale / Fixed) and *Stack below*; per-item *On phones* (stack, full width, hide). Hidden layers are no longer exported.

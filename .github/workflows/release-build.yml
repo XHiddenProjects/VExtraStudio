@@ -108,14 +108,22 @@ jobs:
         env:
           SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          PUB=$(tr -d '[:space:]' < src-tauri/updater/pubkey.txt)
-          if [ -n "$SIGNING_KEY" ] && [ "${#PUB}" -gt 40 ] && [[ "$PUB" != NOT-SET* ]]; then
+          PUB=""
+          [ -f src-tauri/updater/pubkey.txt ] && PUB=$(tr -d '[:space:]' < src-tauri/updater/pubkey.txt)
+          HAS_KEY=no; [ -n "$SIGNING_KEY" ] && HAS_KEY=yes
+          HAS_PUB=no; if [ "${#PUB}" -gt 40 ] && [[ "$PUB" != NOT-SET* ]]; then HAS_PUB=yes; fi
+          echo "private key secret TAURI_SIGNING_PRIVATE_KEY visible to this job: $HAS_KEY"
+          echo "public key src-tauri/updater/pubkey.txt valid: $HAS_PUB (${#PUB} characters)"
+          if [ "$HAS_KEY" = yes ] && [ "$HAS_PUB" = yes ]; then
             node -e "const fs=require('fs');const k=fs.readFileSync('src-tauri/updater/pubkey.txt','utf8').trim();fs.writeFileSync('src-tauri/updater/enable.conf.json',JSON.stringify({bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:k}}}))"
             echo "enabled=true" >> "$GITHUB_OUTPUT"
             echo "Signed updater: ON"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Auto-updater is off::Add the repository secret TAURI_SIGNING_PRIVATE_KEY (and TAURI_SIGNING_PRIVATE_KEY_PASSWORD) and commit src-tauri/updater/pubkey.txt – run 'npm run updater:keygen' once. The installers are still built."
+            WHY=""
+            [ "$HAS_KEY" = no ] && WHY="The secret TAURI_SIGNING_PRIVATE_KEY is empty or not visible to this job (add it under Settings > Secrets and variables > Actions > Repository secrets, exact name, not an Environment or Dependabot secret; also add TAURI_SIGNING_PRIVATE_KEY_PASSWORD). "
+            [ "$HAS_PUB" = no ] && WHY="${WHY}src-tauri/updater/pubkey.txt is missing or still the NOT-SET placeholder in this commit (run 'npm run updater:keygen' once and commit the file). "
+            echo "::warning title=Auto-updater is off::${WHY}The installers are still built."
           fi
 
       # Windows code signing (reduces the Microsoft SmartScreen "unknown publisher" warning). Optional: with no secrets the installers are
