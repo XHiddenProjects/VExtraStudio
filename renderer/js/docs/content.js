@@ -119,6 +119,15 @@ Exported pages and previews adjust to the screen by themselves (**Canvas → Res
 - **Scale to the screen only** never stacks; **Fixed size** keeps the design at its exact pixel size.
 - For each item, **On phones** chooses *Stack*, *Stack, full width* or *Hide on phones*.
 
+## Building a site (pages, sections, devices)
+
+The designer works like a website builder:
+- **Pages** are the tabs above the canvas. **+ Page** adds one (the first time, your existing content becomes *home*; navbar and footer stay on every page). Double-click a tab to rename it, right-click or 🗑 to delete it. New items go on the page you are editing.
+- **＋ Section** drops a ready-made block under your content: Hero, Features, Pricing, Testimonials, Call to action, Contact form or Footer.
+- **🖥 ▭ 📱** switch between editing and a live **tablet / phone preview** of the exported page (you can click its links to try the pages).
+- Click an element for its **toolbar**: duplicate, forward, backward, *on this page / on every page* (🌐 / 📌) and delete.
+- **Site title** (nothing selected) is the browser-tab title.
+
 ## Links, anchors and pages (like a website builder)
 
 - Give an item an **Anchor name** (Properties → Responsive & links), then link to it with \`#name\` from a Link, Button, Navbar, Tabs or Footer. Navbar, Tabs and Footer lists take \`Label|#name\`.

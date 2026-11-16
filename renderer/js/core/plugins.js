@@ -76,6 +76,9 @@
         openFile: (p) => H().openPath?.(p),
         newFile: (name, content, lang) => H().newFile?.(name, content, lang),
       },
+      /** Ties a long job to the tab that is open now. Returns { id, kind, alive(), isActive(), path(), lang(), value(), setValue(text), insert(text), game() } –
+       *  all of them keep working on THAT tab after the user switches to another one (game() is its editor controller, or null). */
+      pin: () => H().pin?.() ?? { id: null, kind: null, alive: () => false, isActive: () => false, path: () => null, lang: () => 'plaintext', value: () => '', setValue() {}, insert() {}, game: () => null },
       designer: {
         /** mode 'ui' adds a UI-designer component. mode 'scene' (legacy) adds a 2D game object type. */
         registerComponent(mode, def) {

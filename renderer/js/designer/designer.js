@@ -18,7 +18,8 @@
   class Designer {
     constructor(doc, hooks = {}) {
       this.mode = 'ui'; this.doc = doc || templateDoc(); this.hooks = hooks;
-      this.zoom = 1; this.snap = true; this.showGrid = true; this.sel = []; this.clip = null;
+      this.zoom = 1; this.snap = true; this.showGrid = true; this.sel = []; this.clip = null; this.device = 'desktop';
+      this.page = (Array.isArray(this.doc.pages) && this.doc.pages[0]) || '';
       this.undoStack = []; this.redoStack = [];
       this.root = this._build(); this._snapshot(true); this.render(); this.fit();
     }
@@ -39,7 +40,9 @@
       this.wrap = h('div', { class: 'dz-stagewrap' }, this.stage, this.overlay, this.band);
       this.canvas = h('div', { class: 'dz-canvas', tabindex: '0' }, this.wrap);
       this.side = h('div', { class: 'dz-side' });
-      const root = h('div', { class: 'dz' }, this.canvas, this.side);
+      this.bar = h('div', { class: 'dz-bar' }); this.dev = h('div', { class: 'dz-device hidden' });
+      this.main = h('div', { class: 'dz-main' }, this.bar, this.canvas, this.dev);
+      const root = h('div', { class: 'dz' }, this.main, this.side);
       this.canvas.addEventListener('mousedown', (e) => this._canvasDown(e));
       this._ro = new ResizeObserver(() => { if (this._auto !== false && this.canvas.clientWidth > 0) this.fit(); }); this._ro.observe(this.canvas); this._auto = true;
       this.canvas.addEventListener('wheel', (e) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); this.setZoom(this.zoom * (e.deltaY < 0 ? 1.1 : 0.9)); }, { passive: false });
@@ -50,6 +53,7 @@
         const r = this.stage.getBoundingClientRect();
         this.addItem(data.type, (cx - r.left) / this.zoom, (cy - r.top) / this.zoom, true);
       }, (d) => d && d.kind === 'ui');
+      this._drawBar();
       return root;
     }
     _pt(e) { const r = this.stage.getBoundingClientRect(); return { x: (e.clientX - r.left) / this.zoom, y: (e.clientY - r.top) / this.zoom }; }
@@ -63,7 +67,7 @@
       const move = (ev) => {
         const p = this._pt(ev); const x = Math.min(start.x, p.x), y = Math.min(start.y, p.y), w = Math.abs(p.x - start.x), hh = Math.abs(p.y - start.y);
         Object.assign(this.band.style, { left: 40 + x * this.zoom + 'px', top: 40 + y * this.zoom + 'px', width: w * this.zoom + 'px', height: hh * this.zoom + 'px' });
-        const ids = this.doc.items.filter((i) => !i.hidden && !i.locked && i.x < x + w && i.x + i.w > x && i.y < y + hh && i.y + i.h > y).map((i) => i.id);
+        const ids = this.doc.items.filter((i) => !i.hidden && !i.locked && this._visible(i) && i.x < x + w && i.x + i.w > x && i.y < y + hh && i.y + i.h > y).map((i) => i.id);
         this.select([...new Set([...base, ...ids])]);
       };
       const up = () => { removeEventListener('mousemove', move); removeEventListener('mouseup', up); this.band.classList.add('hidden'); };
@@ -78,7 +82,7 @@
       else if (mod && k === 'd') { e.preventDefault(); this.duplicate(); }
       else if (mod && k === 'c') { e.preventDefault(); this.copy(); }
       else if (mod && k === 'v') { e.preventDefault(); this.paste(); }
-      else if (mod && k === 'a') { e.preventDefault(); this.select(this.doc.items.filter((i) => !i.hidden && !i.locked).map((i) => i.id)); }
+      else if (mod && k === 'a') { e.preventDefault(); this.select(this.doc.items.filter((i) => !i.hidden && !i.locked && this._visible(i)).map((i) => i.id)); }
       else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); this.remove(); }
       else if (e.key === 'Escape') this.select([]);
       else if (e.key.startsWith('Arrow') && this.sel.length) {
@@ -104,9 +108,68 @@
     redo() { if (!this.redoStack.length) return; this.undoStack.push(this.redoStack.pop()); this._restore(); }
     _restore() { this.doc = JSON.parse(this.undoStack[this.undoStack.length - 1]); this.sel = this.sel.filter((id) => this.item(id)); this.render(); this.changed(); }
 
+    /* ----- site builder: pages, sections, devices (like a website builder) ----- */
+    pages() { const out = []; for (const p of this.doc.pages || []) if (p && !out.includes(p)) out.push(p); for (const it of this.doc.items) if (it.page && !out.includes(it.page)) out.push(it.page); return out; }
+    _visible(it) { return !this.page || !it.page || it.page === this.page; }
+    _slug(n) { return String(n || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, ''); }
+    setPage(name) { this.page = name; this.sel = []; this.render(); this._drawBar(); }
+    async addPage() {
+      const raw = await VX.ui.ask('Name of the new page (for example About)', ''); if (raw == null) return; const name = this._slug(raw); if (!name) return VX.ui.toast('Use letters or numbers for a page name', 'error');
+      const pages = this.pages(); if (pages.includes(name)) return VX.ui.toast('There is already a page called ' + name, 'error');
+      if (!pages.length) { pages.push('home'); for (const it of this.doc.items) if (!it.page && !['navbar', 'footer'].includes(it.type)) it.page = 'home'; }  /* first page: the existing content becomes Home; navbar and footer stay on every page */
+      pages.push(name); this.doc.pages = pages; this.setPage(name); this.commit(); VX.ui.toast(`Page “${name}” added. Link to it with #${name}`);
+    }
+    async renamePage(old) {
+      const raw = await VX.ui.ask('Rename the page', old); if (raw == null) return; const name = this._slug(raw); if (!name || name === old) return; if (this.pages().includes(name)) return VX.ui.toast('There is already a page called ' + name, 'error');
+      this.doc.pages = this.pages().map((x) => (x === old ? name : x)); for (const it of this.doc.items) if (it.page === old) it.page = name; this.page = name; this.render(); this._drawBar(); this.commit();
+    }
+    async deletePage(name) {
+      const n = this.doc.items.filter((i) => i.page === name).length; if (!(await VX.ui.confirm(`Delete the page “${name}”${n ? ' and its ' + n + ' item' + (n === 1 ? '' : 's') : ''}?`, 'Delete', { danger: true }))) return;
+      this.doc.items = this.doc.items.filter((i) => i.page !== name); this.doc.pages = this.pages().filter((x) => x !== name); this.page = this.doc.pages[0] || ''; this.sel = []; this.render(); this._drawBar(); this.commit();
+    }
+    _bottom() { let y = 0; for (const it of this.doc.items) if (this._visible(it) && it.type !== 'footer') y = Math.max(y, it.y + it.h); return y; }
+    /** Adds a ready-made section (several items) under the content of the current page. */
+    addSection(kind) {
+      const W = this.doc.width, reg = registry(), y0 = Math.round(this._bottom() / 8) * 8 + (this._bottom() ? 32 : 0);
+      const mk = (type, x, y, w, hh, props) => { const d = reg[type]; if (!d) return null; return { id: uid('i'), type, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(hh == null ? d.h : hh), rot: 0, props: Object.assign(clone(d.props), props || {}) }; };
+      const gap = 24, col = (n, i, pad = 48) => { const w = (W - pad * 2 - gap * (n - 1)) / n; return [pad + i * (w + gap), w]; };
+      const T = {
+        hero: () => [mk('hero', 0, y0, W, 380)],
+        features: () => [mk('heading', 48, y0, W - 96, 52, { text: 'Why choose us', align: 'center' }), ...[0, 1, 2].map((i) => mk('card', col(3, i)[0], y0 + 76, col(3, i)[1], 170, { title: ['Fast', 'Simple', 'Secure'][i], body: ['Loads in a blink.', 'Easy to manage.', 'Built to be safe.'][i] }))],
+        pricing: () => [mk('heading', 48, y0, W - 96, 52, { text: 'Pricing', align: 'center' }), ...[0, 1, 2].map((i) => mk('pricing', col(3, i)[0], y0 + 76, col(3, i)[1], 320))],
+        testimonials: () => [mk('heading', 48, y0, W - 96, 52, { text: 'What people say', align: 'center' }), ...[0, 1].map((i) => mk('testimonial', col(2, i)[0], y0 + 76, col(2, i)[1], 190))],
+        contact: () => [mk('heading', 48, y0, W - 96, 52, { text: 'Get in touch', align: 'center' }), mk('input', (W - 420) / 2, y0 + 76, 420, 44, { placeholder: 'Your name' }), mk('input', (W - 420) / 2, y0 + 132, 420, 44, { placeholder: 'Your email' }), mk('textarea', (W - 420) / 2, y0 + 188, 420, 120, { placeholder: 'Message' }), mk('button', (W - 420) / 2, y0 + 320, 420, 46, { text: 'Send message' })],
+        cta: () => [mk('card', 48, y0, W - 96, 190, { title: 'Ready to get started?', body: 'Join today. It only takes a minute.' }), mk('button', (W - 200) / 2, y0 + 120, 200, 46, { text: 'Get started' })],
+        footer: () => [mk('footer', 0, Math.max(y0, this._bottom() + 32), W, 64)],
+      };
+      const built = (T[kind] ? T[kind]() : []).filter(Boolean); if (!built.length) return;
+      for (const it of built) { if (this.page && it.type !== 'footer') it.page = this.page; this.doc.items.push(it); }
+      const bottom = Math.max(...built.map((i) => i.y + i.h)) + 40; if (bottom > this.doc.height) this.doc.height = bottom;
+      this.sel = built.map((i) => i.id); this.render(); this.commit(); this.canvas.scrollTo({ top: Math.max(0, (y0 - 40) * this.zoom), behavior: 'smooth' });
+    }
+    setDevice(d) { this.device = d; this.canvas.classList.toggle('hidden', d !== 'desktop'); this.dev.classList.toggle('hidden', d === 'desktop'); this._drawBar(); if (d !== 'desktop') this._refreshDevice(); }
+    _refreshDevice() {
+      if (this.device === 'desktop') return; clearTimeout(this._dt); this._dt = setTimeout(() => {
+        const w = this.device === 'phone' ? 390 : 768; const html = this.toHTML(this.doc.title || 'Preview'); const guarded = VX.ui.guardHash ? VX.ui.guardHash(html) : html;
+        this.dev.textContent = ''; const fr = h('iframe', { class: 'dz-devframe', sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups', style: `width:${w}px` }); fr.srcdoc = guarded;
+        this.dev.append(h('div', { class: 'dz-devnote' }, `${this.device === 'phone' ? 'Phone' : 'Tablet'} preview (${w}px wide) – this is how the exported page looks. Switch to Desktop to edit.`), fr);
+      }, 120);
+    }
+    _drawBar() {
+      const b = this.bar; b.textContent = ''; const pages = this.pages(), btn = (label, fn, cls = '', title = '') => h('button', { class: 'btn sm ' + cls, onclick: fn, title }, label);
+      const tabs = h('div', { class: 'dz-pages' });
+      if (!pages.length) tabs.append(h('span', { class: 'dz-pagehint' }, 'One page'));
+      for (const pg of pages) tabs.append(h('button', { class: 'dz-pagetab' + (pg === this.page ? ' on' : ''), title: pg === this.page ? 'Double-click to rename · right-click to delete' : 'Open the page “' + pg + '”', onclick: () => this.setPage(pg), ondblclick: () => this.renamePage(pg), oncontextmenu: (e) => { e.preventDefault(); this.deletePage(pg); } }, pg));
+      tabs.append(btn('+ Page', () => this.addPage(), 'dz-add', 'Add a page. Link to it with #name'));
+      if (this.page) tabs.append(btn('🗑', () => this.deletePage(this.page), 'dz-del', 'Delete this page'));
+      const sec = h('select', { class: 'dz-sec', title: 'Add a ready-made section under your content', onchange: () => { if (sec.value) this.addSection(sec.value); sec.value = ''; } }, h('option', { value: '' }, '＋ Section…'), [['hero', 'Hero'], ['features', 'Features'], ['pricing', 'Pricing'], ['testimonials', 'Testimonials'], ['cta', 'Call to action'], ['contact', 'Contact form'], ['footer', 'Footer']].map(([v, l]) => h('option', { value: v }, l)));
+      const dv = h('div', { class: 'dz-devs' }, [['desktop', '🖥', 'Desktop – edit'], ['tablet', '▭', 'Tablet preview'], ['phone', '📱', 'Phone preview']].map(([k, ic, t]) => h('button', { class: 'btn sm' + (this.device === k ? ' on' : ''), title: t, onclick: () => this.setDevice(k) }, ic)));
+      b.append(tabs, h('span', { class: 'spacer' }), this.device === 'desktop' ? sec : null, dv);
+    }
     addItem(type, x, y, centered) {
       const def = registry()[type]; if (!def) return null;
       const it = { id: uid('i'), type, x: 0, y: 0, w: def.w, h: def.h, rot: 0, props: clone(def.props) };
+      if (this.page && !['navbar', 'footer', 'announcement'].includes(type)) it.page = this.page;   /* new items belong to the page you are editing */
       it.x = Math.round(x == null ? (this.doc.width - it.w) / 2 : centered ? x - it.w / 2 : x);
       it.y = Math.round(y == null ? (this.doc.height - it.h) / 2 : centered ? y - it.h / 2 : y);
       if (this.snap) { it.x = Math.round(it.x / 8) * 8; it.y = Math.round(it.y / 8) * 8; }
@@ -155,11 +218,11 @@
         const node = h('div', { class: 'dz-item' + (it.locked ? ' locked' : ''), 'data-id': it.id });
         node.innerHTML = def ? def.html(it, false) : `<div style="color:#ef5b5b;font:12px sans-serif">Missing component: ${VX.esc(it.type)}</div>`;
         for (const c of node.querySelectorAll('*')) c.style.pointerEvents = 'none';
-        if (it.hidden) node.style.display = 'none';
+        if (it.hidden || !this._visible(it)) node.style.display = 'none';
         node.addEventListener('mousedown', (e) => this._startDrag(e, it.id));
         this.stage.append(node); this.els.set(it.id, node); this._place(node, it, idx);
       });
-      this._applyZoom(); this._applyStageItems(); this._drawSide();
+      this._applyZoom(); this._applyStageItems(); this._drawSide(); if (this.device !== 'desktop') this._refreshDevice();
     }
     _place(node, it, idx) { Object.assign(node.style, { left: it.x + 'px', top: it.y + 'px', width: it.w + 'px', height: it.h + 'px', zIndex: idx, transform: it.rot ? `rotate(${it.rot}deg)` : '' }); }
     _applyStageItems() { for (const [id, n] of this.els) n.classList.toggle('selected', this.sel.includes(id)); }
@@ -182,6 +245,11 @@
         hd.addEventListener('mousedown', (e) => this._startResize(e, it, k)); box.append(hd);
       }
       this.overlay.append(box);
+      /* floating toolbar above the selected element (constant size at any zoom) */
+      const tb = h('div', { class: 'dz-float', style: `left:${it.x}px;top:${it.y}px;transform:translateY(-100%) scale(${1 / this.zoom});transform-origin:0 100%` });
+      const fb = (t, tip, fn) => h('button', { title: tip, onmousedown: (e) => e.stopPropagation(), onclick: (e) => { e.stopPropagation(); fn(); } }, t);
+      tb.append(fb('⧉', 'Duplicate (Ctrl+D)', () => this.duplicate()), fb('↑', 'Bring forward', () => this.reorder('up')), fb('↓', 'Send backward', () => this.reorder('down')), fb(it.page ? '🌐' : '📌', it.page ? 'On page “' + it.page + '” – click to show it on every page' : 'On every page – click to put it only on the current page', () => { if (it.page) delete it.page; else if (this.page) it.page = this.page; else return VX.ui.toast('Add a page first (+ Page)', 'error'); this.render(); this.commit(); }), fb('🗑', 'Delete', () => this.remove()));
+      this.overlay.append(tb);
     }
 
     /* ----- pointer interactions ----- */
@@ -222,6 +290,9 @@
     _drawSide() {
       const s = this.side; s.textContent = ''; const its = this.items(); const it = its.length === 1 ? its[0] : null; const F = VX.ui.field;
       if (!its.length) {
+        s.append(h('div', { class: 'group-title' }, 'Site'));
+        { const ti = h('input', { type: 'text', value: this.doc.title || '', placeholder: 'Browser tab title' }); ti.addEventListener('input', () => { this.doc.title = ti.value; }); ti.addEventListener('change', () => this.commit()); s.append(VX.ui.field('Site title', ti)); }
+        s.append(h('div', { class: 'dz-help' }, 'Tip: drag components from the left, or use ＋ Section above for ready-made blocks. Pages are tabs above the canvas; link to a page or anchor with #name.'));
         s.append(h('div', { class: 'group-title' }, 'Canvas'));
         s.append(F('Width', this._num(this.doc.width, (v) => { this.doc.width = Math.max(100, v); this._applyZoom(); })), F('Height', this._num(this.doc.height, (v) => { this.doc.height = Math.max(100, v); this._applyZoom(); })));
         const bg = h('input', { type: 'color', value: this.doc.bg }); bg.addEventListener('input', () => { this.doc.bg = bg.value; this._applyZoom(); }); bg.addEventListener('change', () => this.commit());
@@ -254,7 +325,7 @@
         s.append(h('div', { class: 'group-title' }, 'Responsive & links'));
         const txt = (key, ph) => { const i = h('input', { type: 'text', value: it[key] || '', placeholder: ph }); i.addEventListener('input', () => { it[key] = i.value; }); i.addEventListener('change', () => { this.commit(); this._drawSide(); }); return i; };
         const mob = h('select', {}, [['stack', 'Stack in reading order'], ['full', 'Stack, full width'], ['hide', 'Hide on phones']].map(([v, l]) => h('option', { value: v }, l))); mob.value = it.mobile || 'stack'; mob.addEventListener('change', () => { it.mobile = mob.value; this.commit(); });
-        s.append(F('Anchor name', txt('anchor', 'e.g. pricing  →  link to #pricing')), F('Show on page', txt('page', 'empty = every page; e.g. about  →  #about')), F('On phones', mob));
+        s.append(F('Anchor name', txt('anchor', 'e.g. pricing  →  link to #pricing')), F('Show on page', this.pages().length ? (() => { const sel = h('select', {}, [h('option', { value: '' }, 'Every page'), ...this.pages().map((x) => h('option', { value: x }, x))]); sel.value = it.page || ''; sel.addEventListener('change', () => { if (sel.value) it.page = sel.value; else delete it.page; this.render(); this.commit(); }); return sel; })() : txt('page', 'use + Page above')), F('On phones', mob));
         s.append(h('div', { class: 'group-title adv' }, 'Arrange')); { const ar = this._arrangeRow(); ar.classList.add('adv'); s.append(ar); }
         s.append(h('div', { class: 'row adv', style: 'margin-top:6px' }, [['⇤', 'left', 'Align left'], ['↔', 'center', 'Center horizontally on canvas'], ['⇥', 'right', 'Align right'], ['⤒', 'top', 'Align top'], ['↕', 'middle', 'Center vertically on canvas'], ['⤓', 'bottom', 'Align bottom']].map(([l, k, t]) => h('button', { class: 'btn sm', title: t, onclick: () => this.align(k) }, l))));
       }

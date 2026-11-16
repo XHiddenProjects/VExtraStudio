@@ -39,6 +39,8 @@ const call = (method, p, body, token) => new Promise((res) => { const d = body ?
     ok(/name="viewport"/.test(out) && /class="fit"/.test(out) && /\.stack \.it/.test(out), 'vxui export: responsive viewport, scaling stage and phone stacking');
     ok(/href="#about"/.test(out) && /data-p="about"/.test(out) && /id="top"/.test(out) && /data-m="hide"/.test(out), 'vxui export: #links, pages, anchors and phone options');
     ok(!/SECRET/.test(out), 'vxui export: hidden layers are not exported');
+    { const o2 = ctx.VX.components.uiToHTML({ width: 800, height: 500, bg: '#fff', pages: ['home', 'about', 'x</script><b>'], items: [{ id: 'q', type: 'heading', x: 0, y: 0, w: 100, h: 30, rot: 0, page: 'home', props: { text: 'h', size: 20, color: '#000', weight: 700, align: 'left' } }] }, 't');
+      ok(/P=\["home","about"/.test(o2) && !/<\/script><b>/.test(o2.split('<script>')[1] || ''), 'vxui export: page list comes from the design and is escaped inside the script'); }
     ok(!/javascript:/i.test(ctx.VX.components.uiToHTML({ width: 100, height: 100, bg: '#000', items: [{ id: 'z', type: 'link', x: 0, y: 0, w: 50, h: 20, rot: 0, props: { text: 'x', href: '#', color: '#fff', size: 12 } }] }, 't')), 'vxui export: no javascript: links'); }
   ctx.__done = false;
   (async () => { const es = [{ path: 'a/b.txt', data: 'hello '.repeat(200) }, { path: '.htaccess', data: 'x' }]; const z = await ctx.VX.archive.zip(es), t = await ctx.VX.archive.tarGz(es);

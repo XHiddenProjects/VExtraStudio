@@ -38,6 +38,7 @@
 /* UI designer components                                                                                              */
 /* ------------------------------------------------------------------------------------------------------------------ */
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const jsLit = (v) => JSON.stringify(v).replace(/[<>&\u2028\u2029]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
 const num = (v, d, lo, hi) => { const n = parseFloat(v); return Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : d)); };
 const col = (v, d) => (/^#[0-9a-f]{3,8}$/i.test(String(v || '').trim()) ? String(v).trim() : d);
 const lines = (s) => String(s || '').split('\n').map((x) => x.trim()).filter(Boolean);
@@ -116,7 +117,7 @@ U({
     const body = `<div style="${BOX}${SANS}background:${col(p.bg, '#14161b')};color:${col(p.color, '#fff')};border:1px solid ${a}55;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:18px;padding:0 18px;overflow:hidden"><div style="font-weight:700;font-size:14px;color:${a};max-width:90px;line-height:1.2">${esc(p.label)}</div><div id="${id}" style="display:flex;gap:10px">${cell('d', '00')}${cell('h', '00')}${cell('m', '00')}${cell('s', '00')}</div></div>`;
     if (!ex) return body;
     const t = new Date(String(p.target)).getTime();
-    return body + `<script>(function(){var e=document.getElementById(${JSON.stringify(id)}),t=${Number.isFinite(t) ? t : 0},msg=${JSON.stringify(String(p.done || ''))};function z(n){return(n<10?'0':'')+n}function tick(){var s=Math.max(0,Math.floor((t-Date.now())/1000));if(!t||s===0&&t<=Date.now()){e.textContent=msg;return}var v={d:Math.floor(s/86400),h:Math.floor(s%86400/3600),m:Math.floor(s%3600/60),s:s%60};for(var k in v){var n=e.querySelector('[data-k='+k+']');if(n)n.textContent=z(v[k])}setTimeout(tick,1000)}tick()})()<\/script>`;
+    return body + `<script>(function(){var e=document.getElementById(${jsLit(id)}),t=${Number.isFinite(t) ? t : 0},msg=${jsLit(String(p.done || ''))};function z(n){return(n<10?'0':'')+n}function tick(){var s=Math.max(0,Math.floor((t-Date.now())/1000));if(!t||s===0&&t<=Date.now()){e.textContent=msg;return}var v={d:Math.floor(s/86400),h:Math.floor(s%86400/3600),m:Math.floor(s%3600/60),s:s%60};for(var k in v){var n=e.querySelector('[data-k='+k+']');if(n)n.textContent=z(v[k])}setTimeout(tick,1000)}tick()})()<\/script>`;
   },
 });
 

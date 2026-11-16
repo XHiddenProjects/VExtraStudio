@@ -510,8 +510,16 @@ async fn updater_check(app: AppHandle, state: tauri::State<'_, UpdaterState>) ->
         return Ok(UpdateInfo { enabled: false, available: false, current, version: None, notes: None, date: None, reason: Some("This build was made without an updater key.".into()) });
     };
     let url = UPDATER_ENDPOINT.parse().map_err(err)?;
-    let updater = app.updater_builder().pubkey(key).endpoints(vec![url]).map_err(err)?.build().map_err(err)?;
-    let found = updater.check().await.map_err(err)?;
+    /* the key exists from here on: a failure below is a failed CHECK (no latest.json on the latest release, offline, bad signature…), never "no key" */
+    let failed = |current: String, why: String| UpdateInfo { enabled: true, available: false, current, version: None, notes: None, date: None, reason: Some(why) };
+    let updater = match app.updater_builder().pubkey(key).endpoints(vec![url]).map_err(err).and_then(|b| b.build().map_err(err)) {
+        Ok(u) => u,
+        Err(e) => return Ok(failed(current, format!("The updater could not start: {e}"))),
+    };
+    let found = match updater.check().await {
+        Ok(f) => f,
+        Err(e) => return Ok(failed(current, format!("The update check failed: {e}. The newest GitHub release needs a latest.json file (the release workflow makes it when the signing secrets are set)."))),
+    };
     let info = match &found {
         Some(u) => UpdateInfo { enabled: true, available: true, current, version: Some(u.version.clone()), notes: u.body.clone(), date: u.date.map(|d| d.to_string()), reason: None },
         None => UpdateInfo { enabled: true, available: false, current, version: None, notes: None, date: None, reason: None },

@@ -54,6 +54,11 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 - **vxui export:** link targets and anchor names are sanitised (`#`, `/`, `http(s):`, `mailto:`, `tel:` only; anchor ids reduced to `A-Z a-z 0-9 _ -`), every value is HTML-escaped, and the countdown embeds only a number and an escaped string in its script. `javascript:` links are not produced.
 - **Extras plugin:** all text is escaped; the 2D/3D object code is self-contained and runs only inside the game's own sandbox.
 - **Editor suggestions:** not a security change, but nothing is sent anywhere – suggestions are local.
+- **CodeQL:** the two *Improper code sanitization* alerts (vxui exporter, Extras countdown) are fixed: values embedded in an inline `<script>` go through an escaper for `<`, `>`, `&` and U+2028/9 instead of a `</script>` search-and-replace.
+- **AI background runs:** `forge.pin()` only exposes the tab the request started in; a closed tab is reported as "no longer open" and nothing is written elsewhere. Permissions (deny / ask / allow) apply unchanged to background runs, and previews are not opened over another tab.
+- **AI model list:** the list request goes to the URL you typed, with your key only when you entered one. It is sent through the app's own network call (https, or http only for this computer).
+- **vxui pages and previews:** page names and anchors are reduced to `A-Z a-z 0-9 _ -`; the phone/tablet preview is a sandboxed frame; `#` links change only the page's own hash.
+- **Updater errors** are shown as text only (no markup) and never expose the signing key.
 
 ## v3.12.0 notes
 - **Auto-updater:** updates are verified with a minisign public key compiled from `src-tauri/updater/pubkey.txt`; an unsigned or tampered download is rejected. The private key lives only in GitHub secrets (never in the repo), the endpoint is HTTPS-only, no `dangerous*` options are used, and the updater commands are Rust-side only (no `updater:default` capability for the webview). The downgrade guard (`requireSignedVersion`) is not enabled yet.

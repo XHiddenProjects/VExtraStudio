@@ -133,19 +133,21 @@
     html: (i) => `<div style="${F}background:${esc(i.props.bg)};color:${esc(i.props.color)};border-radius:14px;padding:18px;${SANS};display:flex;flex-direction:column;gap:12px"><div style="font-size:15px;line-height:1.5">${esc(i.props.text)}</div><div style="margin-top:auto;display:flex;gap:10px;align-items:center"><div style="width:34px;height:34px;border-radius:50%;background:#6c8cff;display:grid;place-items:center;font-weight:700;color:#fff">${esc((i.props.name || '?')[0])}</div><div><div style="font-weight:700;font-size:13px">${esc(i.props.name)}</div><div style="font-size:12px;opacity:.6">${esc(i.props.role)}</div></div></div></div>` });
 
   /* ----- Export ----- */
+  /** JSON that is safe inside an inline <script>: < > & and the JS line separators are written as \\uXXXX escapes. */
+  const jsLit = (v) => JSON.stringify(v).replace(/[<>&\u2028\u2029]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
   function uiToHTML(doc, title) {
     const W = Math.max(100, +doc.width || 1024), H = Math.max(100, +doc.height || 640);
     const mode = ['auto', 'scale', 'fixed'].includes(doc.responsive) ? doc.responsive : 'auto'; const bp = Math.max(320, +doc.breakpoint || 640);
     const safeId = (x) => String(x || '').trim().replace(/[^A-Za-z0-9_-]/g, '-').replace(/^(?=\d)/, 'a-');
     const vis = (doc.items || []).filter((i) => !i.hidden && registry.ui[i.type]);
     const order = new Map([...vis].sort((a, b) => (a.y - b.y) || (a.x - b.x)).map((i, n) => [i.id, n]));
-    const pages = [...new Set(vis.map((i) => safeId(i.page)).filter(Boolean))];
+    const pages = [...new Set([...(Array.isArray(doc.pages) ? doc.pages : []).map(safeId), ...vis.map((i) => safeId(i.page))].filter(Boolean))];
     const dark = (() => { const m = /^#?([0-9a-f]{6})$/i.exec(String(doc.bg || '')); if (!m) return true; const n = parseInt(m[1], 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 140; })();
     const items = vis.map((i) => {
       const def = registry.ui[i.type]; const id = safeId(i.anchor) || safeId(i.id); const m = ['stack', 'full', 'hide'].includes(i.mobile) ? i.mobile : 'stack';
       return `    <div class="it" id="${esc(id)}"${i.page ? ` data-p="${esc(safeId(i.page))}"` : ''} data-m="${m}" style="left:${i.x}px;top:${i.y}px;width:${i.w}px;height:${i.h}px;--o:${order.get(i.id)};${+i.rot ? `transform:rotate(${+i.rot}deg)` : ''}">${def.html(i, true)}</div>`;
     }).join('\n');
-    const rt = `(function(){var W=${W},H=${H},BP=${bp},M=${JSON.stringify(mode)},P=${JSON.stringify(pages)},d=document,fit=d.querySelector('.fit'),st=d.querySelector('.stage'),cur=P[0]||'';
+    const rt = `(function(){var W=${W},H=${H},BP=${bp},M=${jsLit(mode)},P=${jsLit(pages)},d=document,fit=d.querySelector('.fit'),st=d.querySelector('.stage'),cur=P[0]||'';
 function lay(){var vw=d.documentElement.clientWidth||innerWidth,stack=M==='auto'&&vw<=BP&&W>BP;d.body.classList.toggle('stack',stack);
 if(stack){st.style.transform='';st.style.left='';st.style.marginLeft='';fit.style.height='';return}
 var k=M==='fixed'?1:Math.min(vw/W,1.5);st.style.transform='scale('+k+')';st.style.marginLeft='0';st.style.left=Math.max(0,(vw-W*k)/2)+'px';fit.style.height=Math.round(H*k)+'px'}
@@ -163,7 +165,7 @@ if(P.length)show(cur);lay();if(location.hash.length>1&&location.protocol!=='abou
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>${esc(title || 'Vextra UI')}</title>
+<title>${esc(title || doc.title || 'Vextra UI')}</title>
 <style>
   *{box-sizing:border-box}
   html, body { margin: 0; background: ${esc(doc.bg)}; min-height: 100%; }
@@ -188,7 +190,7 @@ if(P.length)show(cur);lay();if(location.hash.length>1&&location.protocol!=='abou
 ${items}
   </div></div>
 ${VX.credit ? VX.credit.footerHTML({ align: 'center', theme: dark ? 'light' : 'dark' }) : ''}
-<script>${rt.replace(/<\/script/gi, '<\\/script')}</script>
+<script>${rt}</script>
 </body>
 </html>
 `;

@@ -83,6 +83,7 @@ Drop a `.js` file in the plugins folder (Plugins panel → Open folder) with a `
 ## What's new in 3.5.0
 - **Ten example games** (5 × 2D, 5 × 3D) in Library → Games.
 - **Store Export** checks Java / Gradle / Android SDK automatically (JAVA_HOME), installs and updates them for you, and shows a simple checklist.
+- **vxui as a site builder** (pages, ready-made sections, tablet/phone preview) and **Vextra AI 2.0** (guide, code blocks, entity/scene/game behaviour targets, runs in the background).
 - **Responsive vxui**: exported designs scale to any screen, stack on phones and support `#` links and multiple pages. **Designer & Game Extras 2.0** adds 7 designer components and 6 game objects. Optional **Windows code signing** (SmartScreen) in the release workflow.
 - **Signed auto-updates** on desktop (Settings → About → Install and restart); set up once with `npm run updater:keygen`.
 - Voice Command speech-service fallback, mouse-look and kinematic-gravity fixes. See `CHANGELOG.md`.

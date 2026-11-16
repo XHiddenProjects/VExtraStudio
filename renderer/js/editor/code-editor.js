@@ -75,6 +75,9 @@ ${P} .ace_scrollbar-v::-webkit-scrollbar-thumb,${P} .ace_scrollbar-h::-webkit-sc
       setDoc(doc) { cur = doc; ed.setSession(doc.session); applySession(doc.session); ed.setReadOnly(!!doc.readOnly); ed.resize(true); const p = ed.getCursorPosition(); onCursor && onCursor(p.row + 1, p.column + 1); },
       releaseDoc(doc) { if (cur === doc) { cur = null; } doc.session.destroy && doc.session.destroy(); },
       text: (doc) => doc.session.getValue(),
+      /* edit a document that is not the one on screen (used by background runs such as the AI) */
+      setDocValue(doc, text) { const s = doc.session, Range = ace.require('ace/range').Range; s.replace(new Range(0, 0, s.getLength(), 0), text); },
+      insertInDoc(doc, text) { doc.session.insert(doc.session.selection.getCursor(), text); },
       setLang(doc, langId) { doc.lang = langId; doc.session.setMode('ace/mode/' + (MODE[langId] || 'text')); doc.session.setUseWorker(['javascript', 'json', 'css', 'html'].includes(langId)); },
       goto(row, col) { ed.gotoLine(row, Math.max(0, (col || 1) - 1), true); ed.focus(); },
       find(text) { ed.find(text, { caseSensitive: false, wrap: true }); },

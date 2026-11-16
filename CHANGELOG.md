@@ -10,6 +10,10 @@ All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://
 - **Windows code signing in the release workflow** (reduces the Microsoft SmartScreen warning): optional Azure Artifact Signing or a `.pfx` certificate through repository secrets; with no secrets the build is unsigned as before and the log says so. Installer metadata (copyright, homepage, description) and a SHA-256 timestamped signature are set. See *Windows SmartScreen* in the docs.
 - **Designer & Game Extras 2.0.0** rebuilt as a professional component pack: CTA banner, Announcement bar, Feature grid, Steps, FAQ accordion, Countdown and Status chip for the designer; Star, Coin and Heart (2D, animated) and Crystal, Orb and Portal ring (3D, glow, optional light) for games. All text is escaped, and the objects work in exported games.
 - Setting **Suggest while typing** (Settings → Code editor), off by default.
+- **vxui works like a website builder.** *Pages* as tabs above the canvas (add, rename, delete; navbar and footer stay on every page), a **＋ Section** menu (Hero, Features, Pricing, Testimonials, Call to action, Contact, Footer), live **tablet / phone preview** of the exported page, a floating **element toolbar** (duplicate, order, this page / every page, delete), a *Site title*, and a *Show on page* picker. Exported pages open on the first page and switch pages with `#name` links.
+- **Vextra AI 2.0.0.** A built-in **"How the AI works"** guide (the `?` button) with permissions, examples and what you will see; every answer starts with a **Plan** and ends with a **Done** summary; code is shown in real **code blocks** (language label, Copy). Game behaviours now attach to designated targets, **entity**, **scene** or **game**, in one step (`add_behavior` with `target`), with a warning for any behaviour attached to nothing; `game_summary` shows where each one lives.
+- **The AI keeps working in the background.** A request is tied to the tab it started in (new `forge.pin()` plugin API), so switching tabs or closing the panel no longer interrupts it or edits the wrong tab. The status bar shows *AI · working…*, and a notice appears when it finishes.
+- **"✨ thinking…" stays on** (with a timer) for as long as the model runs, also after the panel was closed and reopened.
 
 ### Changed
 - **Code suggestions no longer pop up on their own** while you type variables, labels or text. They open with Ctrl+Space; turn on *Suggest while typing* to get the old behaviour.
@@ -17,6 +21,9 @@ All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://
 ### Fixed
 - **Preview of `#` links no longer shows the Vextra front end.** In a preview, a link such as `href="#top"` used to load the app itself inside the preview frame; every preview now keeps `#` links on the page (and `hashchange` still fires for hash routers).
 - **Syntax highlighting in the Preview tab for `.md` files** (the built-in preview rendered code blocks as plain text). Blocks with no language are detected, and the footer credit in a dark design is readable.
+- **Model list now loads** as soon as you enter a Server URL, for any provider: no key needed for your own server, several list addresses are tried (`/models`, `/v1/models`, `/api/tags`), and the real reason is shown if it fails.
+- **Updater "false" although the key exists.** A failed update check (no `latest.json` on the latest release, offline, bad signature) was reported as "this build has no update key". It now says what failed, and only says "no key" when the key really is missing.
+- **CodeQL "improper code sanitization"** (2 alerts) in the vxui exporter and the Extras countdown: data written into the exported `<script>` is now escaped (`<`, `>`, `&`, U+2028/9).
 
 ## [3.12.0]
 

@@ -179,6 +179,19 @@
   Forge.host.editorSelection = () => (code ? code.getSelection() : '');
   Forge.host.editorInsert = (txt) => { const t = T.active(); if (t && t.kind === 'code') code.replaceSelection(txt); };
   Forge.host.editorLang = () => { const t = T.active(); return t ? t.lang || t.kind : 'plaintext'; };
+  /* A pin ties a long-running plugin job (the AI) to the tab it started in: it keeps reading and editing THAT tab even when the user switches to another one. */
+  Forge.host.pin = () => {
+    const t0 = T.active(), id = t0 && t0.id, get = () => (id ? S.tabs.find((x) => x.id === id) || null : null);
+    return {
+      id, kind: t0 ? t0.kind : null,
+      alive: () => !!get(), isActive: () => S.active === id, title: () => { const t = get(); return t ? t.title || t.path || '' : ''; },
+      path: () => { const t = get(); return t ? t.path || null : null; }, lang: () => { const t = get(); return t ? t.lang || t.kind : 'plaintext'; },
+      value: () => { const t = get(); return t && t.kind === 'code' && t.doc ? ensureCode().text(t.doc) : ''; },
+      setValue: (v) => { const t = get(); if (t && t.kind === 'code' && t.doc) ensureCode().setDocValue(t.doc, v); },
+      insert: (v) => { const t = get(); if (t && t.kind === 'code' && t.doc) ensureCode().insertInDoc(t.doc, v); },
+      game: () => { const t = get(); return t && t.kind === 'game' && t.ctl ? t.ctl : null; },
+    };
+  };
   Forge.host.editorPath = () => (T.active() ? T.active().path || null : null);
   Forge.host.openPath = (p) => T.open({ path: p });
   Forge.host.newFile = (n, c, l) => T.newFile(n, c, l);

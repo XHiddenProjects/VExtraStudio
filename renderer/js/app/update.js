@@ -21,12 +21,14 @@
     try {
       const cur = VX.app.version; let nat = null;
       try { nat = await window.native.updater.check(); } catch (e) { nat = { enabled: false, error: e.message }; }
-      if (nat && nat.enabled) {         /* signed updater: GitHub releases + latest.json */
+      if (nat && nat.enabled && !nat.reason) {         /* signed updater: GitHub releases + latest.json */
         U.canInstall = !!nat.available;
         U.last = { state: nat.available ? 'new' : 'current', latest: nat.available ? nat.version : cur, current: cur, notes: nat.notes || '', signed: true, at: Date.now() };
-      } else {                          /* no updater key in this build / browser: only compare the VERSION file */
+      } else {                          /* no updater key in this build / browser / the signed check failed: only compare the VERSION file */
         U.canInstall = false; const latest = await fetchLatest(), c = cmp(latest, cur);
-        U.last = { state: c > 0 ? 'new' : c < 0 ? 'ahead' : 'current', latest, current: cur, at: Date.now() };
+        /* why the build cannot update itself: "no key" is only said when the key really is missing */
+        const why = nat && nat.enabled ? nat.reason : nat && nat.error ? 'The updater could not run: ' + nat.error : nat && nat.reason ? nat.reason : '';
+        U.last = { state: c > 0 ? 'new' : c < 0 ? 'ahead' : 'current', latest, current: cur, at: Date.now(), keyed: !!(nat && nat.enabled), why };
       }
       VX.app.settings.lastUpdateCheck = Date.now(); VX.app.settings.skipVersion = VX.app.settings.skipVersion || ''; VX.app.saveSettings();
     } catch (e) { U.last = { state: 'error', error: e.message, current: VX.app.version, at: Date.now() }; }
@@ -55,7 +57,7 @@
     const body = h('div', {}, h('p', {}, U.message()),
       l && l.state === 'new' && l.signed && l.notes ? h('pre', { style: 'max-height:160px;overflow:auto;white-space:pre-wrap;font-size:12px;background:var(--bg3);padding:8px;border-radius:6px' }, l.notes) : null,
       l && l.state === 'new' && U.canInstall ? h('p', { style: 'color:var(--muted);font-size:12.5px' }, 'The update is downloaded from GitHub and its signature is checked before anything is installed. Your projects and settings are kept.') : null,
-      l && l.state === 'new' && !U.canInstall ? h('p', { style: 'color:var(--muted);font-size:12.5px' }, 'This build has no update key, so it cannot update itself. Download the latest installer from the Releases page of the project (or the source, then run ', h('code', {}, 'npm install'), ' and rebuild). Your projects and settings are kept.') : null, prog);
+      l && l.state === 'new' && !U.canInstall ? h('p', { style: 'color:var(--muted);font-size:12.5px' }, (l.keyed ? 'This build has an update key, but the automatic update could not run. ' + (l.why || '') : 'This build has no update key, so it cannot update itself.') + ' Download the latest installer from the Releases page of the project (or the source, then run ', h('code', {}, 'npm install'), ' and rebuild). Your projects and settings are kept.') : null, prog);
     const acts = [h('button', { class: 'btn', onclick: () => m.close() }, 'Close')];
     if (l && l.state === 'new') acts.unshift(h('button', { class: 'btn', onclick: () => { VX.app.settings.skipVersion = l.latest; VX.app.saveSettings(); VX.emit('update'); m.close(); } }, 'Skip this version'));
     acts.push(h('button', { class: 'btn', onclick: () => U.check({}).then(() => { m.close(); U.dialog(); }) }, 'Check again'));
