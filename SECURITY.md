@@ -4,13 +4,12 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 3.11.x  | ✅ security fixes (current) |
-| 3.10.x  | ✅ security fixes |
-| 3.9.x   | ⚠️ please upgrade to 3.11.x |
-| 3.8.x   | ⚠️ please upgrade to 3.11.x |
-| 3.7.x and older | ❌ please upgrade |
+| 4.0.x   | ✅ security fixes (current) |
+| 3.12.x  | ✅ security fixes |
+| 3.11.x  | ⚠️ please upgrade to 4.0.x |
+| 3.10.x and older | ❌ please upgrade |
 
-Current version: **3.11.3** (see `VERSION`). This policy was last reviewed for 3.11.3.
+Current version: **4.0.0** (see `VERSION`). This policy was last reviewed for 4.0.0.
 
 ## Reporting a vulnerability
 
@@ -64,8 +63,8 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 - **Auto-updater:** updates are verified with a minisign public key compiled from `src-tauri/updater/pubkey.txt`; an unsigned or tampered download is rejected. The private key lives only in GitHub secrets (never in the repo), the endpoint is HTTPS-only, no `dangerous*` options are used, and the updater commands are Rust-side only (no `updater:default` capability for the webview). The downgrade guard (`requireSignedVersion`) is not enabled yet.
 
 ## v3.11.3 notes
-- **MSI data removal:** deleting data on uninstall is destructive, so it is opt-in at every step: the question defaults to *No* (also after a 2-minute timeout), a silent uninstall deletes nothing unless `REMOVEUSERDATA=1` is passed, upgrades never delete (`UPGRADINGPRODUCTCODE`), and the paths are fixed (`%APPDATA%\studio.vextra.app`, `%LOCALAPPDATA%\studio.vextra.app`) – never a folder the user chose. The question is a small inline JScript custom action; it only shows a Yes / No box and sets a property, and its failure is ignored (`Return="ignore"`). Some antivirus products treat any script custom action in an MSI as suspicious; the installers are unsigned anyway (see v3.11.0 notes) – verify downloads against `SHA256SUMS.txt`.
-- **Updater:** there is no auto-updater and no updater signing key; the workflow no longer asks for updater signatures. If an updater is added later, its private key must be stored as an encrypted repository secret, never in the repository.
+- **MSI data removal:** deleting data on uninstall is destructive, so it is opt-in at every step: the question defaults to *No* (also after a 2-minute timeout), a silent uninstall deletes nothing unless `REMOVEUSERDATA=1` is passed, upgrades never delete (`UPGRADINGPRODUCTCODE`), and the paths are fixed (`%APPDATA%\studio.vextra.app`, `%LOCALAPPDATA%\studio.vextra.app`) – never a folder the user chose. The question is a small inline JScript custom action; it only shows a Yes / No box and sets a property, and its failure is ignored (`Return="ignore"`). Some antivirus products treat any script custom action in an MSI as suspicious; installers may be unsigned unless Windows signing secrets are configured (see v4.0.0 notes) – verify downloads against `SHA256SUMS.txt`.
+- **Updater:** *(superseded in 3.12.0, which added a signed auto-updater – see below.)* The private updater key must be stored only as an encrypted repository secret (or kept outside the project folder), never in the repository or a release zip.
 - **Delete-everything button:** it only touches Vextra's own data folder and browser storage and asks for confirmation first.
 
 ## v3.11.2 notes
@@ -77,7 +76,7 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 ## v3.11.0 notes
 - **Store Export for VR / AR (Steam):** the generated launcher serves the game from a local http server bound to `127.0.0.1` on a random port (path-traversal safe, `Cache-Control: no-store`) and starts the player's installed Edge / Chrome with a separate profile folder; nothing is reachable from the network. The generated Android / iOS projects only add the permissions a VR / AR game needs (camera for AR, motion sensors) and iOS explains them to the player.
 - **Blender live link:** off until you press *Start link* in Blender. The add-on's server listens on `127.0.0.1` only (never the network), every request except a harmless `/ping` needs the random pairing key (constant-time compare; *New key* in the add-on preferences revokes it), uploads are capped at 200 MB and models sent from Vextra are imported with Blender's own glTF / OBJ importers. The key is stored in the editor's local storage on your computer. Anyone who can already run code on your computer could read the key, which is why the link is not a security boundary against local malware.
-- **Release builds (GitHub Actions):** `release-build.yml` runs only when a release is published (or when someone with write access starts it by hand). It uses the built-in `GITHUB_TOKEN` with `contents: write` limited to the build and checksum jobs, needs no other secrets, validates the release ID as a number and passes it through environment variables (no shell injection from release text). Every installer gets a SHA-256 in `SHA256SUMS.txt`. **The installers are not code-signed or notarised**, so Windows SmartScreen and macOS Gatekeeper warn on first start – verify the hash against `SHA256SUMS.txt` and download only from the Releases page of this repository.
+- **Release builds (GitHub Actions):** `release-build.yml` runs only when a release is published (or when someone with write access starts it by hand). It uses the built-in `GITHUB_TOKEN` with `contents: write` limited to the build and checksum jobs, needs no other secrets, validates the release ID as a number and passes it through environment variables (no shell injection from release text). Every installer gets a SHA-256 in `SHA256SUMS.txt`. **Unless the Windows signing secrets are configured (see v4.0.0 notes), the installers are not code-signed or notarised**, so Windows SmartScreen and macOS Gatekeeper may warn on first start – verify the hash against `SHA256SUMS.txt` and download only from the Releases page of this repository.
 - **Live demo site (GitHub Pages):** `pages.yml` publishes a static copy of the browser build (`scripts/build-web.js`). It runs entirely in the visitor's browser: no server, no accounts, nothing uploaded; projects stay in that browser's storage. The workflow has read access to the code and write access only to the Pages deployment. Plugins in the demo are the built-in ones; the sandboxed Play / Preview frames behave exactly as in the app.
 
 ## v3.10.0 notes
