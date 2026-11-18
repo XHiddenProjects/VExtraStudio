@@ -14,9 +14,9 @@
     const bar = $('#activity'); bar.textContent = '';
     const add = (v) => {
       if (v === '-') return bar.append(h('div', { class: 'act-sep adv' }));
-      bar.append(h('button', { class: 'act' + (v.adv ? ' adv' : '') + (SB.current === v.id ? ' active' : ''), title: v.title, 'data-view': v.id, onclick: () => (SB.current === v.id && !$('#sidebar').classList.contains('collapsed') ? SB.collapse(true) : SB.show(v.id)) }, VX.icon(v.icon)));
+      bar.append(h('button', Object.assign({ class: 'act' + (v.adv ? ' adv' : '') + (SB.current === v.id ? ' active' : ''), title: v.title, 'data-view': v.id }, v.state ? { 'data-state': v.state } : {}, { onclick: () => (SB.current === v.id && !$('#sidebar').classList.contains('collapsed') ? SB.collapse(true) : SB.show(v.id)) }), VX.icon(v.icon)));
     };
-    const all = [...BUILTIN.filter((v) => v !== '-'), ...[...Forge.panels.values()].map((p) => ({ id: 'panel:' + p.id, icon: p.icon, title: p.title + ' (plugin)' }))];
+    const all = [...BUILTIN.filter((v) => v !== '-'), ...[...Forge.panels.values()].map((p) => ({ id: 'panel:' + p.id, icon: p.icon, title: p.title + ' (plugin)', state: Forge.panelState.get(p.id) }))];
     const ord = VX.app.settings.activityOrder || []; const rank = (v) => { const i = ord.indexOf(v.id); return i < 0 ? 1000 + all.indexOf(v) : i; }; all.sort((a, b) => rank(a) - rank(b));
     VX.dnd.sortable(bar, { item: '.act[data-view]', id: (el) => el.dataset.view, onMove: (f, t, after) => { const ids = [...bar.querySelectorAll('.act[data-view]')].map((n) => n.dataset.view).filter((x) => x !== f); ids.splice(ids.indexOf(t) + (after ? 1 : 0), 0, f); VX.app.set('activityOrder', ids); SB.renderActivity(); } });
     let sep = false; for (const v of all) { if (!sep && v.adv && !all.slice(0, all.indexOf(v)).every((x) => x.adv)) { add('-'); sep = true; } add(v); }
@@ -26,7 +26,7 @@
   };
   SB.collapse = (v) => { $('#sidebar').classList.toggle('collapsed', v); $('#side-resizer').classList.toggle('collapsed', v); };
   SB.show = function (id) {
-    SB.collapse(false); SB.current = id; VX.app.set('lastView', id); SB.renderActivity();
+    SB.collapse(false); SB.current = id; VX.app.set('lastView', id); if (id.startsWith('panel:') && Forge.panelState.get(id.slice(6)) === 'done') Forge.setPanelState(id.slice(6), ''); SB.renderActivity();
     let def = SB.views[id];
     if (id.startsWith('panel:')) { const p = Forge.panels.get(id.slice(6)); def = p && { title: p.title, render: (c) => p.render(c) }; }
     if (!def) return; $('#side-title').textContent = def.title; const act = $('#side-actions'); act.textContent = ''; (def.actions ? def.actions() : []).forEach((a) => act.append(a));

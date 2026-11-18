@@ -56,6 +56,22 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
   ok(/id: 'ad', cat: 'mobile'[\s\S]*service/.test(src) && !/id: 'adSlot'/.test(src), 'Ad block has an ad-service option (no separate ad GUI block)');
   ok(/\['size', 'Set view width \/ height'\]/.test(src), 'Camera block can set view width / height');
 }
+{ /* AI add-on: play-testing, attachments, loop guard */
+  const ai = fs.readFileSync(path.join(ROOT, 'plugins', 'vextra-ai.js'), 'utf8'), pt = fs.readFileSync(path.join(ROOT, 'renderer/js/game/editor/playtest.js'), 'utf8'), pl = fs.readFileSync(path.join(ROOT, 'renderer/js/core/plugins.js'), 'utf8');
+  ok(/setAttribute\('sandbox', 'allow-scripts'\)/.test(pt) && !/setAttribute\('sandbox'[^)]*same-origin/.test(pt), 'playtest frame is sandboxed without allow-same-origin');
+  ok(/d\.token !== chan\.token/.test(pt) && /e\.source !== frame\.contentWindow/.test(pt), 'playtest messages are token- and source-checked');
+  ok(/playtest: \(script/.test(pl) && /screenshotPage/.test(pl), 'forge.game.playtest / screenshotPage exist');
+  ok(/const over = !!\(c\.tokenLimit && \(bud\.used >= c\.tokenLimit \|\| reason === 'token limit'\)\)/.test(ai) && /COOLDOWN/.test(ai), 'AI token limit locks for a cooldown');
+  ok(/modelCaps/.test(ai) && /applyCaps/.test(ai) && /fallbackModel/.test(ai), 'AI per-model settings and fallback model');
+  ok(/cleanShown/.test(ai) && /looksCutOff/.test(ai), 'AI hides raw action JSON');
+  ok(/setState/.test(pl), 'forge.panels.setState exists');
+  ok(/'play', 'Play-test/.test(ai) && /case 'playtest'/.test(ai) && /case 'screenshot_site'/.test(ai), 'AI has the play-test permission and actions');
+  ok(/STOP AND THINK/.test(ai) && /reason = 'stuck'/.test(ai) && /guard\.cache/.test(ai), 'AI has the loop guard');
+  ok(/makeAttachment/.test(ai) && /save_attachment/.test(ai) && /add_image_sprite/.test(ai) && /add_sound_file/.test(ai), 'AI accepts attachments');
+  ok(/ATT_COUNT/.test(ai) && /ATT_MAX/.test(ai), 'attachments have size / count limits');
+  ok(/image_url/.test(ai) && /media_type/.test(ai) && /images: imgs\.map/.test(ai), 'pictures are sent in all three provider formats');
+  ok(/safeRel\(a\.path \|\| at\.name\)/.test(ai) && /BAD_WRITE\.test\(p\)/.test(ai.slice(ai.indexOf("case 'save_attachment'"))), 'save_attachment uses the protected-path rules');
+}
 (async () => {
   for (let i = 0; i < 30; i++) { if ((await call('GET', '/api/health')).status === 200) break; await new Promise((r) => setTimeout(r, 150)); }
   try {

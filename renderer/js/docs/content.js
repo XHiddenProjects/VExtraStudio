@@ -709,7 +709,33 @@ Open the **AI** panel (sidebar) and chat with the model you choose in **Plugins 
 
 Each ability has its own **Deny / Ask / Allow**: *Read project*, *Edit open file*, *Write files*, *Change game*. The panel has presets – **Chat only**, **Assist** (asks before changing anything), **Agent** (changes without asking, asks before deleting) and **Builder** (everything allowed, up to 30 steps).
 
-**Build things by asking**: *“Build me a 2D platformer with coins and enemies”* or *“Create a portfolio website”*. The AI plans, opens a game, adds scenes, objects, sprites and ready-made assets, writes block logic, attaches it, checks the result and fixes problems – each game change is one undo step. For websites it creates, edits, moves and deletes files and folders in your open folder. Secret-looking files (\`.env\`, keys) are never read. Everything you send and everything the AI reads goes to the provider you picked.`);
+**Build things by asking**: *“Build me a 2D platformer with coins and enemies”* or *“Create a portfolio website”*. The AI plans, opens a game, adds scenes, objects, sprites and ready-made assets, writes block logic, attaches it, checks the result and fixes problems – each game change is one undo step. For websites it creates, edits, moves and deletes files and folders in your open folder. Secret-looking files (\`.env\`, keys) are never read. Everything you send and everything the AI reads goes to the provider you picked.
+
+## It tests its own work
+After it changes a game the AI **plays it** in a hidden, sandboxed window: it presses keys, clicks, reads runtime errors, checks which objects moved and takes **screenshots** (shown in the chat with a 🎬 caption). Then it fixes what it found. Ask for it too: *“play-test it and make sure the player can jump”*. For websites it renders the page at a width you choose (390 = phone) and reports script errors, broken images and sideways overflow. Control it with the **Play-test & take screenshots** permission and *Play-test automatically…* in ⚙ Configure. Pictures need a model that can **see** (Claude, GPT-4o, Gemini, llava, qwen-vl…); a text-only model gets the written report instead and the AI tells you so.
+
+## Attach files
+Press **📎**, drag files into the panel or paste a picture. Up to 8 files per message: **pictures** and **four frames of a video** are shown to the AI, **text and code files** are read, **audio** and other files are described. The AI can save a file into your folder, turn a picture into a **sprite** and an audio file into a **sound** in your game. Files stay in memory for the session and are sent only to the provider you chose.
+
+## It does not get stuck
+Repeating an action that already gave the same answer returns “nothing changed” at once. If the AI repeats a step, or several steps in a row change nothing, it is told to change its approach; if it still repeats it **stops** and waits. **▶ Continue** then starts a different approach.
+
+## Token limit and cooldown
+Set **Token limit per hour** in ⚙ Configure. The meter under the chat counts every request. If the next request would pass the limit, the AI stops at once, asks the model for a short hand-over note, saves it as the **checkpoint** and locks for one hour. After the hour the count starts again and **▶ Continue** picks up from the checkpoint. Providers do not stream through Vextra, so the meter updates when a request goes out and when the answer arrives.
+
+## Status icon
+The bot icon in the sidebar changes colour: working, done, paused (limit or Stop) and error.
+
+## Empty answers
+If a model returns nothing the AI retries with a nudge, then with the optional **Fallback model**, then saves a checkpoint instead of hanging.
+
+## Settings follow the model
+Temperature, max output and context window are filled in for the chosen provider and model; settings the model cannot change are greyed out.
+
+## Replies, layers and design tools
+Replies are shown as Markdown; raw action JSON is never shown. The AI knows the three layers (background, world, UI) and places HUD items on the UI layer. It can open the Sprite, Sound, 3D and Material editors, and drive **Blender** through the Vextra Blender add-on (other desktop apps are not controlled; save files to the project folder instead). Play-tests can run in a visible window with a Stop button (setting **Show play-tests**).
+
+For plugin authors: \`forge.game.playtest(steps, opts)\`, \`forge.game.screenshotPage(html, opts)\` and \`forge.panels.setState(panelId, 'working'|'done'|'paused'|'error')\`.`);
 
   A('plugin-hooks', 'Plugins', 'Plugin hooks & settings button', `# Plugin hooks and the Configure button
 

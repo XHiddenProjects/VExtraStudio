@@ -131,5 +131,5 @@
     run('Reading the scene…', async () => { await ping(); });
     return m;
   }
-  VX.blender = { cfg, state: st, open, ping, pull, push, resync, attach(am) { st.am = am; start(); } };
+  VX.blender = { cfg, state: st, open, ping, pull, push, resync, scene: loadScene, attach(am) { st.am = am; start(); } };
 })();

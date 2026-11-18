@@ -2,7 +2,35 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.0.1] — current
+## [4.2.0] — current
+
+### Added
+- **Vextra AI 2.2 – token limit.** Live token meter; when the next request would pass the limit the AI stops at once, asks the model for a hand-over note, saves it as the checkpoint and locks for one hour, then resets. ▶ Continue resumes.
+- **Colour-changing bot icon** (working / done / paused / error) via `forge.panels.setState`.
+- **Empty-answer handling:** retries, optional fallback model, then a checkpoint.
+- **Per-model settings:** temperature, max output and context window auto-fill for the provider/model; unsupported inputs are disabled.
+- **Design editors & Blender:** the AI can open the sprite/sound/3D/material editors and use the Blender add-on; new *Design editors & Blender* permission.
+- **Visible play-tests** with a Stop button; the AI knows the background / world / UI layers.
+- **Markdown replies** are rendered.
+
+### Fixed
+- Raw action JSON (including cut-off replies) no longer shows in the chat.
+
+## [4.1.0]
+
+### Added
+- **Vextra AI 2.1 – it tests its own work.** After it changes a game the AI plays it in a hidden, sandboxed window (same sandbox as ▶ Play), presses keys, clicks, reads runtime errors, checks which objects moved and takes **screenshots** that appear in the chat (🎬) and are shown to the model. New actions `playtest`, `screenshot` and `screenshot_site` (renders a website at 390 px / 1000 px and reports script errors, broken images and sideways overflow). New permission **Play-test & take screenshots** and setting *Play-test automatically after the AI changes a game* (on by default).
+- **Attach files to the AI.** 📎 button, drag & drop and paste: pictures and four frames of a video are shown to the model, text/code files are read, audio and other files are described. The AI can `save_attachment` into your folder and use files in a game (`add_image_sprite`, `add_sound_file`). Limits: 8 files per message, size caps per type. Works with Claude, OpenAI-compatible and Ollama pictures; a model that cannot see pictures is detected, told so, and the AI continues from text.
+- **Plugin API:** `forge.game.playtest(steps, opts)` and `forge.game.screenshotPage(html, opts)`; new core module `renderer/js/game/editor/playtest.js` (`VX.playtest`).
+- In-app docs: *It tests its own work*, *Attach files*, *It does not get stuck*.
+
+### Fixed
+- **The AI no longer loops forever without changing anything.** Repeated reads return “nothing changed”, repeated identical writes/game edits count as no progress, a repeated step (or four steps that change nothing) makes the AI change its approach, and a second occurrence stops the run with a clear note; **▶ Continue** then starts a different approach. The AI is also instructed never to repeat a result it already has and to check its work before saying “done”.
+
+### Notes
+- Version 4.0.1 (updater diagnostics in the release workflow, refreshed security policy, `Cargo.lock` `objc2-encode` restored to 4.1.0) is included.
+
+## [4.0.1]
 
 ### Fixed
 - **Release workflow “Auto-updater is off”:** the warning now says *which* part is missing (private-key secret `TAURI_SIGNING_PRIVATE_KEY` not visible to the job, or `src-tauri/updater/pubkey.txt` absent / still the `NOT-SET` placeholder in that commit). The log prints yes/no for each check and the public key length – never the secret.

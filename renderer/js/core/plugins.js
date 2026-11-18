@@ -2,12 +2,14 @@
 (function () {
   const listeners = {};
   const Forge = {
-    version: '4.0.1',
+    version: '4.2.0',
     host: {},                 // filled in by app.js
     commands: new Map(),      // id -> {id,title,run,plugin}
     statusItems: new Map(),   // id -> {id,text,align,onClick,plugin}
     configs: new Map(),       // pluginId -> {title,intro,fields,load,save,validate}
     panels: new Map(),        // id -> {id,title,icon,render,plugin}
+    panelState: new Map(),    // id -> 'working' | 'done' | 'error' | 'paused'
+    setPanelState(id, state) { if (state) Forge.panelState.set(id, state); else Forge.panelState.delete(id); try { const b = document.querySelector(`#activity .act[data-view="panel:${id}"]`); if (b) { if (state) b.dataset.state = state; else delete b.dataset.state; } } catch { /* activity bar not drawn yet */ } },
     toolbarItems: new Map(),  // id -> {id,label,run,plugin}
     docs: new Map(),          // id -> {id,title,markdown,plugin}
     plugins: new Map(),       // id -> {manifest, file, source, enabled, error, disposers, contrib, docs}
@@ -59,8 +61,10 @@
         register(p) {
           const id = `${pluginId}.${p.id}`;
           Forge.panels.set(id, { id, title: p.title, icon: p.icon || 'plugin', render: p.render, plugin: pluginId });
-          note('panels', p.title); track(() => Forge.panels.delete(id)); Forge.changed();
+          note('panels', p.title); track(() => { Forge.panels.delete(id); Forge.panelState.delete(id); }); Forge.changed();
         },
+        /** Colours the panel's icon in the activity bar: 'working' (colours cycle), 'done' (green), 'error' (red), 'paused' (amber) or '' (normal). */
+        setState(panelId, state) { Forge.setPanelState(`${pluginId}.${panelId}`, state); },
       },
       editor: {
         getValue: () => H().editorGet?.() ?? '',
@@ -105,6 +109,10 @@
         editor: () => { const t = VX.tabs && VX.tabs.active && VX.tabs.active(); return t && t.kind === 'game' && t.ctl ? t.ctl : null; },
         /** Resolves to the exported single-file HTML of a project (default: the open game). */
         exportHTML: (project) => VX.gameExport.toHTML(project || VX.game.currentProject?.()),
+        /** Play-tests a game in a hidden sandboxed frame: script = [{wait:ms},{key:'right',hold:400},{press:'space'},{click:{x:.5,y:.5}},{shot:true,label:'…'}] → { ok, errors[], logs[], shots[{label,data(jpeg data URL),w,h}], state{scene,vars,objects,frames,fps}, notes[] }. Default project: the open game. */
+        /** Renders HTML in a hidden sandboxed frame → { errors[], info{title,text,headings,links,images,hOverflow…}, shots[] (best effort), notes[] }. */
+        screenshotPage: (html, opts) => VX.playtest.page(html, opts),
+        playtest: (script, opts, project) => VX.playtest.run(project || VX.game.currentProject?.(), script, opts),
       },
       docs: {
         /** Add a documentation page that shows up under Docs → Plugins → <your plugin>. Markdown. */
@@ -359,8 +367,11 @@ forge.editor.onSave(() => status.update('${id}: saved'));
     const h = VX.h, def = Forge.configs.get(id), rec = Forge.plugins.get(id); if (!def) return container.append(h('div', { class: 'empty' }, 'This plugin has no settings.'));
     const m = rec ? rec.manifest : { name: id, version: '', description: '' };
     const cur = def.load ? await def.load() : Object.fromEntries(def.fields.map((f) => [f.key, Forge.host.settings?.plugins?.[id]?.[f.key]]));
-    const inputs = {}, dyn = []; const err = h('div', { class: 'form-error hidden' }); let dirty = false;
+    const inputs = {}, dyn = []; const err = h('div', { class: 'form-error hidden' }); let dirty = false; const notes = {};
+    /* what a plugin's onChange(key, values, api) can do: set a value, lock a field (with the reason shown under it) or write a note under it */
+    const cfgApi = { set: (k, x) => { if (inputs[k]) { inputs[k].value = x; mark(); } }, disable: (k, off, why) => { const i = inputs[k]; if (i && 'disabled' in i) { i.disabled = !!off; if (i.closest) { const l = i.closest('label'); if (l) l.style.opacity = off ? '.6' : ''; } } cfgApi.note(k, off && why ? why : ''); }, note: (k, text) => { const i = inputs[k]; const l = i && i.closest && i.closest('label'); if (!l) return; let n = notes[k]; if (!n) { n = notes[k] = h('small', { style: 'color:var(--accent)' }, ''); l.append(n); } n.textContent = text || ''; n.style.display = text ? '' : 'none'; } };
     const mark = () => { if (!dirty) { dirty = true; save.disabled = false; state.textContent = 'Unsaved changes'; } };
+    const fireChange = (k) => { if (def.onChange) { try { def.onChange(k, values(), cfgApi); } catch (e) { /* ignore */ } } };
     const fieldEl = (f) => {
       const v = cur && cur[f.key] !== undefined && cur[f.key] !== null ? cur[f.key] : def.defaults && def.defaults[f.key] !== undefined ? def.defaults[f.key] : f.value; let input;
       if (f.type === 'select') { input = h('select', {}, (f.options || []).map((o) => { const [val, l] = Array.isArray(o) ? o : [o, o]; return h('option', { value: val }, l); })); input.value = v ?? ''; }
@@ -373,12 +384,12 @@ forge.editor.onSave(() => status.update('${id}: saved'));
         const ctlv = { get value() { return sel.value === '__other' ? txt.value : sel.value; }, set value(x) { cur0 = x ?? ''; fill(lastList); }, addEventListener() {} }; let lastList = [];
         const fill = (list) => { lastList = list; const want = cur0; sel.textContent = ''; if (!list.length) sel.append(h('option', { value: '' }, '— none found —')); else sel.append(h('option', { value: '' }, '— select a model —')); for (const [val, l] of list) sel.append(h('option', { value: val }, l || val)); sel.append(h('option', { value: '__other' }, 'Other… (type a name)')); if (want && !list.some(([val]) => val === want)) { sel.value = '__other'; txt.style.display = ''; txt.value = want; } else { sel.value = want || ''; txt.style.display = 'none'; } };
         const load = async () => { info.textContent = 'Loading…'; try { const cv = {}; for (const k of Object.keys(inputs)) cv[k] = inputs[k].type === 'checkbox' ? inputs[k].checked : inputs[k].value; cur0 = ctlv.value || cur0; const r = await f.loadOptions(cv); fill(r.options || r); info.textContent = r.note || (r.length ?? r.options.length) + ' found'; } catch (e) { fill([]); info.textContent = e.message || String(e); } };
-        sel.onchange = () => { txt.style.display = sel.value === '__other' ? '' : 'none'; if (sel.value === '__other') txt.focus(); mark(); }; txt.oninput = mark; rf.onclick = load; fill([]); ctlv.reload = load; dyn.push({ f, load, clear: () => { cur0 = ctlv.value || cur0; fill([]); info.textContent = ''; } }); setTimeout(load, 0);
+        sel.onchange = () => { txt.style.display = sel.value === '__other' ? '' : 'none'; if (sel.value === '__other') txt.focus(); mark(); fireChange(f.key); }; txt.oninput = () => { mark(); clearTimeout(txt._t); txt._t = setTimeout(() => fireChange(f.key), 500); }; rf.onclick = load; fill([]); ctlv.reload = load; dyn.push({ f, load, clear: () => { cur0 = ctlv.value || cur0; fill([]); info.textContent = ''; } }); setTimeout(load, 0);
         inputs[f.key] = ctlv; return h('label', { class: 'cfgp-field' }, h('b', {}, f.label), box, f.hint ? h('small', {}, f.hint) : null);
       }
       else input = h('input', { type: f.type || 'text', value: v ?? '', placeholder: f.placeholder || '', autocomplete: 'off' });
       input.addEventListener('input', mark); input.addEventListener('change', mark); inputs[f.key] = input;
-      { let tm = 0; const changed = () => { const vals = {}; for (const k of Object.keys(inputs)) vals[k] = inputs[k].type === 'checkbox' ? inputs[k].checked : inputs[k].value; if (def.onChange) { try { def.onChange(f.key, vals, { set: (k, x) => { if (inputs[k]) { inputs[k].value = x; mark(); } } }); } catch (e) { /* ignore */ } } dyn.filter((d) => (d.f.refreshOn || []).includes(f.key) && d.clear).forEach((d) => d.clear()); clearTimeout(tm); tm = setTimeout(() => dyn.filter((d) => (d.f.refreshOn || []).includes(f.key)).forEach((d) => d.load()), 600); }; input.addEventListener(f.type === 'select' || f.type === 'checkbox' ? 'change' : 'input', changed); }
+      { let tm = 0; const changed = () => { const vals = {}; for (const k of Object.keys(inputs)) vals[k] = inputs[k].type === 'checkbox' ? inputs[k].checked : inputs[k].value; if (def.onChange) { try { def.onChange(f.key, vals, cfgApi); } catch (e) { /* ignore */ } } dyn.filter((d) => (d.f.refreshOn || []).includes(f.key) && d.clear).forEach((d) => d.clear()); clearTimeout(tm); tm = setTimeout(() => dyn.filter((d) => (d.f.refreshOn || []).includes(f.key)).forEach((d) => d.load()), 600); }; input.addEventListener(f.type === 'select' || f.type === 'checkbox' ? 'change' : 'input', changed); }
       return f.type === 'checkbox' ? h('label', { class: 'cfgp-field cfgp-check' }, input, h('span', {}, h('b', {}, f.label), f.hint ? h('small', {}, f.hint) : null)) : h('label', { class: 'cfgp-field' }, h('b', {}, f.label), input, f.hint ? h('small', {}, f.hint) : null);
     };
     const groups = []; for (const f of def.fields) { const g = f.group || 'Settings'; let e = groups.find((x) => x.name === g); if (!e) groups.push((e = { name: g, fields: [] })); e.fields.push(f); }
@@ -397,6 +408,7 @@ forge.editor.onSave(() => status.update('${id}: saved'));
     container.append(h('div', { class: 'cfgp page' },
       h('div', { class: 'cfgp-head' }, h('div', {}, h('h2', {}, m.name, ' ', h('small', {}, m.version ? 'v' + m.version : '')), h('p', {}, def.intro || m.description || '')), h('div', { class: 'cfgp-actions' }, state, def.defaults ? reset : null, save)),
       err, ...groups.map((g) => h('section', { class: 'cfgp-group' }, h('h3', {}, g.name), h('div', { class: 'cfgp-grid' }, g.fields.map(fieldEl)))), extra));
+    if (def.onChange) setTimeout(() => { try { def.onChange(null, values(), cfgApi); } catch (e) { /* ignore */ } }, 0); /* first call: lets the plugin lock fields that the chosen model cannot change */
   };
   Forge._makeApi = makeApi;
   window.Forge = Forge;

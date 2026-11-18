@@ -286,3 +286,12 @@ input[type=checkbox], input[type=radio] { flex: 0 0 auto; width: 18px; height: 1
 .chk-text{font-size:12px;color:var(--muted,#8b95a8);line-height:1.4;word-break:break-word}
 .chk-sum{margin-top:10px;font-size:13px;padding-top:8px;border-top:1px solid var(--border,#2a3246)}
 @media (prefers-reduced-motion:reduce){.chk-ico.chk-run{animation-duration:2.4s}}
+
+/* a plugin panel's icon shows what it is doing (e.g. the AI): colours cycle while working, green when finished, red on error, amber when paused */
+#activity .act[data-state] svg { stroke: currentColor; }
+#activity .act[data-state="working"] { animation: act-cycle 2.6s linear infinite; }
+#activity .act[data-state="done"] { color: #34c759 !important; }
+#activity .act[data-state="error"] { color: #ff453a !important; }
+#activity .act[data-state="paused"] { color: #ff9f0a !important; }
+@keyframes act-cycle { 0% { color: #ff6b6b; } 17% { color: #ffb347; } 34% { color: #ffe14d; } 51% { color: #4ddc8c; } 68% { color: #4da6ff; } 85% { color: #c78bff; } 100% { color: #ff6b6b; } }
+@media (prefers-reduced-motion: reduce) { #activity .act[data-state="working"] { animation: none; color: #ff9f0a !important; } }
