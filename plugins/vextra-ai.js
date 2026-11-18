@@ -1,4 +1,4 @@
-/** @forge-plugin {"id":"vextra-ai","name":"Vextra AI","version":"2.2.0","description":"Chat with the AI model of your choice (Claude, OpenAI, Gemini, Groq, Ollama, LM Studio, OpenRouter or any OpenAI-compatible server) from a side panel. It can build whole games (scenes, objects, sprites, block-coded behaviours) and websites (files and folders) for you. Every ability has its own Deny / Ask / Allow permission. Has a ⚙ Configure button."} */
+/** @forge-plugin {"id":"vextra-ai","name":"Vextra AI","version":"2.1.0","description":"Chat with the AI model of your choice (Claude, OpenAI, Gemini, Groq, Ollama, LM Studio, OpenRouter or any OpenAI-compatible server) from a side panel. It can build whole games (scenes, objects, sprites, block-coded behaviours) and websites (files and folders) for you. Every ability has its own Deny / Ask / Allow permission. Has a ⚙ Configure button."} */
 /** @forge-docs
  * ## Vextra AI
  * Open the **AI** panel in the sidebar, type a request and press **Send**. Choose the model and the permissions under **⚙ Configure** (a `plugin:Vextra AI` tab).

@@ -4,11 +4,10 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 4.2.x   | ✅ security fixes (current) |
-| 4.1.x   | ✅ security fixes (upgrade to 4.2.x) |
-| 4.0.x   | ✅ security fixes (upgrade to 4.2.x) |
-| 3.12.x  | ⚠️ please upgrade to 4.2.x |
-| 3.11.x  | ⚠️ please upgrade to 4.2.x |
+| 4.1.x   | ✅ security fixes (current) |
+| 4.0.x   | ✅ security fixes (upgrade to 4.1.x) |
+| 3.12.x  | ⚠️ please upgrade to 4.1.x |
+| 3.11.x  | ⚠️ please upgrade to 4.1.x |
 | 3.10.x and older | ❌ please upgrade |
 
 Current version: **4.1.0** (see `VERSION`). This policy was last reviewed for 4.1.0.
@@ -49,16 +48,14 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
 
-## v4.2.0 notes
-- **Token limit:** a per-hour cap; on reaching it the AI stops, sends one extra hand-over request to the provider you chose, and locks for an hour. The count is stored locally.
-- **Design permission:** opening editors and the Blender link are gated by the `design` permission (default *ask*). Blender is reached only on localhost through the add-on's pairing key; no other desktop apps are controlled.
-- **Visible play-test window** uses the same `allow-scripts`-only sandbox.
-
 ## v4.1.0 notes
 - **Play-test & screenshots (AI):** the game or page runs in a hidden iframe with `sandbox="allow-scripts"` only (no `allow-same-origin`, no forms, popups, pointer lock, camera or microphone), so it cannot reach the editor, your files or the Tauri bridge. Messages from it are accepted only from that frame's window and only with a one-time random token; the frame is removed when the test ends and a 25 s (games) / 12 s (pages) time limit stops runaway code. The probe script injected into the test copy is never written to your project or exported games. Screenshots are JPEG data URLs held in memory; they leave your computer only when you use a provider that receives images (below).
 - **Attachments (AI):** files are read in the browser, kept in memory for the session and never written anywhere unless the AI uses `save_attachment` (needs the *Create & edit files* permission; same protected-path rules as every file write: inside the open folder only, never `.env`/keys/`.git`/`node_modules`). Limits: 8 files per message, 12 MB pictures, 80 MB video, 40 MB audio, 25 MB other. Videos are reduced to four small frames. **Pictures, video frames, text-file contents and play-test screenshots are sent to the AI provider you selected** – use a local model (Ollama, LM Studio) to keep them on your computer. Attached text files are treated as data, not instructions, but remember any model can be influenced by text it reads; keep the permissions on *Ask* when working with files you do not trust.
 - **Permission:** *Play-test & take screenshots* is Deny / Ask / Allow like every other ability; it changes nothing in your project. Chat-only mode turns it off.
 - **Loop guard:** a run that repeats itself is stopped after one warning, so a misbehaving model cannot keep changing files or spending tokens indefinitely (the *Max actions per request* limit still applies).
+- **Token limit:** a per-hour cap; on reaching it the AI stops, sends one extra hand-over request to the provider you chose, and locks for an hour. The count is stored locally.
+- **Design permission:** opening editors and the Blender link are gated by the `design` permission (default *ask*). Blender is reached only on localhost through the add-on's pairing key; no other desktop apps are controlled.
+- **Visible play-test window** uses the same `allow-scripts`-only sandbox.
 
 ## v4.0.1 notes
 - **Updater diagnostics (release workflow):** the "prepare the signed updater" step prints only yes/no and the public key's length. The private key (`TAURI_SIGNING_PRIVATE_KEY`) and its password are read from repository secrets into an environment variable, are never echoed, and GitHub masks them in logs. A missing secret or placeholder public key keeps the updater **off** (fail closed) – installers are still built, and no unsigned update is ever offered.
