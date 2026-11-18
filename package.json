@@ -32,7 +32,7 @@
     "ace-builds": "latest",
     "esbuild": "latest",
     "postject": "latest",
-    "sql.js": "^1.16.0",
+    "sql.js": "latest",
     "three": "latest"
   },
   "pnpm": {
