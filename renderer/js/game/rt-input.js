@@ -74,7 +74,7 @@
 
     /* pointer lock */
     I.listen(document, 'pointerlockchange', () => { I.locked = document.pointerLockElement === c; });
-    I.lock = (on) => { try { if (on) c.requestPointerLock(); else document.exitPointerLock(); } catch { /* not allowed */ } };
+    I.lock = (on) => { try { if (on) c.requestPointerLock(); else { g._selfUnlock = true; setTimeout(() => { g._selfUnlock = false; }, 200); document.exitPointerLock(); } } catch { /* not allowed */ } };
 
     /* device motion / orientation (also driven by the editor's device simulator via postMessage) */
     I.listen(window, 'devicemotion', (e) => {

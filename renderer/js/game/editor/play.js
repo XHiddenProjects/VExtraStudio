@@ -18,7 +18,7 @@
         h('button', { class: 'btn sm', onclick: () => this.ctx.onStop && this.ctx.onStop() }, '■ Stop'));
       this.el = h('div', { class: 'play' }, this.bar, this.stage);
       this.sense = new VX.SenseHost((type, value, tr) => this.send(type, value, tr));
-      this.msg = (e) => { if (e.source !== this.frame.contentWindow) return; const d = e.data; if (d && d.vx === 'sense' && this.chan && d.token === this.chan.token) { this.sense.handle(d); return; } if (d && d.vx === 'live' && this.chan && d.token === this.chan.token) { this.ctx.onLive && this.ctx.onLive(d.data); return; } if (d && d.vx === 'log' && this.chan && d.token === this.chan.token) this.ctx.onLog && this.ctx.onLog(d.level, d.text); };
+      this.msg = (e) => { if (e.source !== this.frame.contentWindow) return; const d = e.data; if (d && d.vx === 'sense' && this.chan && d.token === this.chan.token) { this.sense.handle(d); return; } if (d && d.vx === 'live' && this.chan && d.token === this.chan.token) { this.ctx.onLive && this.ctx.onLive(d.data); return; } if (d && d.vx === 'exit' && this.chan && d.token === this.chan.token) { this.stop(); return; } if (d && d.vx === 'log' && this.chan && d.token === this.chan.token) this.ctx.onLog && this.ctx.onLog(d.level, d.text); };
       window.addEventListener('message', this.msg); this.ro = new ResizeObserver(() => this.layout()); this.ro.observe(this.stage);
     }
     /* The game frame is sandboxed without allow-same-origin, so its origin is opaque and "*" is the only possible target. Every message carries a one-time token the game verifies, and carries no secrets. */

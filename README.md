@@ -44,6 +44,7 @@ Drop a `.js` file in the plugins folder (Plugins panel → Open folder) with a `
 - **Project packs (`.vxpack`).** Double-click one (or File → Open): it is unpacked into its own folder and everything is built: `.vxs` scripts are compiled to blocks, every `.vxgame` is checked, and each game gets a web build in `build/`. Programs and unsafe paths are never written; nothing runs until you press Play.
 - **VXScript (`.vxs`).** A small non-JavaScript language that compiles to the block graph (📜 button in the game editor). Scripts are compiled, never executed.
 - **Night Shift: Tape 07.** A 3D found-footage horror game seen through a VHS camcorder (new *VHS Tape* shader block): 3 levels, 4 cutscenes, objectives, a stalker that hunts by sound. It is built **entirely from blocks**: open *Examples → Night Shift* in the game editor, or `examples/night-shift/night-shift.vxgame` (plus a ready `.vxpack` and web build in that folder) and edit every behaviour in the Logic tab.
+- **Pause menu, frame rate & FPS counter:** every game pauses with Esc (Resume / Settings / Restart / Quit); *Game settings* has a frame-rate dropdown and a debug mode that shows the FPS.
 - **Backup add-on** (`plugins/backup.js`).
 - **Updates never touch your data.** It lives outside the install folder, and a safety copy is made before every update (`update-backups/`, last 3 kept).
 - **Vextra AI** waits longer for slow models and retries instead of locking; only the token limit locks.

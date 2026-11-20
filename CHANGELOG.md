@@ -9,7 +9,9 @@ All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://
 - **Project packs (`.vxpack`)**: open to unpack and build everything (code, assets, levels); file associations for `.vxpack`, `.vxgame`, `.vxs`.
 - **VXScript (`.vxs`)**: a non-JavaScript language compiled to the block graph.
 - **Night Shift: Tape 07**: full 3D VHS horror game made of blocks (3 levels, 4 cutscenes). Shipped as `examples/night-shift/` (`.vxgame`, `.vxpack`, web build). New **VHS Tape** shader effect.
-- **Backup** plugin. Plugin fs API: `readBase64`, `readDir`; `VX.ui.progress`.
+- **Backup** plugin (save-disk icon). Plugin fs API: `readBase64`, `readDir`; `VX.ui.progress`.
+- **Pause menu** in every game (Esc, or ☰ on touch screens, or when the mouse lock is released): Resume, Settings (volume, frame rate, show FPS, full screen), Restart level, Quit. Turn it off in Game settings.
+- **Game settings → Frame rate** dropdown (automatic, 30–240 FPS) and **Debug mode** (shows the FPS counter while playing).
 - Update safety copy of user data before every install (`update-backups/`).
 
 ### Changed

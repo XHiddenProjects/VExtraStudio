@@ -179,10 +179,10 @@
       container.style.cssText += ';position:relative;overflow:hidden;background:' + this.settings.bg + ';user-select:none;-webkit-user-select:none;touch-action:none';
       this.stageEl = document.createElement('div'); this.stageEl.style.cssText = 'position:absolute;inset:0;display:grid;place-items:center'; container.append(this.stageEl);
       this.guiEl = document.createElement('div'); this.guiEl.className = 'vx-gui'; this.guiEl.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;font-family:system-ui,sans-serif'; container.append(this.guiEl);
-      VXRT.initInput(this); VXRT.initRender(this);
+      VXRT.initInput(this); VXRT.initRender(this); if (VXRT.initMenu) VXRT.initMenu(this);
       this.resize(); this._ro = new ResizeObserver(() => this.resize()); this._ro.observe(container);
       this.running = true; this.loadScene(this.opts.startScene ?? this.data.settings?.startScene ?? 0, { first: true });
-      this._last = performance.now(); const loop = (t) => { if (!this.running) return; this._raf = requestAnimationFrame(loop); this.tick(t); }; this._raf = requestAnimationFrame(loop);
+      this._last = performance.now(); const loop = (t) => { if (!this.running) return; this._raf = requestAnimationFrame(loop); const cap = this.fpsCap; if (cap && this._tickAt && t - this._tickAt < 1000 / cap - 2) return; this._tickAt = t; this.tick(t); }; this._raf = requestAnimationFrame(loop);
       this.log('info', 'Game started: ' + this.settings.title);
       return this;
     }
@@ -194,7 +194,7 @@
     }
     destroy() {
       this.running = false; cancelAnimationFrame(this._raf); VXRT.sense && VXRT.sense.destroy(this); this._ro && this._ro.disconnect(); this.teardownScene(); VXRT.destroyInput && VXRT.destroyInput(this); VXRT.destroyRender && VXRT.destroyRender(this);
-      this.audio.stopAll(); if (this.container) { this.container.textContent = ''; } this.running = false;
+      this.audio.stopAll(); VXRT.destroyMenu && VXRT.destroyMenu(this); if (this.container) { this.container.textContent = ''; } this.running = false;
     }
     resize() { VXRT.resizeRender && VXRT.resizeRender(this); }
     pause(v) { this.paused = v === undefined ? !this.paused : !!v; this.emit('pause', this.paused); }

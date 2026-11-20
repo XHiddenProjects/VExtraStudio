@@ -1,7 +1,7 @@
 /** @vx-plugin {"id":"backup","name":"Project Backup","version":"1.0.0","description":"One-click and automatic ZIP backups of the open folder, with a restore list, a safety copy before every restore and a retention limit."} */
 /** @vx-docs
  * ## Using Project Backup
- * - **Back up now** (Command Palette → *Backup: Back up now*, or the 🗄 panel) saves the whole open folder as a ZIP in the **`_backups`** folder inside it.
+ * - **Back up now** (Command Palette → *Backup: Back up now*, or the 💾 panel) saves the whole open folder as a ZIP in the **`_backups`** folder inside it.
  * - **Automatic backups**: ⚙ Configure → set *Back up every … minutes* (0 = off). A backup is only made when something changed since the last one.
  * - **Keep the newest …**: older automatic backups are deleted; manual backups and "before restore" copies are never deleted automatically.
  * - **Restore**: pick a backup in the panel. Vextra first saves a **before-restore** copy of the current files, then writes the files from the backup. Files that are not in the backup are left alone.
@@ -19,14 +19,14 @@ const two = (n) => String(n).padStart(2, '0');
 const stamp = (d = new Date()) => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}_${two(d.getHours())}-${two(d.getMinutes())}-${two(d.getSeconds())}`;
 const size = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
 let busy = false, lastSig = '', timer = 0, panelBox = null;
-const item = vx.statusBar.add({ id: 'last', text: '🗄 no backup yet', align: 'right', tooltip: 'Project Backup – click to back up now', onClick: () => backup('manual') });
+const item = vx.statusBar.add({ id: 'last', text: '💾 no backup yet', align: 'right', tooltip: 'Project Backup – click to back up now', onClick: () => backup('manual') });
 
 /** What a backup of this folder would contain – a cheap signature used to skip automatic backups when nothing changed. */
 async function signature(files) { return files.length + ':' + files.slice(0, 400).join('|').length; }
 
 async function backup(kind = 'manual', quiet = false) {
   const r = root(); if (!r) { if (!quiet) vx.ui.toast('Open a folder first', 'warn'); return null; }
-  if (busy) return null; busy = true; item.update('🗄 backing up …');
+  if (busy) return null; busy = true; item.update('💾 backing up …');
   const c = cfg(); let prog = null;
   try {
     const all = (await vx.fs.list(20000)).filter((f) => !SKIP.test(f));
@@ -51,13 +51,13 @@ async function backup(kind = 'manual', quiet = false) {
     await vx.fs.writeBase64(`${r}/${DIR}/${name}`, VX.archive.toB64(zip));
     lastSig = sig; vx.settings.set('last', Date.now());
     if (kind === 'auto') await prune(r, c.keep);
-    item.update(`🗄 backed up ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+    item.update(`💾 backed up ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
     if (prog) { prog.set(100, `${entries.length} files · ${size(zip.length)}${skipped ? ` · ${skipped} skipped` : ''}`); prog.done('Close'); }
     else if (!quiet) vx.ui.toast(`Backup saved: ${name}`);
     renderList();
     return name;
   } catch (e) {
-    if (prog) prog.close(); item.update('🗄 backup failed'); vx.ui.toast('Backup failed: ' + (e.message || e), 'error'); return null;
+    if (prog) prog.close(); item.update('💾 backup failed'); vx.ui.toast('Backup failed: ' + (e.message || e), 'error'); return null;
   } finally { busy = false; }
 }
 
@@ -114,7 +114,7 @@ async function fill(box) {
         h('button', { class: 'btn', onclick: async () => { if (await vx.ui.confirm(`Delete backup “${b.name}”?`, 'Delete')) { try { await vx.fs.remove(`${DIR}/${b.name}`); } catch (e) { vx.ui.toast('Could not delete: ' + (e.message || e), 'error'); } renderList(); } } }, 'Delete'))));
   }
 }
-vx.panels.register({ id: 'list', title: 'Backups', icon: 'plugin', render(el) { panelBox = el; fill(el); } });
+vx.panels.register({ id: 'list', title: 'Backups', icon: 'save', render(el) { panelBox = el; fill(el); } });
 vx.commands.register({ id: 'now', title: 'Backup: Back up now', run: () => backup('manual') });
 vx.commands.register({ id: 'show', title: 'Backup: Show backups', run: () => vx.ui.toast('Open the Backups panel in the activity bar') });
 

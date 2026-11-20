@@ -61,7 +61,7 @@
     normalize(data) {
       if (!data || typeof data !== 'object') return GP.blank({});
       if (data.format === 'forge-scene' || (Array.isArray(data.items) && !data.scenes)) return GP.fromLegacyScene(data);
-      data.format = 'vextra-game'; data.version = 2; data.settings = Object.assign({ id: uid('game'), title: 'My game', width: 960, height: 540, bg: '#10131a', pixelArt: false, startScene: 0, cloudUrl: '' }, data.settings || {});
+      data.format = 'vextra-game'; data.version = 2; data.settings = Object.assign({ id: uid('game'), title: 'My game', width: 960, height: 540, bg: '#10131a', pixelArt: false, startScene: 0, cloudUrl: '', fps: 0, pauseMenu: true, debug: false }, data.settings || {});
       data.scenes = data.scenes && data.scenes.length ? data.scenes : [GP.blankScene('2d')]; data.behaviors = data.behaviors || {}; data.assets = Object.assign({ sprites: {}, sounds: {}, models: {} }, data.assets || {}); for (const k of ['sprites', 'sounds', 'models', 'shaders', 'materials', 'animations']) data.assets[k] = data.assets[k] || {}; data.prefabs = data.prefabs || [];
       for (const b of Object.values(data.behaviors)) if (b && b.graph) { VXRT.migrateGraph(b.graph); GP.fixWires(b.graph); }
       /* older projects (and some plugins) put a script directly on an object: turn it into a real behaviour so it shows up in the Logic tab */
@@ -77,7 +77,7 @@
     },
 
     blank({ name = 'My game', dim = '2d', sample = false } = {}) {
-      const p = { format: 'vextra-game', version: 2, settings: { id: uid('game'), title: name, width: 960, height: 540, bg: dim === '3d' ? '#1a2233' : '#10131a', pixelArt: false, startScene: 0, cloudUrl: '' }, scenes: [], behaviors: {}, assets: { sprites: {}, sounds: {}, models: {}, shaders: {}, materials: {}, animations: {} }, prefabs: [] };
+      const p = { format: 'vextra-game', version: 2, settings: { id: uid('game'), title: name, width: 960, height: 540, bg: dim === '3d' ? '#1a2233' : '#10131a', pixelArt: false, startScene: 0, cloudUrl: '', fps: 0, pauseMenu: true, debug: false }, scenes: [], behaviors: {}, assets: { sprites: {}, sounds: {}, models: {}, shaders: {}, materials: {}, animations: {} }, prefabs: [] };
       if (!sample) { p.scenes.push(GP.blankScene(dim)); return p; }
       return dim === '3d' ? GP.sample3d(p) : GP.sample2d(p);
     },

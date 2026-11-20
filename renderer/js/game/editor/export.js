@@ -1,6 +1,6 @@
 /* Vextra game editor – export a project as one self-contained HTML file. */
 (function () {
-  const RT_FILES = ['rt-core', 'rt-input', 'rt-physics', 'rt-render2d', 'rt-render3d', 'rt-fx', 'rt-realism', 'rt-sensors', 'rt-clips', 'rt-graph', 'rt-services', 'blocks-triggers', 'blocks-logic', 'blocks-components', 'blocks-properties', 'blocks-text', 'blocks-flow', 'blocks-sensors', 'blocks-bluetooth'];
+  const RT_FILES = ['rt-core', 'rt-input', 'rt-menu', 'rt-physics', 'rt-render2d', 'rt-render3d', 'rt-fx', 'rt-realism', 'rt-sensors', 'rt-clips', 'rt-graph', 'rt-services', 'blocks-triggers', 'blocks-logic', 'blocks-components', 'blocks-properties', 'blocks-text', 'blocks-flow', 'blocks-sensors', 'blocks-bluetooth'];
   const cache = {};
   async function src(url) { if (cache[url]) return cache[url]; const r = await fetch(url); if (!r.ok) throw new Error('Could not load ' + url + ' (' + r.status + ')'); return (cache[url] = await r.text()); }
   const lit = (v) => VX.jsLit(v);

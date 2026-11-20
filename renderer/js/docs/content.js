@@ -962,7 +962,7 @@ A pack is a ZIP of a project. **Opening one** (double-click, File → Open or th
 ## Night Shift: Tape 07
 A 3D found-footage horror game seen through a VHS camcorder (the **VHS Tape** shader block): three levels, four cutscenes, objectives, a flashlight with a battery and a stalker that hunts by sound. It is built **only from blocks**: open it from the game editor's *Examples*, or open \`examples/night-shift/night-shift.vxgame\` from the download, and edit any behaviour in the Logic tab. The folder also has a ready \`.vxpack\` and a web build.
 
-# Hosting & collaborating
+## Pause menu, frame rate & FPS\nPress **Esc** (or ☰ on a touch screen) in any game: **Resume, Settings, Restart level, Quit**. *Game settings* sets the **frame rate** (automatic or 30–240 FPS), turns the pause menu on or off, and **Debug mode** shows the FPS counter while playing. Players can also change volume, frame rate and the counter in the pause menu; their choice is remembered.\n\n# Hosting & collaborating
 **Settings → Host & share.** Private by default. Public mode offers a **ghost domain** (a tunnel address that hides your real IP; the helper is downloaded only after you agree) or a **direct port forward** (UPnP, which shows your real IP). You can create a self-signed certificate, hand out invite codes and set an auto-stop. Switch back to private to stop everything.
 
 # Updates & backups

@@ -83,6 +83,8 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
   ok(/vhs/.test(R('renderer/js/game/rt-fx.js')), 'VHS shader effect registered');
   ok(/fileAssociations/.test(R('src-tauri/tauri.conf.json')), 'file associations configured');
   ok(R('server/host.js') === R('src-tauri/resources/server/host.js') && R('server/server.js') === R('src-tauri/resources/server/server.js'), 'bundled server copies match');
+  ok(/pauseMenu/.test(R('renderer/js/game/rt-menu.js')) && /rt-menu/.test(R('renderer/js/game/editor/export.js')), 'pause menu runtime is exported with games');
+  ok(/icon: 'save'/.test(R('plugins/backup.js')), 'backup add-on uses the save-disk icon');
   ok(/vxscript/.test(R('renderer/index.html')) && /pack\.js/.test(R('renderer/index.html')), 'vxscript and pack scripts loaded');
 }
 (async () => {
