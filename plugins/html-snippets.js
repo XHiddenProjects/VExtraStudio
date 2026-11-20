@@ -1,5 +1,5 @@
-/** @forge-plugin {"id":"html-snippets","name":"HTML Snippets","version":"1.1.0","description":"Insert HTML5 boilerplate, flex layouts, forms and more from the command palette."} */
-/** @forge-docs
+/** @vx-plugin {"id":"html-snippets","name":"HTML Snippets","version":"1.1.0","description":"Insert HTML5 boilerplate, flex layouts, forms and more from the command palette."} */
+/** @vx-docs
  * ## Using HTML Snippets
  * Open the **Command Palette** (Ctrl+Shift+P) and type **HTML: Insert**.
  *
@@ -18,4 +18,4 @@ const S = {
   grid: `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px">\n  <div>Card</div>\n  <div>Card</div>\n  <div>Card</div>\n</div>\n`,
   form: `<form>\n  <label>Name <input name="name" required></label>\n  <label>Email <input type="email" name="email" required></label>\n  <button type="submit">Send</button>\n</form>\n`,
 };
-for (const [k, v] of Object.entries(S)) forge.commands.register({ id: k, title: 'HTML: Insert ' + k, run: () => forge.editor.insertText(v) });
+for (const [k, v] of Object.entries(S)) vx.commands.register({ id: k, title: 'HTML: Insert ' + k, run: () => vx.editor.insertText(v) });

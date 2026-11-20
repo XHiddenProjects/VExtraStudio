@@ -1,4 +1,4 @@
-/* UI designer component registry. Plugins add more through forge.designer.registerComponent('ui', def).
+/* UI designer component registry. Plugins add more through vx.designer.registerComponent('ui', def).
    def = { type, label, icon, w, h, category, props, schema:[{key,label,type,...}], html(item, exported) → string } */
 (function () {
   const esc = VX.esc;

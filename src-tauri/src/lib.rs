@@ -528,11 +528,44 @@ async fn updater_check(app: AppHandle, state: tauri::State<'_, UpdaterState>) ->
     Ok(info)
 }
 
+/// Copies the app's data folder (settings, plugins, themes, local server data) to `update-backups/<version>-<time>` before an update is installed.
+/// Updates never touch this folder (it lives outside the install folder); the copy is only a safety net. Keeps the newest 3, skips itself, gives up above 500 MB.
+fn snapshot_user_data(app: &AppHandle) -> Res<()> {
+    fn copy(src: &Path, dst: &Path, skip: &Path, left: &mut i64) -> std::io::Result<()> {
+        fs::create_dir_all(dst)?;
+        for e in fs::read_dir(src)?.flatten() {
+            let p = e.path();
+            if p == skip { continue; }
+            let t = e.file_type()?;
+            if t.is_symlink() { continue; }
+            let to = dst.join(e.file_name());
+            if t.is_dir() { copy(&p, &to, skip, left)?; } else {
+                *left -= e.metadata().map(|m| m.len() as i64).unwrap_or(0);
+                if *left < 0 { return Err(std::io::Error::new(std::io::ErrorKind::Other, "data folder is larger than 500 MB")); }
+                fs::copy(&p, &to)?;
+            }
+        }
+        Ok(())
+    }
+    let base = user_dir(app)?;
+    let root = base.join("update-backups");
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let dst = root.join(format!("{}-{}", app.package_info().version, stamp));
+    let mut left: i64 = 500 * 1024 * 1024;
+    if let Err(e) = copy(&base, &dst, &root, &mut left) { let _ = fs::remove_dir_all(&dst); return Err(err(e)); }
+    let mut old: Vec<_> = fs::read_dir(&root).map_err(err)?.flatten().filter(|e| e.path().is_dir()).collect();
+    old.sort_by_key(|e| e.file_name());
+    while old.len() > 3 { let e = old.remove(0); let _ = fs::remove_dir_all(e.path()); }
+    Ok(())
+}
+
 /// Downloads the update found by `updater_check`, checks its signature and installs it. Progress: event `updater:progress` { done, total }.
 /// Windows: the installer starts and the app exits by itself. macOS / Linux: call `app_restart` afterwards.
 #[tauri::command]
 async fn updater_install(app: AppHandle, state: tauri::State<'_, UpdaterState>) -> Res<()> {
     let update = state.0.lock().map_err(err)?.clone().ok_or_else(|| "Check for updates first.".to_string())?;
+    // safety net: copy the user's data first; a failure here never blocks the update (the data is outside the install folder anyway)
+    if let Err(e) = snapshot_user_data(&app) { eprintln!("update snapshot skipped: {e}"); }
     let handle = app.clone();
     let mut done: u64 = 0;
     update
@@ -1175,9 +1208,26 @@ async fn server_stop(state: tauri::State<'_, ServerState>) -> Res<()> {
     Ok(())
 }
 
+/// Files the operating system asked us to open (double-click on a .vxpack / .vxgame / .vxs, or "Open with").
+#[derive(Default)]
+struct LaunchFiles(Mutex<Vec<String>>);
+
+fn is_launch_file(p: &str) -> bool {
+    let l = p.to_lowercase();
+    (l.ends_with(".vxpack") || l.ends_with(".vxgame") || l.ends_with(".vxs")) && Path::new(p).is_file()
+}
+
+/// Returns (and forgets) the files the app was started with.
+#[tauri::command]
+fn app_launch_files(state: tauri::State<'_, LaunchFiles>) -> Vec<String> {
+    state.0.lock().map(|mut g| std::mem::take(&mut *g)).unwrap_or_default()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let launch: Vec<String> = std::env::args().skip(1).filter(|a| is_launch_file(a)).collect();
+    let app = tauri::Builder::default()
+        .manage(LaunchFiles(Mutex::new(launch)))
         .manage(PhpState::default())
         .manage(ServeState::default())
         .manage(RunState::default())
@@ -1214,8 +1264,18 @@ pub fn run() {
             fs_write_base64, fs_create, fs_remove, fs_rename, fs_exists, fs_reveal, fs_list_files, fs_search, ext_list, ext_save,
             ext_remove, ext_import, ext_open_dir, settings_load, settings_save, secret_get, secret_set, app_info, app_clean,
             http_request, http_download, run_start, run_poll, run_cancel, open_url, php_check, php_start, php_stop, serve_start, serve_stop, server_start, server_status, server_stop,
-            updater_check, updater_install, app_restart
+            updater_check, updater_install, app_restart, app_launch_files
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Vextra Studio");
+        .build(tauri::generate_context!())
+        .expect("error while building Vextra Studio");
+    app.run(|_handle, _event| {
+        // macOS delivers "open with" / double-click as an event while the app is already running
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Opened { urls } = _event {
+            let files: Vec<String> = urls.iter().filter_map(|u| u.to_file_path().ok()).map(|p| p.to_string_lossy().to_string()).filter(|p| is_launch_file(p)).collect();
+            if !files.is_empty() {
+                let _ = _handle.emit("open-file", files);
+            }
+        }
+    });
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Vextra Studio",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "identifier": "studio.vextra.app",
   "build": {
     "frontendDist": "../renderer"
@@ -53,7 +53,36 @@
     },
     "copyright": "© 2026 XHiddenProjects",
     "homepage": "https://github.com/XHiddenProjects/VExtraStudio",
-    "longDescription": "Vextra Studio is a desktop workspace for web development and 2D/3D game making: code editor, UI designer, block-based game editor, Blender link, store export and a local server."
+    "longDescription": "Vextra Studio is a desktop workspace for web development and 2D/3D game making: code editor, UI designer, block-based game editor, Blender link, store export and a local server.",
+    "fileAssociations": [
+      {
+        "ext": [
+          "vxpack"
+        ],
+        "name": "Vextra Project Pack",
+        "description": "Vextra Studio project pack (code, assets, levels)",
+        "role": "Editor",
+        "mimeType": "application/x-vextra-pack"
+      },
+      {
+        "ext": [
+          "vxgame"
+        ],
+        "name": "Vextra Game",
+        "description": "Vextra Studio game project",
+        "role": "Editor",
+        "mimeType": "application/x-vextra-game"
+      },
+      {
+        "ext": [
+          "vxs"
+        ],
+        "name": "VXScript",
+        "description": "VXScript (compiles to Vextra blocks)",
+        "role": "Editor",
+        "mimeType": "text/x-vxscript"
+      }
+    ]
   },
   "plugins": {
     "updater": {

@@ -1,5 +1,5 @@
-/** @forge-plugin {"id":"vextra-ai","name":"Vextra AI","version":"2.1.0","description":"Chat with the AI model of your choice (Claude, OpenAI, Gemini, Groq, Ollama, LM Studio, OpenRouter or any OpenAI-compatible server) from a side panel. It can build whole games (scenes, objects, sprites, block-coded behaviours) and websites (files and folders) for you. Every ability has its own Deny / Ask / Allow permission. Has a ⚙ Configure button."} */
-/** @forge-docs
+/** @vx-plugin {"id":"vextra-ai","name":"Vextra AI","version":"2.1.0","description":"Chat with the AI model of your choice (Claude, OpenAI, Gemini, Groq, Ollama, LM Studio, OpenRouter or any OpenAI-compatible server) from a side panel. It can build whole games (scenes, objects, sprites, block-coded behaviours) and websites (files and folders) for you. Every ability has its own Deny / Ask / Allow permission. Has a ⚙ Configure button."} */
+/** @vx-docs
  * ## Vextra AI
  * Open the **AI** panel in the sidebar, type a request and press **Send**. Choose the model and the permissions under **⚙ Configure** (a `plugin:Vextra AI` tab).
  *
@@ -85,7 +85,7 @@ const DEF = { provider: 'ollama', baseUrl: '', model: '', apiKey: '', temperatur
 /* ---- what each provider / model lets you change. ⚙ fills these in for you and locks what the model cannot change; the same limits are applied when a request is made. ---- */
 function modelCaps(c) {
   const P = PROVIDERS[c.provider] || PROVIDERS.custom, m = String(c.model || '').toLowerCase().replace(/^.*\//, ''), full = String(c.model || '').toLowerCase();
-  const r = { temp: { on: true, min: 0, max: 2, def: 0.4, why: '' }, maxOut: { def: 4096, max: 32000 }, ctx: { def: 32000, locked: false, known: false }, timeout: P.local ? 900 : 240, reasoning: false, family: P.label };
+  const r = { temp: { on: true, min: 0, max: 2, def: 0.4, why: '' }, maxOut: { def: 4096, max: 32000 }, ctx: { def: 32000, locked: false, known: false }, timeout: P.local ? 3600 : 1200, reasoning: false, family: P.label };
   if (P.proto === 'anthropic') { r.temp.max = 1; r.ctx = { def: 200000, locked: true, known: true }; r.maxOut = /haiku-3|3-haiku|3-5-haiku/.test(m) ? { def: 4096, max: 8192 } : /opus-3|3-opus/.test(m) ? { def: 4096, max: 4096 } : { def: 8192, max: 64000 }; }
   else if (P.proto === 'ollama' || c.provider === 'lmstudio') { r.ctx = { def: P.local ? 8192 : 32000, locked: false, known: false }; r.maxOut = { def: 4096, max: 32000 }; }
   else if (c.provider === 'openai' || /^(openai\/)/.test(full)) {
@@ -103,7 +103,7 @@ function modelCaps(c) {
   r.temp.def = r.temp.on ? Math.min(r.temp.def, r.temp.max) : r.temp.def; r.maxOut.def = Math.min(r.maxOut.def, r.maxOut.max); return r;
 }
 const cfg = () => {
-  const c = Object.assign({}, DEF); for (const k of Object.keys(DEF)) { const v = forge.settings.get(k); if (v !== undefined && v !== null && v !== '') c[k] = v; }
+  const c = Object.assign({}, DEF); for (const k of Object.keys(DEF)) { const v = vx.settings.get(k); if (v !== undefined && v !== null && v !== '') c[k] = v; }
   const cap = modelCaps(c); c.temperature = cap.temp.on ? Math.max(cap.temp.min, Math.min(cap.temp.max, +c.temperature || 0)) : cap.temp.def; c._noTemp = !cap.temp.on; c.maxTokens = Math.max(64, Math.min(cap.maxOut.max, +c.maxTokens || cap.maxOut.def)); c.tokenLimit = Math.max(0, Math.round(+c.tokenLimit || 0)); return c;
 };
 const perm = (k) => cfg()['p_' + k];
@@ -134,7 +134,7 @@ async function listModels(v) {
   let j = null, status = 0, lastErr = null; const tried = new Set();
   for (const u of urls) {
     if (tried.has(u)) continue; tried.add(u);
-    let r; try { r = await forge.net.request({ method: 'GET', url: u, headers, timeout: 15 }); } catch (e) { lastErr = e; if (!P.key || own) continue; throw new Error(e.message); }
+    let r; try { r = await vx.net.request({ method: 'GET', url: u, headers, timeout: 15 }); } catch (e) { lastErr = e; if (!P.key || own) continue; throw new Error(e.message); }
     status = r.status; if (r.status === 401 || r.status === 403) throw new Error(key ? 'The server did not accept the API key.' : 'The server needs an API key – enter it above to see the models.');
     if (r.status >= 400) continue;
     try { j = JSON.parse(r.body); } catch { continue; } if (j) break;
@@ -232,12 +232,12 @@ async function callModel(c, messages, system, o = {}) {
   /* Models differ in what they accept, so start with the best request and adapt to what the server complains about. */
   const opt = { json: tryJson && !o.noJson, system: true, temp: !c._noTemp, maxName: modelCaps(c).reasoning && P.proto === 'openai' ? 'max_completion_tokens' : 'max_tokens', img: hadImgs && !o.noImages };
   const send = (b) => {
-    if (P.proto === 'anthropic') return forge.net.request({ method: 'POST', url: b + '/v1/messages', timeout, headers: { 'content-type': 'application/json', 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' }, body: JSON.stringify(Object.assign({ model, max_tokens: maxOut, system, messages: messages.map((m) => toWire(m, 'anthropic', opt.img)) }, opt.temp ? { temperature: +c.temperature } : {})) });
+    if (P.proto === 'anthropic') return vx.net.request({ method: 'POST', url: b + '/v1/messages', timeout, headers: { 'content-type': 'application/json', 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' }, body: JSON.stringify(Object.assign({ model, max_tokens: maxOut, system, messages: messages.map((m) => toWire(m, 'anthropic', opt.img)) }, opt.temp ? { temperature: +c.temperature } : {})) });
     const wire = messages.map((m) => toWire(m, P.proto, opt.img)); const msgs = opt.system ? [{ role: 'system', content: system }, ...wire] : [{ role: 'user', content: '[Instructions]\n' + system }, { role: 'assistant', content: 'Understood.' }, ...wire];
-    if (P.proto === 'ollama') return forge.net.request({ method: 'POST', url: b + '/api/chat', timeout, headers: Object.assign({ 'content-type': 'application/json' }, c.apiKey && !P.local ? { authorization: 'Bearer ' + c.apiKey } : {}), body: JSON.stringify({ model, stream: false, ...(opt.json ? { format: 'json' } : {}), options: Object.assign({ num_predict: maxOut, num_ctx: ctxWindow(c) }, opt.temp ? { temperature: +c.temperature } : {}), messages: msgs }) });
+    if (P.proto === 'ollama') return vx.net.request({ method: 'POST', url: b + '/api/chat', timeout, headers: Object.assign({ 'content-type': 'application/json' }, c.apiKey && !P.local ? { authorization: 'Bearer ' + c.apiKey } : {}), body: JSON.stringify({ model, stream: false, ...(opt.json ? { format: 'json' } : {}), options: Object.assign({ num_predict: maxOut, num_ctx: ctxWindow(c) }, opt.temp ? { temperature: +c.temperature } : {}), messages: msgs }) });
     const headers = { 'content-type': 'application/json' }; if (c.apiKey && !P.local) headers.authorization = 'Bearer ' + c.apiKey;
     const body = Object.assign({ model, messages: msgs, [opt.maxName]: maxOut }, opt.temp ? { temperature: +c.temperature } : {}); if (opt.json) body.response_format = { type: 'json_object' };
-    return forge.net.request({ method: 'POST', url: b + '/chat/completions', timeout, headers, body: JSON.stringify(body) });
+    return vx.net.request({ method: 'POST', url: b + '/chat/completions', timeout, headers, body: JSON.stringify(body) });
   };
   let r, tried = 0;
   try {
@@ -268,7 +268,7 @@ async function callModel(c, messages, system, o = {}) {
 
 /** What the user is looking at right now, so "build this" works on the open game / file instead of starting something new */
 async function contextBlock() {
-  const lines = []; const root = forge.fs.root(); lines.push('Open folder: ' + (root || '(none)'));
+  const lines = []; const root = vx.fs.root(); lines.push('Open folder: ' + (root || '(none)'));
   const ed = pin && pin.game();
   if (ed && perm('read') !== 'deny') {
     const g = ed.project, sc = g.scenes[ed.sceneIdx || 0]; lines.push(`THE USER HAS A ${sc && sc.dim === '3d' ? '3D' : '2D'} GAME OPEN: "${g.settings && g.settings.title}". Build INTO it with game_edit – do NOT call new_game. Current scene: "${sc && sc.name}" (${sc ? sc.objects.length : 0} objects). Scenes: ${g.scenes.map((x) => x.name + ' [' + x.dim + ', ' + x.objects.length + ' objects]').join('; ')}. Behaviours: ${Object.values(g.behaviors).map((b) => b.name).join(', ') || 'none yet'}. Sprites: ${Object.values(g.assets.sprites || {}).map((x) => x.name).join(', ') || 'none'}.`);
@@ -331,7 +331,7 @@ CURRENT SITUATION:\n${ctx || ''}\n\nOnly use abilities you have. Paths are relat
 async function approve(kind, what, detail) {
   const mode = perm(kind); if (mode === 'deny') return { ok: false, msg: `Permission "${kind}" is denied.` };
   if (mode === 'allow') return { ok: true };
-  const yes = await forge.ui.confirm(`The AI wants to ${what}.\n\n${clip(detail || '', 1500)}`, 'Allow');
+  const yes = await vx.ui.confirm(`The AI wants to ${what}.\n\n${clip(detail || '', 1500)}`, 'Allow');
   return yes ? { ok: true } : { ok: false, msg: 'The user declined.' };
 }
 const join = (root, p) => root.replace(/[\\/]$/, '') + '/' + p;
@@ -360,7 +360,7 @@ function attach(P, b, op, scene) {
   throw new Error('attach_behavior needs "target": "entity" (with "object"), "scene" or "game"');
 }
 function applyOps(P, ops, st) {
-  const K = forge.game.kit(), GP = K.GP; const out = [];
+  const K = vx.game.kit(), GP = K.GP; const out = [];
   const scene = () => P.scenes[st.si] || P.scenes[0];
   for (const [n, op] of ops.entries()) {
     const tag = `#${n + 1} ${op.op || '?'}`;
@@ -450,7 +450,7 @@ async function gameEdit(ops) {
   return res.join('\n') + `\nDone. Scenes: ${P.scenes.map((s) => s.name + ' (' + s.objects.length + ' objects)').join(', ')}. Behaviours: ${Object.values(P.behaviors).map((b) => b.name).join(', ') || 'none'}.`;
 }
 function blockLine(d, full) {
-  const K = forge.game.kit(); const pr = K.paramDefaults(d); let ports = { inputs: [], outputs: [] }; try { ports = K.ports(d, pr, { params: pr }); } catch { /* dynamic ports */ }
+  const K = vx.game.kit(); const pr = K.paramDefaults(d); let ports = { inputs: [], outputs: [] }; try { ports = K.ports(d, pr, { params: pr }); } catch { /* dynamic ports */ }
   const params = (d.params || []).map((q) => `${q.key}(${q.type}${q.options ? ':' + q.options.map((o) => (Array.isArray(o) ? o[0] : o)).slice(0, 14).join('|') : ''}${q.def !== undefined && q.def !== '' ? '=' + q.def : ''})`).join(', ');
   return full ? `${d.id} [${d.cat}] ${d.label}\n${d.desc}\ninputs: ${ports.inputs.map((q) => q.id).join(', ') || '–'}\noutputs: ${ports.outputs.map((q) => q.id).join(', ') || '–'}\nparams: ${params || '–'}` : `${d.id} – ${d.label}: ${String(d.desc || '').split(/(?<=[.!])\s/)[0].slice(0, 110)} | in: ${ports.inputs.map((q) => q.id).join(',') || '–'} | out: ${ports.outputs.map((q) => q.id).join(',') || '–'}`;
 }
@@ -484,7 +484,7 @@ const reportPage = (r, c, path, width) => {
   give(r.shots); return L.join('\n');
 };
 async function siteHtml(root, p) {
-  let html = await forge.fs.readFile(join(root, p)); const dir = p.split('/').slice(0, -1).join('/'); const rd = async (r) => { try { return await forge.fs.readFile(join(root, (dir ? dir + '/' : '') + r.replace(/^\.?\//, ''))); } catch { return null; } };
+  let html = await vx.fs.readFile(join(root, p)); const dir = p.split('/').slice(0, -1).join('/'); const rd = async (r) => { try { return await vx.fs.readFile(join(root, (dir ? dir + '/' : '') + r.replace(/^\.?\//, ''))); } catch { return null; } };
   const css = [...html.matchAll(/<link[^>]+href=["']([^"':]+\.css)["'][^>]*>/gi)], js = [...html.matchAll(/<script[^>]+src=["']([^"':]+\.js)["'][^>]*><\/script[^>]*>/gi)];
   for (const m of css) { const t = await rd(m[1]); if (t !== null) html = html.replace(m[0], () => `<style>${t}</style>`); }
   for (const m of js) { const t = await rd(m[1]); if (t !== null) html = html.replace(m[0], () => `<script>${t.replace(/<\/script/gi, '<\\/script')}</script>`); }
@@ -492,19 +492,19 @@ async function siteHtml(root, p) {
 }
 
 async function runAction(a, log) {
-  const root = forge.fs.root();
+  const root = vx.fs.root();
   try {
     switch (a.action) {
-      case 'list_files': { if (perm('read') === 'deny') return deny('read'); if (!root) return 'No folder is open.'; const l = (await forge.fs.list(600)).filter((f) => !SECRET_FILE.test(f)); log('📂 listed files'); return l.join('\n') || '(empty)'; }
-      case 'read_file': { if (perm('read') === 'deny') return deny('read'); const p = safeRel(a.path); if (!root || !p) return 'Invalid path.'; if (SECRET_FILE.test(p)) return 'Refused: that file may contain secrets.'; log('📄 read ' + p); return clip(await forge.fs.readFile(join(root, p))); }
+      case 'list_files': { if (perm('read') === 'deny') return deny('read'); if (!root) return 'No folder is open.'; const l = (await vx.fs.list(600)).filter((f) => !SECRET_FILE.test(f)); log('📂 listed files'); return l.join('\n') || '(empty)'; }
+      case 'read_file': { if (perm('read') === 'deny') return deny('read'); const p = safeRel(a.path); if (!root || !p) return 'Invalid path.'; if (SECRET_FILE.test(p)) return 'Refused: that file may contain secrets.'; log('📄 read ' + p); return clip(await vx.fs.readFile(join(root, p))); }
       case 'get_editor': { if (perm('read') === 'deny') return deny('read'); log('📄 read the open file'); return clip(pin && pin.kind === 'code' ? pin.value() : '') || '(no text editor is open)'; }
       case 'game_summary': {
         if (perm('read') === 'deny') return deny('read'); const g = pin && pin.game() ? pin.game().project : null; if (!g) return 'No game is open.'; log('🎮 read game summary'); const bn = (id) => (g.behaviors[id] && g.behaviors[id].name) || id;
         return JSON.stringify({ title: g.settings && g.settings.title, scenes: g.scenes.map((s) => ({ name: s.name, dim: s.dim, bg: s.bg, behaviors: (s.behaviors || []).map(bn), objects: s.objects.map((o) => ({ name: o.name, type: o.type, x: o.x, y: o.y, z: o.z, w: o.w, h: o.h, tags: o.tags, layer: o.layer && o.layer !== 'world' ? o.layer : undefined, behaviors: (o.behaviors || []).map(bn), physics: o.physics && o.physics.body !== 'none' ? o.physics.body : undefined })) })), behaviors: Object.values(g.behaviors || {}).map((b) => ({ name: b.name, attachedTo: [].concat(g.scenes.filter((s) => (s.behaviors || []).includes(b.id)).map((s) => (b.scope === 'game' ? 'game' : 'scene:' + s.name)), ...g.scenes.map((s) => s.objects.filter((o) => (o.behaviors || []).includes(b.id)).map((o) => 'entity:' + o.name))).filter((x, i, a) => a.indexOf(x) === i && !(x.startsWith('scene:') && b.scope === 'game')).join(', ') || 'NOTHING (never runs)', blocks: b.graph ? b.graph.nodes.map((n) => n.type).join(',') : 'code' })), sprites: Object.values(g.assets.sprites || {}).map((s) => s.name), sounds: Object.values(g.assets.sounds || {}).map((s) => s.name), models: Object.values(g.assets.models || {}).map((s) => s.name) });
       }
-      case 'list_object_types': { if (perm('read') === 'deny') return deny('read'); return forge.game.kit().GP.types().map((t) => `${t.type} (${t.dim}) – ${t.label}`).join('\n'); }
-      case 'list_blocks': { if (perm('read') === 'deny') return deny('read'); const K = forge.game.kit(); const all = Object.values(K.blocks); if (!a.category) { const cats = {}; for (const d of all) (cats[d.cat] ||= []).push(d.id); log('🧱 listed blocks'); return Object.entries(cats).map(([c, ids]) => `${c}: ${ids.join(', ')}`).join('\n') + '\n(call list_blocks with a "category" for ports and params, or block_info for one block)'; } const l = all.filter((d) => d.cat === a.category); log('🧱 listed ' + a.category + ' blocks'); return l.length ? l.map((d) => blockLine(d, false) + '\n   params: ' + (d.params || []).map((q) => q.key).join(', ')).join('\n') : 'No such category.'; }
-      case 'block_info': { if (perm('read') === 'deny') return deny('read'); const d = forge.game.kit().blocks[a.id]; if (!d) return 'No block with that id.'; log('🧱 block ' + a.id); return blockLine(d, true); }
+      case 'list_object_types': { if (perm('read') === 'deny') return deny('read'); return vx.game.kit().GP.types().map((t) => `${t.type} (${t.dim}) – ${t.label}`).join('\n'); }
+      case 'list_blocks': { if (perm('read') === 'deny') return deny('read'); const K = vx.game.kit(); const all = Object.values(K.blocks); if (!a.category) { const cats = {}; for (const d of all) (cats[d.cat] ||= []).push(d.id); log('🧱 listed blocks'); return Object.entries(cats).map(([c, ids]) => `${c}: ${ids.join(', ')}`).join('\n') + '\n(call list_blocks with a "category" for ports and params, or block_info for one block)'; } const l = all.filter((d) => d.cat === a.category); log('🧱 listed ' + a.category + ' blocks'); return l.length ? l.map((d) => blockLine(d, false) + '\n   params: ' + (d.params || []).map((q) => q.key).join(', ')).join('\n') : 'No such category.'; }
+      case 'block_info': { if (perm('read') === 'deny') return deny('read'); const d = vx.game.kit().blocks[a.id]; if (!d) return 'No block with that id.'; log('🧱 block ' + a.id); return blockLine(d, true); }
       case 'asset_catalog': { if (perm('read') === 'deny') return deny('read'); const l = VX.defaultAssets.catalog(a.kind || 'sprites'); log('🗂 asset catalog ' + (a.kind || 'sprites')); return l.map((e) => e.key + (e.tag ? ' [' + e.tag + ']' : '')).join(', ') || 'Unknown kind.'; }
       case 'set_editor': case 'insert_editor': {
         const t = String(a.text ?? ''); const ok = await approve('editor', a.action === 'set_editor' ? 'replace the whole open file' : 'insert text into the open file', t); if (!ok.ok) return ok.msg;
@@ -512,38 +512,38 @@ async function runAction(a, log) {
       }
       case 'write_file': {
         const p = safeRel(a.path); if (!root || !p) return 'Invalid path or no folder open.'; if (SECRET_FILE.test(p) || BAD_WRITE.test(p)) return 'Refused: that location is protected.';
-        const existed = await forge.fs.exists(join(root, p)).catch(() => false); const ok = await approve(WEB_FILE.test(p) ? 'site' : 'files', (existed ? 'overwrite ' : 'create ') + p, String(a.content ?? '')); if (!ok.ok) return ok.msg; await forge.fs.writeFile(join(root, p), String(a.content ?? '')); log((existed ? '💾 updated ' : '💾 created ') + p); return (existed ? 'Updated ' : 'Created ') + p + ` (${String(a.content ?? '').length} characters).`;
+        const existed = await vx.fs.exists(join(root, p)).catch(() => false); const ok = await approve(WEB_FILE.test(p) ? 'site' : 'files', (existed ? 'overwrite ' : 'create ') + p, String(a.content ?? '')); if (!ok.ok) return ok.msg; await vx.fs.writeFile(join(root, p), String(a.content ?? '')); log((existed ? '💾 updated ' : '💾 created ') + p); return (existed ? 'Updated ' : 'Created ') + p + ` (${String(a.content ?? '').length} characters).`;
       }
-      case 'make_dir': { const p = safeRel(a.path); if (!root || !p || BAD_WRITE.test(p)) return 'Invalid path.'; const ok = await approve(perm('site') !== 'deny' ? 'site' : 'files', 'create the folder ' + p, ''); if (!ok.ok) return ok.msg; await forge.fs.mkdir(p); log('📁 created folder ' + p); return 'Folder ready.'; }
+      case 'make_dir': { const p = safeRel(a.path); if (!root || !p || BAD_WRITE.test(p)) return 'Invalid path.'; const ok = await approve(perm('site') !== 'deny' ? 'site' : 'files', 'create the folder ' + p, ''); if (!ok.ok) return ok.msg; await vx.fs.mkdir(p); log('📁 created folder ' + p); return 'Folder ready.'; }
       case 'new_site': {
         const t = esc(String(a.title || 'My site').slice(0, 80)), d = esc(String(a.description || '').slice(0, 200)); const ok = await approve('site', 'scaffold a website (index.html, style.css, script.js)', t); if (!ok.ok) return ok.msg; if (!root) return 'No folder is open.';
         const files = { 'index.html': `<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>${t}</title>\n  <meta name="description" content="${d}">\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <header><h1>${t}</h1></header>\n  <main></main>\n  <footer></footer>\n  <script src="script.js"></script>\n</body>\n</html>\n`, 'style.css': `*{box-sizing:border-box}\nbody{margin:0;font-family:system-ui,sans-serif;line-height:1.5}\n`, 'script.js': `// ${t}\n` }; const made = [], kept = [];
-        for (const [f, c] of Object.entries(files)) { if (await forge.fs.exists(join(root, f)).catch(() => false)) kept.push(f); else { await forge.fs.writeFile(join(root, f), c); made.push(f); } } log('🌐 scaffolded the site'); await forge.fs.open('index.html').catch(() => {}); return `Created: ${made.join(', ') || 'nothing'}${kept.length ? '. Already existed (left untouched): ' + kept.join(', ') : ''}. Now fill them in with file blocks.`;
+        for (const [f, c] of Object.entries(files)) { if (await vx.fs.exists(join(root, f)).catch(() => false)) kept.push(f); else { await vx.fs.writeFile(join(root, f), c); made.push(f); } } log('🌐 scaffolded the site'); await vx.fs.open('index.html').catch(() => {}); return `Created: ${made.join(', ') || 'nothing'}${kept.length ? '. Already existed (left untouched): ' + kept.join(', ') : ''}. Now fill them in with file blocks.`;
       }
       case 'preview_site': {
-        if (perm('site') === 'deny') return deny('site'); const p = safeRel(a.path || 'index.html'); if (!root || !p) return 'Invalid path or no folder open.'; let html; try { html = await forge.fs.readFile(join(root, p)); } catch { return 'File not found: ' + p; }
-        const dir = p.split('/').slice(0, -1).join('/'); const rd = async (r) => { try { return await forge.fs.readFile(join(root, (dir ? dir + '/' : '') + r.replace(/^\.?\//, ''))); } catch { return null; } };
+        if (perm('site') === 'deny') return deny('site'); const p = safeRel(a.path || 'index.html'); if (!root || !p) return 'Invalid path or no folder open.'; let html; try { html = await vx.fs.readFile(join(root, p)); } catch { return 'File not found: ' + p; }
+        const dir = p.split('/').slice(0, -1).join('/'); const rd = async (r) => { try { return await vx.fs.readFile(join(root, (dir ? dir + '/' : '') + r.replace(/^\.?\//, ''))); } catch { return null; } };
         const css = [...html.matchAll(/<link[^>]+href=["']([^"':]+\.css)["'][^>]*>/gi)], js = [...html.matchAll(/<script[^>]+src=["']([^"':]+\.js)["'][^>]*><\/script[^>]*>/gi)];
         for (const m of css) { const c = await rd(m[1]); if (c !== null) html = html.replace(m[0], () => `<style>${c}</style>`); } for (const m of js) { const c = await rd(m[1]); if (c !== null) html = html.replace(m[0], () => `<script>${c.replace(/<\/script/gi, '<\\/script')}</script>`); }
-        if (pin && pin.alive() && !pin.isActive()) { log('👁 checked ' + p + ' (not shown: you are in another tab)'); return `Checked ${p} (${html.length} characters). It is not shown because the user is working in another tab; check your markup for mistakes.`; } forge.ui.preview(html, p); log('👁 previewed ' + p); return `Previewed ${p} (${html.length} characters). The user sees it; check your markup for mistakes.`;
+        if (pin && pin.alive() && !pin.isActive()) { log('👁 checked ' + p + ' (not shown: you are in another tab)'); return `Checked ${p} (${html.length} characters). It is not shown because the user is working in another tab; check your markup for mistakes.`; } vx.ui.preview(html, p); log('👁 previewed ' + p); return `Previewed ${p} (${html.length} characters). The user sees it; check your markup for mistakes.`;
       }
-      case 'open_file': { const p = safeRel(a.path); if (!root || !p) return 'Invalid path.'; if (perm('read') === 'deny') return deny('read'); await forge.fs.open(p); log('👁 opened ' + p); return 'Opened.'; }
-      case 'delete_file': { const p = safeRel(a.path); if (!root || !p || BAD_WRITE.test(p) || SECRET_FILE.test(p)) return 'Refused: invalid or protected path.'; const ok = await approve('delete', 'DELETE ' + p, 'This cannot be undone.'); if (!ok.ok) return ok.msg; await forge.fs.remove(p); log('🗑 deleted ' + p); return 'Deleted ' + p + '.'; }
+      case 'open_file': { const p = safeRel(a.path); if (!root || !p) return 'Invalid path.'; if (perm('read') === 'deny') return deny('read'); await vx.fs.open(p); log('👁 opened ' + p); return 'Opened.'; }
+      case 'delete_file': { const p = safeRel(a.path); if (!root || !p || BAD_WRITE.test(p) || SECRET_FILE.test(p)) return 'Refused: invalid or protected path.'; const ok = await approve('delete', 'DELETE ' + p, 'This cannot be undone.'); if (!ok.ok) return ok.msg; await vx.fs.remove(p); log('🗑 deleted ' + p); return 'Deleted ' + p + '.'; }
       case 'move_file': {
         const f = safeRel(a.from), t = safeRel(a.to); if (!root || !f || !t || BAD_WRITE.test(f + '/' + t) || SECRET_FILE.test(f) || SECRET_FILE.test(t)) return 'Refused: invalid or protected path.'; const ok = await approve('delete', `move ${f} → ${t}`, ''); if (!ok.ok) return ok.msg;
-        if (await forge.fs.exists(join(root, t)).catch(() => false)) return 'The destination already exists.'; const txt = await forge.fs.readFile(join(root, f)); const dir = t.split('/').slice(0, -1).join('/'); if (dir) await forge.fs.mkdir(dir); await forge.fs.writeFile(join(root, t), txt); await forge.fs.remove(f); log(`📦 moved ${f} → ${t}`); return 'Moved.';
+        if (await vx.fs.exists(join(root, t)).catch(() => false)) return 'The destination already exists.'; const txt = await vx.fs.readFile(join(root, f)); const dir = t.split('/').slice(0, -1).join('/'); if (dir) await vx.fs.mkdir(dir); await vx.fs.writeFile(join(root, t), txt); await vx.fs.remove(f); log(`📦 moved ${f} → ${t}`); return 'Moved.';
       }
-      case 'new_game': { if (perm('game') === 'deny') return deny('game'); const ok = await approve('game', `open a new ${a.dim === '3d' ? '3D' : '2D'} game`, ''); if (!ok.ok) return ok.msg; const ed = await forge.game.newGame(a.dim); pin = forge.pin(); log('🎮 new game'); return ed ? `A new ${a.dim === '3d' ? '3D' : '2D'} game is open. It contains a default scene${a.dim === '3d' ? ' with a light and camera' : ''}. Use game_edit.` : 'Could not open a game.'; }
+      case 'new_game': { if (perm('game') === 'deny') return deny('game'); const ok = await approve('game', `open a new ${a.dim === '3d' ? '3D' : '2D'} game`, ''); if (!ok.ok) return ok.msg; const ed = await vx.game.newGame(a.dim); pin = vx.pin(); log('🎮 new game'); return ed ? `A new ${a.dim === '3d' ? '3D' : '2D'} game is open. It contains a default scene${a.dim === '3d' ? ' with a light and camera' : ''}. Use game_edit.` : 'Could not open a game.'; }
       case 'game_edit': { const r = await gameEdit(a.ops); log('🎮 game_edit (' + ((a.ops || []).length) + ' ops)'); return clip(r, 6000); }
       case 'playtest': case 'screenshot': {
         if (perm('play') === 'deny') return deny('play'); const ed = pin && pin.game(); const g = ed ? ed.project : null; if (!g) return 'No game is open. (For a website use screenshot_site.)';
         let P = g; if (a.scene !== undefined) { const i = g.scenes.findIndex((x) => x.name === a.scene || slug(x.name) === slug(a.scene)); if (i < 0) return `No scene "${a.scene}". Scenes: ${g.scenes.map((x) => x.name).join(', ')}`; P = Object.assign({}, g, { settings: Object.assign({}, g.settings, { startScene: i }) }); }
         const steps = a.action === 'screenshot' ? [{ wait: Math.min(8000, +a.wait || 1200) }, { shot: true, label: String(a.label || 'screenshot') }] : (Array.isArray(a.steps) && a.steps.length ? a.steps : [{ wait: 1500 }, { shot: true, label: 'start' }]);
-        log('🎬 play-testing the game…'); const r = await forge.game.playtest(steps, { maxShots: 4, visible: cfg().showPlay !== 'off', title: 'AI is play-testing your game' }, P); log(r.errors.length ? `🎬 play-test: ${r.errors.length} error(s)` : '🎬 play-test: no errors'); return reportPlaytest(r, cfg());
+        log('🎬 play-testing the game…'); const r = await vx.game.playtest(steps, { maxShots: 4, visible: cfg().showPlay !== 'off', title: 'AI is play-testing your game' }, P); log(r.errors.length ? `🎬 play-test: ${r.errors.length} error(s)` : '🎬 play-test: no errors'); return reportPlaytest(r, cfg());
       }
       case 'screenshot_site': {
-        if (perm('play') === 'deny') return deny('play'); if (perm('read') === 'deny') return deny('read'); const p = safeRel(a.path || 'index.html'); const root2 = forge.fs.root(); if (!root2 || !p) return 'Invalid path or no folder open.'; let html; try { html = await siteHtml(root2, p); } catch { return 'File not found: ' + p; }
-        const width = Math.max(280, Math.min(1920, Math.round(+a.width || 1000))); log(`🖼 rendering ${p} at ${width}px…`); const r = await forge.game.screenshotPage(html, { width, height: Math.round(width * 0.7), label: `${p} @${width}px` }); return reportPage(r, cfg(), p, width);
+        if (perm('play') === 'deny') return deny('play'); if (perm('read') === 'deny') return deny('read'); const p = safeRel(a.path || 'index.html'); const root2 = vx.fs.root(); if (!root2 || !p) return 'Invalid path or no folder open.'; let html; try { html = await siteHtml(root2, p); } catch { return 'File not found: ' + p; }
+        const width = Math.max(280, Math.min(1920, Math.round(+a.width || 1000))); log(`🖼 rendering ${p} at ${width}px…`); const r = await vx.game.screenshotPage(html, { width, height: Math.round(width * 0.7), label: `${p} @${width}px` }); return reportPage(r, cfg(), p, width);
       }
       case 'open_editor': {
         if (perm('design') === 'deny') return deny('design'); const ed = pin && pin.game(); if (!ed || !ed.assets) return 'No game is open.';
@@ -568,8 +568,8 @@ async function runAction(a, log) {
         const src = at.kind === 'image' ? at.view : at.kind === 'video' ? at.frames[Math.max(0, Math.min(at.frames.length - 1, (+a.frame || 1) - 1))] : null; if (!src) return `${at.name} has no picture to show (${at.kind}).`; give([{ label: at.id, data: src }]); log('🖼 looked at ' + at.name); return `${at.name} is attached again – look at it.`;
       }
       case 'save_attachment': {
-        const at = ATT.get(String(a.id)); if (!at) return 'No attachment ' + a.id + '.'; const p = safeRel(a.path || at.name), root2 = forge.fs.root(); if (!root2 || !p) return 'Invalid path or no folder open.'; if (SECRET_FILE.test(p) || BAD_WRITE.test(p)) return 'Refused: that location is protected.';
-        const ok = await approve('files', `save the attached file ${at.name} as ${p}`, `${KB(at.size)}`); if (!ok.ok) return ok.msg; const dir = p.split('/').slice(0, -1).join('/'); if (dir) await forge.fs.mkdir(dir); await forge.fs.writeBase64(join(root2, p), b64of(at.data)); log('💾 saved ' + p); return `Saved ${at.name} as ${p} (${KB(at.size)}).`;
+        const at = ATT.get(String(a.id)); if (!at) return 'No attachment ' + a.id + '.'; const p = safeRel(a.path || at.name), root2 = vx.fs.root(); if (!root2 || !p) return 'Invalid path or no folder open.'; if (SECRET_FILE.test(p) || BAD_WRITE.test(p)) return 'Refused: that location is protected.';
+        const ok = await approve('files', `save the attached file ${at.name} as ${p}`, `${KB(at.size)}`); if (!ok.ok) return ok.msg; const dir = p.split('/').slice(0, -1).join('/'); if (dir) await vx.fs.mkdir(dir); await vx.fs.writeBase64(join(root2, p), b64of(at.data)); log('💾 saved ' + p); return `Saved ${at.name} as ${p} (${KB(at.size)}).`;
       }
       default: return 'Unknown action: ' + a.action;
     }
@@ -609,22 +609,22 @@ const looksCutOff = (reply) => { const t = String(reply).trim(); if (!t) return 
 /* ------------------------------------------------------------ chat session */
 /* ---- token budget: every request's tokens (in + out) are counted; at the limit everything stops at once and the AI waits one hour. Kept in settings so a restart does not reset it. ---- */
 const COOLDOWN = 3600e3;
-const bud = Object.assign({ used: 0, lockUntil: 0, why: '' }, forge.settings.get('budget') || {}); const saveBud = () => { try { forge.settings.set('budget', { used: bud.used, lockUntil: bud.lockUntil, why: bud.why }); } catch { /* settings not ready */ } };
+const bud = Object.assign({ used: 0, lockUntil: 0, why: '' }, vx.settings.get('budget') || {}); const saveBud = () => { try { vx.settings.set('budget', { used: bud.used, lockUntil: bud.lockUntil, why: bud.why }); } catch { /* settings not ready */ } };
 const budgetReset = () => { if (bud.lockUntil && Date.now() >= bud.lockUntil) { bud.used = 0; bud.lockUntil = 0; bud.why = ''; saveBud(); return true; } return false; }; budgetReset();
 const fmtN = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(n >= 1e4 ? 0 : 1) + 'k' : String(Math.round(n)));
 let pendingIn = 0; /* tokens of the request that is on its way (live, before the answer arrives) */
 let history = [], busy = false, stopFlag = false, stopResolve = null, lockUntil = bud.lockUntil || 0, lockWhy = bud.why || '', timeouts = 0;
-/** The tab this request started in (see forge.pin): the AI keeps working on THAT tab when you switch to another one. */
+/** The tab this request started in (see vx.pin): the AI keeps working on THAT tab when you switch to another one. */
 let pin = null;
 const requestStop = () => { stopFlag = true; if (stopResolve) stopResolve(); };
 /* ---- chat history: kept in Vextra's settings, newest first ---- */
-const chats = (forge.settings.get('chats', []) || []).filter((x) => x && Array.isArray(x.messages)); let cur = null;
+const chats = (vx.settings.get('chats', []) || []).filter((x) => x && Array.isArray(x.messages)); let cur = null;
 const newChat = () => { cur = { id: Date.now().toString(36), title: 'New chat', ts: Date.now(), messages: [] }; history = cur.messages; chats.unshift(cur); return cur; };
-const persist = () => { if (cur) cur.ts = Date.now(); const rest = chats.filter((x) => x.messages.length).sort((a, b) => b.ts - a.ts).slice(0, 25); chats.length = 0; chats.push(...rest, ...(cur && !cur.messages.length ? [cur] : [])); forge.settings.set('chats', rest.map((x) => ({ id: x.id, title: x.title, ts: x.ts, cp: x.cp, usage: x.usage, last: x.last, est: x.est, messages: x.messages.slice(-80).map((m) => ({ role: m.role, content: clip(String(m.content), 6000) })) }))); };
+const persist = () => { if (cur) cur.ts = Date.now(); const rest = chats.filter((x) => x.messages.length).sort((a, b) => b.ts - a.ts).slice(0, 25); chats.length = 0; chats.push(...rest, ...(cur && !cur.messages.length ? [cur] : [])); vx.settings.set('chats', rest.map((x) => ({ id: x.id, title: x.title, ts: x.ts, cp: x.cp, usage: x.usage, last: x.last, est: x.est, messages: x.messages.slice(-80).map((m) => ({ role: m.role, content: clip(String(m.content), 6000) })) }))); };
 const openChat = (id) => { const c = chats.find((x) => x.id === id); if (c) { cur = c; history = c.messages; } };
 if (chats.length) openChat(chats[0].id); else newChat();
 /** The AI could not be reached: say so, and (for internet providers) offer Reconnect + a 3-second countdown once the connection is back. Resolves 'retry' or 'cancel'. */
-async function probe(c) { try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return false; const b = apiBase(c); if (!b) return false; await forge.net.request({ method: 'GET', url: b, timeout: 6 }); return true; } catch { return false; } }
+async function probe(c) { try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return false; const b = apiBase(c); if (!b) return false; await vx.net.request({ method: 'GET', url: b, timeout: 6 }); return true; } catch { return false; } }
 function offlineFlow(c, ui, err, tries) {
   const P = PROVIDERS[c.provider] || PROVIDERS.custom, needsNet = !P.local;
   const box = ui.add('error', '⏱ The AI has timed out.'); if (box && err) box.title = String(err.message || err);
@@ -666,7 +666,7 @@ async function converse(userText, ui, resume, atts) {
     if (list.length) { const A = attachmentContent(list); content = (userText ? userText + '\n\n' : '') + A.text; images = canSee(c) ? A.images : undefined; }
     history.push({ role: 'user', content, images }); ui.add('user', userText + (list.length ? (userText ? '\n' : '') + '📎 ' + list.map((x) => x.name).join(', ') : ''), '', list.length ? { imgs: list.filter((x) => x.kind === 'image' && x.view).map((x) => x.view).slice(0, 6) } : undefined);
   }
-  pin = forge.pin(); cur.cp = null; persist(); busy = true; stopFlag = false; setStatus(); ui.busy(true); ui.checkpoint && ui.checkpoint(); let net = 0, reason = 'step limit', unrun = false; shotSink = (label, data) => ui.add('shot', data, '', { label }); pendingImages.length = 0;
+  pin = vx.pin(); cur.cp = null; persist(); busy = true; stopFlag = false; setStatus(); ui.busy(true); ui.checkpoint && ui.checkpoint(); let net = 0, slow = 0, reason = 'step limit', unrun = false; shotSink = (label, data) => ui.add('shot', data, '', { label }); pendingImages.length = 0;
   const guard = { recent: [], idle: 0, warned: 0, cache: new Map(), written: new Map(), applied: new Set(), autoTests: 0, lastAuto: -9, cut: 0, bump: 0 }; const hash = (t) => { let h = 0; t = String(t); for (let i = 0; i < t.length; i++) h = (Math.imul(h, 31) + t.charCodeAt(i)) | 0; return t.length + ':' + h; };
   const STOP = Symbol('stop'); const stopP = new Promise((r) => { stopResolve = () => r(STOP); });
   const maxSteps = Math.max(1, Math.min(60, +c.maxSteps || 12));
@@ -693,7 +693,7 @@ async function converse(userText, ui, resume, atts) {
       try { const call = askModel(); call.catch(() => {}); reply = await Promise.race([call, stopP]); pendingIn = 0; if (reply === STOP) { ui.clear('think'); reason = 'stopped'; break; } net = 0; timeouts = 0; }
       catch (e) {
         pendingIn = 0; ui.clear('think');
-        if (isNetErr(e)) { if (!stopFlag && await offlineFlow(c, ui, e, net++) === 'retry') { step--; continue; } reason = stopFlag ? 'stopped' : 'timed out'; if (!stopFlag) { timeouts++; const until = Date.now() + Math.min(300, 30 * 2 ** (timeouts - 1)) * 1000; if (until > lockUntil) { lockUntil = until; lockWhy = 'The AI timed out.'; } ui.lock && ui.lock(); } break; }
+        if (isNetErr(e)) { if (!stopFlag && await offlineFlow(c, ui, e, net++) === 'retry') { step--; continue; } if (!stopFlag && /time/i.test(String(e && e.message)) && (slow++) < 2) { ui.clear('think'); ui.add('note', 'The model is slow to answer – waiting for it again (' + slow + '/2).'); step--; continue; } reason = stopFlag ? 'stopped' : 'timed out'; break; } /* a slow answer never locks the AI – only the token limit does */
         ui.add('error', e.message); reason = 'error'; break;
       }
       ui.clear('think'); if (visionNote) { ui.add('note', '👁 ' + visionNote); visionNote = ''; } const u = usage.last; cur.usage = cur.usage || { inT: 0, outT: 0 }; cur.usage.inT += u.inT; cur.usage.outT += u.outT; bud.used += u.inT + u.outT; saveBud(); /* the context only ever grows within a chat: a request can report less (trimmed history, Ollama's prompt cache, an estimate) but the conversation is not smaller */ cur.last = Math.max(cur.last || 0, u.inT + u.outT, estTokens(JSON.stringify(history))); cur.est = u.est && !(cur.last > u.inT + u.outT); ui.usage && ui.usage();
@@ -728,7 +728,7 @@ async function converse(userText, ui, resume, atts) {
       /* the game was changed: look at the result by itself (a smoke test with one screenshot), so mistakes are caught before the user sees them */
       if (!halted && progress && !usedPlay && c.autoTest !== 'off' && perm('play') !== 'deny' && pin && pin.game() && guard.autoTests < 6 && step - guard.lastAuto >= 1 && acts.some((a) => a.action === 'game_edit')) {
         guard.autoTests++; guard.lastAuto = step; ui.add('note', '🎬 checking the game by playing it…');
-        try { const rr = await Promise.race([forge.game.playtest([{ wait: 1100 }, { shot: true, label: 'after your change' }], { maxShots: 1, visible: c.showPlay !== 'off', title: 'AI is checking the game' }, pin.game().project), stopP]); if (rr === STOP) halted = true; else results.push('AUTOMATIC PLAY-TEST after your game_edit (a quick check, no keys pressed – use the playtest action to test controls):\n' + reportPlaytest(rr, c, true)); } catch (e) { results.push('Automatic play-test could not run: ' + e.message); }
+        try { const rr = await Promise.race([vx.game.playtest([{ wait: 1100 }, { shot: true, label: 'after your change' }], { maxShots: 1, visible: c.showPlay !== 'off', title: 'AI is checking the game' }, pin.game().project), stopP]); if (rr === STOP) halted = true; else results.push('AUTOMATIC PLAY-TEST after your game_edit (a quick check, no keys pressed – use the playtest action to test controls):\n' + reportPlaytest(rr, c, true)); } catch (e) { results.push('Automatic play-test could not run: ' + e.message); }
       }
       /* stuck detection: the same step again, or several steps in a row that change nothing */
       if (!halted) {
@@ -748,7 +748,7 @@ async function converse(userText, ui, resume, atts) {
     if (reason && history.length) { ui.add('note', '💾 asking the AI to write its hand-over note for the checkpoint…', 'cp'); let note = ''; try { note = await handoff(c, reason); } catch { note = localHandoff(reason); } ui.clear('cp'); cur.cp = { reason, ts: Date.now(), note, unrun }; }
     busy = false; setStatus(reason === null ? 'done' : reason === 'stopped' ? '' : reason === 'step limit' || reason === 'token limit' ? 'paused' : 'error'); ui.busy(false);
     if (over) { bud.lockUntil = Date.now() + COOLDOWN; bud.why = `Token limit reached (${fmtN(bud.used)} of ${fmtN(c.tokenLimit)} tokens).`; lockUntil = bud.lockUntil; lockWhy = bud.why; saveBud(); ui.lock && ui.lock(); }
-    shotSink = null; { const away = !live() || (pin && pin.alive() && !pin.isActive()); if (away && reason !== 'stopped') forge.ui.toast(over ? '✨ The AI reached its token limit – paused for one hour' : reason === 'error' ? '✨ The AI stopped with an error – open the AI panel' : reason === 'timed out' ? '✨ The AI timed out – open the AI panel' : reason === 'step limit' ? '✨ The AI paused – open the AI panel and press Continue' : reason === 'stuck' ? '✨ The AI got stuck and stopped – open the AI panel' : '✨ The AI finished', reason ? undefined : 'ok'); } if (reason === 'stopped') ui.add('note', '■ Stopped. A checkpoint was saved – ▶ Continue picks it up.'); else if (reason === 'step limit') ui.add('note', `Paused after ${maxSteps} steps.`); else if (over) ui.add('note', '⏱ Token limit reached – the AI is paused for one hour (see below). Your work and the checkpoint are saved.');
+    shotSink = null; { const away = !live() || (pin && pin.alive() && !pin.isActive()); if (away && reason !== 'stopped') vx.ui.toast(over ? '✨ The AI reached its token limit – paused for one hour' : reason === 'error' ? '✨ The AI stopped with an error – open the AI panel' : reason === 'timed out' ? '✨ The AI timed out – open the AI panel' : reason === 'step limit' ? '✨ The AI paused – open the AI panel and press Continue' : reason === 'stuck' ? '✨ The AI got stuck and stopped – open the AI panel' : '✨ The AI finished', reason ? undefined : 'ok'); } if (reason === 'stopped') ui.add('note', '■ Stopped. A checkpoint was saved – ▶ Continue picks it up.'); else if (reason === 'step limit') ui.add('note', `Paused after ${maxSteps} steps.`); else if (over) ui.add('note', '⏱ Token limit reached – the AI is paused for one hour (see below). Your work and the checkpoint are saved.');
     persist(); ui.refreshHistory && ui.refreshHistory(); ui.usage && ui.usage(); ui.checkpoint && ui.checkpoint();
   }
 }
@@ -766,15 +766,15 @@ const out = {
   clear(tag) { cur.view = transcript().filter((e) => e.tag !== tag); if (live()) view.clear(tag); },
   busy(b) { if (live()) view.busy(b); }, checkpoint() { if (live()) view.checkpoint(); }, lock() { if (live()) view.lock(); }, usage() { if (live()) view.usage(); }, refreshHistory() { if (live()) view.refreshHistory(); },
 };
-const setStatus = (end) => { try { st.update(busy ? '✨ AI · working…' : end === 'done' ? '✅ AI · done' : end === 'error' ? '⚠ AI · stopped' : end === 'paused' ? '⏸ AI · paused' : '✨ AI'); } catch { /* status bar not ready */ } try { forge.panels.setState('chat', busy ? 'working' : end || ''); } catch { /* older Vextra */ } };
-forge.on('pluginSetting', (id) => { if (id === 'vextra-ai' && live()) { view.sync(); if (!history.length) view.renderLog(); } });
-forge.on('configSaved', (id) => { if (id === 'vextra-ai' && live()) { view.sync(); if (!history.length) view.renderLog(); } });
+const setStatus = (end) => { try { st.update(busy ? '✨ AI · working…' : end === 'done' ? '✅ AI · done' : end === 'error' ? '⚠ AI · stopped' : end === 'paused' ? '⏸ AI · paused' : '✨ AI'); } catch { /* status bar not ready */ } try { vx.panels.setState('chat', busy ? 'working' : end || ''); } catch { /* older Vextra */ } };
+vx.on('pluginSetting', (id) => { if (id === 'vextra-ai' && live()) { view.sync(); if (!history.length) view.renderLog(); } });
+vx.on('configSaved', (id) => { if (id === 'vextra-ai' && live()) { view.sync(); if (!history.length) view.renderLog(); } });
 const GUIDE_EXAMPLES = ['Build me a 2D platformer with a player, coins, spikes and a score.', 'Make a 3D maze game with a first-person camera.', 'Create a portfolio website with a gallery and a contact form.', 'Explain the file I have open and fix any bugs in it.'];
 
-forge.panels.register({ id: 'chat', title: 'AI', icon: 'bot', render(el) {
+vx.panels.register({ id: 'chat', title: 'AI', icon: 'bot', render(el) {
   const h = hh; const c = cfg();
   const log = h('div', { style: 'flex:1;min-height:120px;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:4px 2px' });
-  const preset = h('select', { title: 'Permissions', onchange: () => { const p = PRESETS[preset.value]; forge.settings.set('preset', preset.value); for (const [k] of PERMS) forge.settings.set('p_' + k, p[k]); forge.settings.set('maxSteps', preset.value === 'builder' ? 30 : 12); } }, h('option', { value: 'chat' }, 'Chat only'), h('option', { value: 'assist' }, 'Assist (ask first)'), h('option', { value: 'agent' }, 'Agent (auto, asks to delete)'), h('option', { value: 'builder' }, 'Builder (builds it all)'), h('option', { value: 'custom', disabled: true }, 'Custom (from settings)'));
+  const preset = h('select', { title: 'Permissions', onchange: () => { const p = PRESETS[preset.value]; vx.settings.set('preset', preset.value); for (const [k] of PERMS) vx.settings.set('p_' + k, p[k]); vx.settings.set('maxSteps', preset.value === 'builder' ? 30 : 12); } }, h('option', { value: 'chat' }, 'Chat only'), h('option', { value: 'assist' }, 'Assist (ask first)'), h('option', { value: 'agent' }, 'Agent (auto, asks to delete)'), h('option', { value: 'builder' }, 'Builder (builds it all)'), h('option', { value: 'custom', disabled: true }, 'Custom (from settings)'));
   preset.value = PRESETS[c.preset] ? c.preset : 'assist';
   const input = h('textarea', { rows: 3, placeholder: 'Ask the AI… (Ctrl+Enter to send)', style: 'width:100%;resize:vertical' }); const send = h('button', { class: 'btn primary sm' }, 'Send'), stop = h('button', { class: 'btn sm', style: 'display:none', onclick: () => { requestStop(); } }, '■ Stop');
   let lockTimer = null; const askPh = input.placeholder; const lockBox = h('div', { style: 'display:none;font-size:11.5px;padding:6px 9px;border-radius:8px;background:rgba(232,163,61,.18);color:var(--text)' }), cpBox = h('div', { style: 'display:none;gap:6px;align-items:center;font-size:11.5px;padding:5px 8px;border-radius:8px;background:rgba(127,127,127,.15)' });
@@ -830,8 +830,8 @@ forge.panels.register({ id: 'chat', title: 'AI', icon: 'bot', render(el) {
   ui.chips = drawChips;
   const addFiles = async (files) => {
     for (const f of files) {
-      if (pendingAtt.length >= ATT_COUNT) { forge.ui.toast(`At most ${ATT_COUNT} files per message`, 'warn'); break; }
-      if (pendingAtt.reduce((n, a) => n + a.size, 0) + f.size > ATT_TOTAL_MB * 1048576) { forge.ui.toast(`Too much data for one message (limit ${ATT_TOTAL_MB} MB)`, 'warn'); break; }
+      if (pendingAtt.length >= ATT_COUNT) { vx.ui.toast(`At most ${ATT_COUNT} files per message`, 'warn'); break; }
+      if (pendingAtt.reduce((n, a) => n + a.size, 0) + f.size > ATT_TOTAL_MB * 1048576) { vx.ui.toast(`Too much data for one message (limit ${ATT_TOTAL_MB} MB)`, 'warn'); break; }
       const note = ui.draw({ kind: 'note', text: '📎 reading ' + f.name + '…' });
       try { const a = await makeAttachment(f); ATT.set(a.id, a); pendingAtt.push(a); } catch (e) { ui.draw({ kind: 'error', text: String(e.message || e) }); }
       if (note) note.remove(); drawChips();
@@ -852,16 +852,16 @@ forge.panels.register({ id: 'chat', title: 'AI', icon: 'bot', render(el) {
   view = ui; el.classList.add('vx-ai');
   ui.refreshHistory(); renderLog(); ui.sync(); ui.checkpoint(); if (busy) ui.busy(true); if (Date.now() < lockUntil) ui.lock();
   el.style.cssText = 'display:flex;flex-direction:column;height:100%;gap:6px;padding:6px';
-  el.append(style, h('div', { style: 'display:flex;gap:6px;align-items:center' }, hist, h('button', { class: 'btn sm', title: 'Delete this chat', onclick: () => { if (busy || !cur) return; const k = chats.indexOf(cur); if (k >= 0) chats.splice(k, 1); cur = null; persist(); if (chats.length) openChat(chats[0].id); else newChat(); ui.refreshHistory(); renderLog(); ui.usage(); ui.checkpoint(); } }, '🗑'), h('button', { class: 'btn sm', title: 'Start a new chat', onclick: () => { if (busy) return; newChat(); ui.refreshHistory(); renderLog(); ui.usage(); ui.checkpoint(); } }, 'New')), h('div', { style: 'display:flex;gap:6px;align-items:center' }, preset, modelLbl, h('button', { class: 'btn sm', title: 'How the AI works', onclick: () => { const g = log.querySelector('[data-guide]'); if (g) g.remove(); else log.prepend(guide()); } }, '?'), h('button', { class: 'btn sm', title: 'Provider, model and permissions', onclick: () => forge.config.open() }, '⚙')), runBox, log, cpBox, lockBox, h('div', { style: 'display:flex;flex-direction:column;gap:3px' }, bar, tok), chips, input, h('div', { style: 'display:flex;gap:6px;justify-content:flex-end' }, pick, attachBtn, stop, send)); drawChips();
+  el.append(style, h('div', { style: 'display:flex;gap:6px;align-items:center' }, hist, h('button', { class: 'btn sm', title: 'Delete this chat', onclick: () => { if (busy || !cur) return; const k = chats.indexOf(cur); if (k >= 0) chats.splice(k, 1); cur = null; persist(); if (chats.length) openChat(chats[0].id); else newChat(); ui.refreshHistory(); renderLog(); ui.usage(); ui.checkpoint(); } }, '🗑'), h('button', { class: 'btn sm', title: 'Start a new chat', onclick: () => { if (busy) return; newChat(); ui.refreshHistory(); renderLog(); ui.usage(); ui.checkpoint(); } }, 'New')), h('div', { style: 'display:flex;gap:6px;align-items:center' }, preset, modelLbl, h('button', { class: 'btn sm', title: 'How the AI works', onclick: () => { const g = log.querySelector('[data-guide]'); if (g) g.remove(); else log.prepend(guide()); } }, '?'), h('button', { class: 'btn sm', title: 'Provider, model and permissions', onclick: () => vx.config.open() }, '⚙')), runBox, log, cpBox, lockBox, h('div', { style: 'display:flex;flex-direction:column;gap:3px' }, bar, tok), chips, input, h('div', { style: 'display:flex;gap:6px;justify-content:flex-end' }, pick, attachBtn, stop, send)); drawChips();
 } });
-forge.commands.register({ id: 'configure', title: 'AI: Configure…', run: () => forge.config.open() });
-forge.commands.register({ id: 'ask', title: 'AI: Ask about the open file…', async run() { const q = await forge.ui.prompt('Ask the AI about the open file'); if (!q) return; forge.ui.toast('Open the AI panel to see the answer.'); await converse(q + '\n\n(Use get_editor if you need the file.)', out); } });
+vx.commands.register({ id: 'configure', title: 'AI: Configure…', run: () => vx.config.open() });
+vx.commands.register({ id: 'ask', title: 'AI: Ask about the open file…', async run() { const q = await vx.ui.prompt('Ask the AI about the open file'); if (!q) return; vx.ui.toast('Open the AI panel to see the answer.'); await converse(q + '\n\n(Use get_editor if you need the file.)', out); } });
 
 /** Fills the generation fields for the chosen provider/model and locks what that model cannot change. key = what the user just changed (null = page opened). */
 const OCTX = new Map();
 async function localCtx(v) { /* Ollama / LM Studio can tell how big the model's context is */
   const P = PROVIDERS[v.provider]; if (!P || !P.local || !v.model) return 0; const k = v.provider + '|' + v.model + '|' + (v.baseUrl || ''); if (OCTX.has(k)) return OCTX.get(k); let n = 0; const base = apiBase(v);
-  try { if (P.proto === 'ollama') { const r = await forge.net.request({ method: 'POST', url: base + '/api/show', timeout: 5, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: v.model }) }); const j = JSON.parse(r.body); const mi = j.model_info || {}; const key = Object.keys(mi).find((x) => /context_length$/.test(x)); n = key ? +mi[key] : 0; } else { const r = await forge.net.request({ method: 'GET', url: base.replace(/\/v1$/, '') + '/api/v0/models', timeout: 5 }); const j = JSON.parse(r.body); const m = (j.data || []).find((x) => x.id === v.model); n = m ? +(m.loaded_context_length || m.max_context_length) : 0; } } catch { n = 0; }
+  try { if (P.proto === 'ollama') { const r = await vx.net.request({ method: 'POST', url: base + '/api/show', timeout: 5, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: v.model }) }); const j = JSON.parse(r.body); const mi = j.model_info || {}; const key = Object.keys(mi).find((x) => /context_length$/.test(x)); n = key ? +mi[key] : 0; } else { const r = await vx.net.request({ method: 'GET', url: base.replace(/\/v1$/, '') + '/api/v0/models', timeout: 5 }); const j = JSON.parse(r.body); const m = (j.data || []).find((x) => x.id === v.model); n = m ? +(m.loaded_context_length || m.max_context_length) : 0; } } catch { n = 0; }
   OCTX.set(k, n); return n;
 }
 function applyCaps(key, v, api) {
@@ -875,9 +875,9 @@ function applyCaps(key, v, api) {
   if (cap.ctx.locked) { api.set('ctxWindow', cap.ctx.def); api.disable('ctxWindow', true, `Fixed by the model: ${lim(cap.ctx.def)} tokens.`); }
   else { api.disable('ctxWindow', false); const t = num(v.ctxWindow); if (changed || !(t > 0)) api.set('ctxWindow', cap.ctx.def); api.note('ctxWindow', cap.ctx.known ? `This model supports about ${lim(cap.ctx.def)} tokens; you can use less.` : 'Not known for this model – set it to what the server runs with.'); if (changed || !(t > 0)) localCtx(v).then((n) => { if (n > 0) { api.set('ctxWindow', Math.min(n, 32768)); api.note('ctxWindow', `The model supports ${lim(n)} tokens; ${n > 32768 ? 'using 32,768 to keep memory use reasonable (raise it if you have the RAM).' : 'filled in from the server.'}`); } }); }
   /* timeout */
-  { const t = num(v.timeout); if (changed || !(t >= 10 && t <= 3600)) api.set('timeout', cap.timeout); api.note('timeout', `Recommended: ${cap.timeout} s for ${(PROVIDERS[v.provider] || {}).local ? 'a local model' : 'an online model'}. A model that does not answer in this time is treated as “no response”.`); }
+  { const t = num(v.timeout); if (!(t >= 10 && t <= 3600) || (changed && t < cap.timeout)) api.set('timeout', cap.timeout); api.note('timeout', `Recommended: ${cap.timeout} s for ${(PROVIDERS[v.provider] || {}).local ? 'a local model' : 'an online model'}. A model that does not answer in this time is treated as “no response”.`); }
 }
-forge.config.register({
+vx.config.register({
   title: 'Vextra AI', intro: 'Pick the model you want to talk to and decide exactly what it is allowed to do. Local models (Ollama, LM Studio) need no key and nothing leaves your computer.', defaults: DEF,
   fields: [
     { key: 'provider', label: 'Provider', type: 'select', group: 'Model', options: Object.entries(PROVIDERS).map(([k, v]) => [k, v.label]) },
@@ -894,14 +894,14 @@ forge.config.register({
     { key: 'system', label: 'Extra instructions', type: 'textarea', group: 'Behaviour', hint: 'Added to every request, e.g. your coding style.' },
   ],
   onChange(key, v, api) {
-    const saved = (pr) => ((forge.settings.get('modelBy') || {})[pr]) || (forge.settings.get('provider') === pr ? forge.settings.get('model') : '') || '';
+    const saved = (pr) => ((vx.settings.get('modelBy') || {})[pr]) || (vx.settings.get('provider') === pr ? vx.settings.get('model') : '') || '';
     const nv = Object.assign({}, v);
     if (key === 'provider') { nv.model = saved(v.provider); api.set('model', nv.model); }
-    if (key === 'apiKey') { const g = guessProvider(v.apiKey); if (g && g !== v.provider) { nv.provider = g; nv.model = saved(g); api.set('provider', g); api.set('model', nv.model); forge.ui.toast('Detected a ' + PROVIDERS[g].label + ' key', 'ok'); applyCaps('provider', nv, api); return; } }
+    if (key === 'apiKey') { const g = guessProvider(v.apiKey); if (g && g !== v.provider) { nv.provider = g; nv.model = saved(g); api.set('provider', g); api.set('model', nv.model); vx.ui.toast('Detected a ' + PROVIDERS[g].label + ' key', 'ok'); applyCaps('provider', nv, api); return; } }
     applyCaps(key === 'apiKey' ? null : key, nv, api);
   },
   validate: (v) => ((PROVIDERS[v.provider] || {}).local && v.baseUrl && !isLoopback(v.baseUrl) ? `${PROVIDERS[v.provider].label} only connects to this computer. Use localhost / 127.0.0.1, or pick “Ollama Cloud” / “Custom” for a remote server.` : v.baseUrl && !/^(https:\/\/|http:\/\/(localhost|127\.0\.0\.1|\[::1\]))/i.test(v.baseUrl) ? 'The server URL must start with https:// (or http://localhost).' : v.provider === 'custom' && !v.baseUrl ? 'Custom needs a server URL.' : null),
 });
-forge.on('configSaved', (id, v) => { if (id === 'vextra-ai' && v && v.provider) forge.settings.set('modelBy', Object.assign({}, forge.settings.get('modelBy') || {}, { [v.provider]: v.model || '' })); });
-const st = forge.statusBar.add({ id: 'ai', text: '✨ AI', align: 'right', tooltip: 'Vextra AI – open settings', onClick: () => forge.config.open() });
-forge.onUnload(() => { requestStop(); view = null; });
+vx.on('configSaved', (id, v) => { if (id === 'vextra-ai' && v && v.provider) vx.settings.set('modelBy', Object.assign({}, vx.settings.get('modelBy') || {}, { [v.provider]: v.model || '' })); });
+const st = vx.statusBar.add({ id: 'ai', text: '✨ AI', align: 'right', tooltip: 'Vextra AI – open settings', onClick: () => vx.config.open() });
+vx.onUnload(() => { requestStop(); view = null; });

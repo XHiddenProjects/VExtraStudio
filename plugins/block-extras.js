@@ -1,5 +1,5 @@
-/** @forge-plugin {"id":"block-extras","name":"Block Extras","version":"1.1.0","description":"Extra logic blocks: Coin Flip, Clamp, Wrap, Map Range, Round, Random Pick, Counter, Cooldown, Alternate, Sequencer, In Range, Random Color, Stopwatch, Smooth and Typewriter."} */
-/** @forge-docs
+/** @vx-plugin {"id":"block-extras","name":"Block Extras","version":"1.1.0","description":"Extra logic blocks: Coin Flip, Clamp, Wrap, Map Range, Round, Random Pick, Counter, Cooldown, Alternate, Sequencer, In Range, Random Color, Stopwatch, Smooth and Typewriter."} */
+/** @vx-docs
  * ## Using Block Extras
  * Open a game, switch to **Logic** and look for the **Plugins** category in the block palette.
  *
@@ -23,86 +23,86 @@
  * Every block above has a short demo clip in its documentation page. For your own plugin blocks add `demo: { video: 'https://example.com/clip.webm', caption: 'What it shows' }` (an https or local `.webm` / `.mp4` link) and the clip appears in **Docs → Blocks** and on your plugin's page.
  *
  * ### Writing your own
- * Blocks registered with `forge.game.registerBlock` must be **self-contained**: their functions are copied as text into exported games, so they cannot use variables from the plugin file. Use only what the function receives:
+ * Blocks registered with `vx.game.registerBlock` must be **self-contained**: their functions are copied as text into exported games, so they cannot use variables from the plugin file. Use only what the function receives:
  * `onInput(node, port, value, game)` – `node.p` holds the settings, `game.send(node, 'port', value)` sends a signal.
  */
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'coinflip', label: 'Coin Flip', cat: 'plugins', desc: 'Sends a signal out of "heads" or "tails" at random.',
   inputs: ['in'], outputs: ['heads', 'tails'], params: [{ key: 'bias', label: 'Chance of heads (0–1)', type: 'number', def: 0.5 }],
   onInput(n, port, v, g) { const p = parseFloat(n.p.bias); g.send(n, Math.random() < (Number.isFinite(p) ? p : 0.5) ? 'heads' : 'tails', 1); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'clampnum', label: 'Clamp', cat: 'plugins', desc: 'Limits a number to a range.',
   inputs: ['in'], outputs: ['out'], params: [{ key: 'min', label: 'Min', type: 'number', def: 0 }, { key: 'max', label: 'Max', type: 'number', def: 1 }],
   onInput(n, port, v, g) { const a = parseFloat(n.p.min) || 0, b = parseFloat(n.p.max); g.send(n, 'out', Math.max(a, Math.min(Number.isFinite(b) ? b : 1, parseFloat(v) || 0))); },
 });
 
 /* ---------------- v1.1 – more blocks ---------------- */
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'wrapnum', label: 'Wrap', cat: 'plugins', desc: 'Loops a number around a range: with Min 0 and Max 360, 370 becomes 10 and -10 becomes 350.',
   inputs: ['in'], outputs: ['out'], params: [{ key: 'min', label: 'Min', type: 'number', def: 0 }, { key: 'max', label: 'Max', type: 'number', def: 360 }],
   onInput(n, port, v, g) { const a = parseFloat(n.p.min) || 0, b = parseFloat(n.p.max), w = (Number.isFinite(b) ? b : 360) - a; const x = parseFloat(v) || 0; g.send(n, 'out', w > 0 ? a + (((x - a) % w) + w) % w : a); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'mapnum', label: 'Map Range', cat: 'plugins', desc: 'Converts a number from one range to another, e.g. health 0–100 into a bar 0–1. Tick Clamp to stop it going outside the new range.',
   inputs: ['in'], outputs: ['out'], params: [{ key: 'inMin', label: 'From min', type: 'number', def: 0 }, { key: 'inMax', label: 'From max', type: 'number', def: 100 }, { key: 'outMin', label: 'To min', type: 'number', def: 0 }, { key: 'outMax', label: 'To max', type: 'number', def: 1 }, { key: 'clamp', label: 'Clamp', type: 'bool', def: true }],
   onInput(n, port, v, g) { const f = (k, d) => { const x = parseFloat(n.p[k]); return Number.isFinite(x) ? x : d; }; const a = f('inMin', 0), b = f('inMax', 100), c = f('outMin', 0), d = f('outMax', 1); let t = b === a ? 0 : ((parseFloat(v) || 0) - a) / (b - a); if (n.p.clamp) t = Math.max(0, Math.min(1, t)); g.send(n, 'out', c + (d - c) * t); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'roundnum', label: 'Round', cat: 'plugins', desc: 'Rounds a number to a fixed number of decimals – nearest, always down or always up.',
   inputs: ['in'], outputs: ['out'], params: [{ key: 'mode', label: 'Mode', type: 'select', options: [['round', 'Nearest'], ['floor', 'Down'], ['ceil', 'Up']], def: 'round' }, { key: 'decimals', label: 'Decimals', type: 'number', def: 0 }],
   onInput(n, port, v, g) { const k = Math.pow(10, Math.max(0, Math.min(8, parseInt(n.p.decimals) || 0))); const f = n.p.mode === 'floor' ? Math.floor : n.p.mode === 'ceil' ? Math.ceil : Math.round; g.send(n, 'out', f((parseFloat(v) || 0) * k) / k); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'randompick', label: 'Random Pick', cat: 'plugins', desc: 'Sends one random line from your list to "out" and its position (1, 2, 3…) to "index". Great for random messages, names or colours.',
   inputs: ['in'], outputs: ['out', 'index'], params: [{ key: 'items', label: 'Items (one per line)', type: 'multiline', def: 'Nice!\nGreat!\nAmazing!' }, { key: 'noRepeat', label: 'Never the same twice in a row', type: 'bool', def: true }],
   onInput(n, port, v, g) { const L = String(n.p.items || '').split('\n').map((x) => x.trim()).filter(Boolean); if (!L.length) return; let i = Math.floor(Math.random() * L.length); if (n.p.noRepeat && L.length > 1 && i === n.st.last) i = (i + 1 + Math.floor(Math.random() * (L.length - 1))) % L.length; n.st.last = i; g.send(n, 'index', i + 1); g.send(n, 'out', L[i]); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'counter', label: 'Counter', cat: 'plugins', desc: 'Counts signals. "in" / "up" add Step, "down" subtracts, "reset" goes back to Start. "reached" fires once when the Target is hit (leave Target empty for none).',
   inputs: ['in', 'up', 'down', 'reset'], outputs: ['out', 'reached'], params: [{ key: 'start', label: 'Start', type: 'number', def: 0 }, { key: 'step', label: 'Step', type: 'number', def: 1 }, { key: 'target', label: 'Target (optional)', type: 'text', def: '' }],
   init(n) { n.st.v = parseFloat(n.p.start) || 0; },
   onInput(n, port, v, g) { const st = parseFloat(n.p.step); const s = Number.isFinite(st) ? st : 1; if (port === 'reset') { n.st.v = parseFloat(n.p.start) || 0; n.st.done = false; } else n.st.v += port === 'down' ? -s : s; g.send(n, 'out', n.st.v); const t = parseFloat(n.p.target); if (Number.isFinite(t) && String(n.p.target).trim() !== '' && !n.st.done && (s >= 0 ? n.st.v >= t : n.st.v <= t) && port !== 'reset') { n.st.done = true; g.send(n, 'reached', n.st.v); } },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'cooldown', label: 'Cooldown', cat: 'plugins', desc: 'Lets a signal through, then ignores new ones for a number of seconds (shooting speed, button spam). Ignored signals leave through "blocked".',
   inputs: ['in'], outputs: ['out', 'blocked'], params: [{ key: 'seconds', label: 'Wait (seconds)', type: 'number', def: 1 }],
   onInput(n, port, v, g) { const w = parseFloat(n.p.seconds); if (n.st.until !== undefined && g.time < n.st.until) { g.send(n, 'blocked', v); return; } n.st.until = g.time + (Number.isFinite(w) ? w : 1); g.send(n, 'out', v); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'alternate', label: 'Alternate', cat: 'plugins', desc: 'Sends each signal to "a", then "b", then "a" again – turn something on and off, or swap two animations.',
   inputs: ['in', 'reset'], outputs: ['a', 'b'], params: [],
   onInput(n, port, v, g) { if (port === 'reset') { n.st.b = false; return; } n.st.b = !n.st.b; g.send(n, n.st.b ? 'a' : 'b', v); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'sequencer', label: 'Sequencer', cat: 'plugins', desc: 'Steps through its outputs: the 1st signal leaves "step1", the 2nd "step2" … then it starts again (or stops at the end).',
   inputs: ['in', 'reset'], outputs: ['step1', 'step2', 'step3', 'step4', 'done'], params: [{ key: 'loop', label: 'Loop', type: 'bool', def: true }],
   onInput(n, port, v, g) { if (port === 'reset') { n.st.i = 0; return; } const i = n.st.i || 0; if (i >= 4) return; g.send(n, 'step' + (i + 1), v); n.st.i = i + 1; if (n.st.i >= 4) { g.send(n, 'done', v); if (n.p.loop) n.st.i = 0; } },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'inrange', label: 'In Range', cat: 'plugins', desc: 'Checks whether a number is between Min and Max (both included). Sends the number to "inside" or "outside".',
   inputs: ['in'], outputs: ['inside', 'outside'], params: [{ key: 'min', label: 'Min', type: 'number', def: 0 }, { key: 'max', label: 'Max', type: 'number', def: 10 }],
   onInput(n, port, v, g) { const x = parseFloat(v), a = parseFloat(n.p.min), b = parseFloat(n.p.max); g.send(n, x >= (Number.isFinite(a) ? a : 0) && x <= (Number.isFinite(b) ? b : 10) ? 'inside' : 'outside', v); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'randomcolor', label: 'Random Color', cat: 'plugins', desc: 'Sends a random bright colour as text like #3fb950 – feed it to a Colors block.',
   inputs: ['in'], outputs: ['out'], params: [{ key: 'bright', label: 'Brightness (0–100)', type: 'number', def: 60 }],
   onInput(n, port, v, g) { const h = Math.random() * 360, l = Math.max(10, Math.min(90, parseFloat(n.p.bright) || 60)) / 100, a = 0.9 * Math.min(l, 1 - l); const f = (k) => { const m = (k + h / 30) % 12, c = l - a * Math.max(-1, Math.min(m - 3, 9 - m, 1)); return ('0' + Math.round(c * 255).toString(16)).slice(-2); }; g.send(n, 'out', '#' + f(0) + f(8) + f(4)); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'stopwatch', label: 'Stopwatch', cat: 'plugins', desc: 'Counts seconds while running. "start" / "stop" / "reset"; "out" sends the time every frame while running (or tick Auto start). "stopped" sends the final time.',
   inputs: ['start', 'stop', 'reset'], outputs: ['out', 'stopped'], params: [{ key: 'auto', label: 'Auto start', type: 'bool', def: false }, { key: 'decimals', label: 'Decimals', type: 'number', def: 1 }],
   init(n) { n.st.t = 0; n.st.on = !!n.p.auto; },
   onInput(n, port, v, g) { if (port === 'start') n.st.on = true; else if (port === 'stop') { n.st.on = false; g.send(n, 'stopped', n.st.t); } else { n.st.t = 0; g.send(n, 'out', 0); } },
   update(n, dt, g) { if (!n.st.on) return; n.st.t += dt; const k = Math.pow(10, Math.max(0, Math.min(3, parseInt(n.p.decimals) || 0))); g.send(n, 'out', Math.round(n.st.t * k) / k); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'smoothnum', label: 'Smooth', cat: 'plugins', desc: 'Glides toward the newest number instead of jumping – smooth bars, camera follow, fading values. Higher Speed = quicker.',
   inputs: ['in'], outputs: ['out'], params: [{ key: 'speed', label: 'Speed', type: 'number', def: 4 }],
   onInput(n, port, v) { n.st.to = parseFloat(v) || 0; if (n.st.cur === undefined) n.st.cur = 0; },
   update(n, dt, g) { if (n.st.to === undefined || n.st.cur === n.st.to) return; const k = 1 - Math.exp(-(parseFloat(n.p.speed) || 4) * dt); n.st.cur += (n.st.to - n.st.cur) * k; if (Math.abs(n.st.to - n.st.cur) < 0.001) n.st.cur = n.st.to; g.send(n, 'out', Math.round(n.st.cur * 1000) / 1000); },
 });
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'typewriter', label: 'Typewriter', cat: 'plugins', desc: 'Types text out one letter at a time (dialogue, intros). Fill Text, or leave it empty and send the text into "in"; "out" gets the growing text, "done" the full text when finished.',
   inputs: ['in'], outputs: ['out', 'done'], params: [{ key: 'text', label: 'Text (empty = use the incoming text)', type: 'text', def: 'Hello, traveller!' }, { key: 'cps', label: 'Letters per second', type: 'number', def: 18 }],
   onInput(n, port, v) { const t = String(n.p.text || ''); n.st.full = t ? t : typeof v === 'string' ? v : v === undefined || v === null ? '' : String(v); n.st.pos = 0; n.st.on = true; },

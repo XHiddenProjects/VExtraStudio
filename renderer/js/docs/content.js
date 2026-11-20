@@ -435,18 +435,18 @@ Everything runs against the server in **Settings → Cloud → Server address**.
 
   A('plugins-intro', 'Plugins', 'Plugins overview', `# Plugins overview
 
-A plugin is a single \`.js\` file that receives a \`forge\` object. Plugins can:
+A plugin is a single \`.js\` file that receives a \`vx\` object. Plugins can:
 
 | Add | How |
 |---|---|
-| Commands in the palette | \`forge.commands.register\` |
-| Toolbar buttons, status bar items | \`forge.toolbar.add\`, \`forge.statusBar.add\` |
-| Side panels | \`forge.panels.register\` |
-| UI-designer components | \`forge.designer.registerComponent('ui', …)\` |
-| Themes | \`forge.themes.register\` |
-| **Game object types** (2D & 3D) | \`forge.game.registerObjectType\` |
-| **Logic blocks** | \`forge.game.registerBlock\` |
-| **Their own documentation** | \`/** @forge-docs … */\` comment or \`forge.docs.register\` |
+| Commands in the palette | \`vx.commands.register\` |
+| Toolbar buttons, status bar items | \`vx.toolbar.add\`, \`vx.statusBar.add\` |
+| Side panels | \`vx.panels.register\` |
+| UI-designer components | \`vx.designer.registerComponent('ui', …)\` |
+| Themes | \`vx.themes.register\` |
+| **Game object types** (2D & 3D) | \`vx.game.registerObjectType\` |
+| **Logic blocks** | \`vx.game.registerBlock\` |
+| **Their own documentation** | \`/** @vx-docs … */\` comment or \`vx.docs.register\` |
 
 ## Install and write plugins
 
@@ -456,51 +456,53 @@ A plugin is a single \`.js\` file that receives a \`forge\` object. Plugins can:
 
 ## Plugin documentation
 
-Every plugin gets a page under **Docs → Plugins**. It combines the text you wrote in the \`@forge-docs\` comment, any pages from \`forge.docs.register\`, and an **automatic list of everything the plugin adds** (commands, components, blocks, panels…). Click **Docs** on a plugin card to open it.
+The comment tags are \`@vx-plugin\` and \`@vx-docs\`. Older plugins that still use \`@forge-plugin\` / \`@forge-docs\` keep working, but new plugins should use the \`@vx-\` tags.
+
+Every plugin gets a page under **Docs → Plugins**. It combines the text you wrote in the \`@vx-docs\` comment, any pages from \`vx.docs.register\`, and an **automatic list of everything the plugin adds** (commands, components, blocks, panels…). Click **Docs** on a plugin card to open it.
 
 \`\`\`js
-/** @forge-plugin {"id":"my-plugin","name":"My Plugin","version":"1.0.0","description":"Does cool things"} */
-/** @forge-docs
+/** @vx-plugin {"id":"my-plugin","name":"My Plugin","version":"1.0.0","description":"Does cool things"} */
+/** @vx-docs
  * ## Using My Plugin
  * Run **My Plugin: Hello** from the command palette.
  */
-forge.commands.register({ id: 'hello', title: 'My Plugin: Hello', run: () => forge.ui.toast('Hi!') });
+vx.commands.register({ id: 'hello', title: 'My Plugin: Hello', run: () => vx.ui.toast('Hi!') });
 \`\`\``);
 
   A('plugin-api', 'Plugins', 'Plugin API reference', `# Plugin API reference
 
-Plugins run with a single argument, \`forge\`.
+Plugins run with a single argument, \`vx\` (older plugins that use \`forge\` keep working: it is an alias).
 
 ## Basics
 
 | API | Description |
 |---|---|
-| \`forge.id\`, \`forge.version\` | Your plugin id and the host API version |
-| \`forge.log(...)\` | Console log with your plugin's name |
-| \`forge.on(event, cb)\` | Host events: \`editorChange\`, \`save\`, \`tabChange\`, \`registry\` |
-| \`forge.settings.get(key, default)\` / \`.set(key, value)\` | Persistent per-plugin settings |
+| \`vx.id\`, \`vx.version\` | Your plugin id and the host API version |
+| \`vx.log(...)\` | Console log with your plugin's name |
+| \`vx.on(event, cb)\` | Host events: \`editorChange\`, \`save\`, \`tabChange\`, \`registry\` |
+| \`vx.settings.get(key, default)\` / \`.set(key, value)\` | Persistent per-plugin settings |
 
 ## Commands, toolbar, status bar, panels
 
 \`\`\`js
-forge.commands.register({ id: 'shout', title: 'Shout selection', run() { forge.editor.replaceSelection(forge.editor.getSelection().toUpperCase()); } });
-forge.toolbar.add({ id: 'btn', label: 'Shout', run: () => forge.commands.run('my-plugin.shout'), when: (lang) => lang === 'html' });
-const item = forge.statusBar.add({ id: 's', text: 'ready', align: 'right', onClick() {} });  item.update('busy');
-forge.panels.register({ id: 'p', title: 'My panel', icon: 'plugin', render(container) { container.textContent = 'Hello'; } });
+vx.commands.register({ id: 'shout', title: 'Shout selection', run() { vx.editor.replaceSelection(vx.editor.getSelection().toUpperCase()); } });
+vx.toolbar.add({ id: 'btn', label: 'Shout', run: () => vx.commands.run('my-plugin.shout'), when: (lang) => lang === 'html' });
+const item = vx.statusBar.add({ id: 's', text: 'ready', align: 'right', onClick() {} });  item.update('busy');
+vx.panels.register({ id: 'p', title: 'My panel', icon: 'plugin', render(container) { container.textContent = 'Hello'; } });
 \`\`\`
 
 ## Editor
 
-\`forge.editor\`: \`getValue()\`, \`setValue(text)\`, \`getSelection()\`, \`replaceSelection(text)\`, \`insertText(text)\`, \`getLanguage()\`, \`getPath()\`, \`onChange(cb)\`, \`onSave(cb)\`, \`onTabChange(cb)\`, \`openFile(path)\`, \`newFile(name, content, lang)\`.
+\`vx.editor\`: \`getValue()\`, \`setValue(text)\`, \`getSelection()\`, \`replaceSelection(text)\`, \`insertText(text)\`, \`getLanguage()\`, \`getPath()\`, \`onChange(cb)\`, \`onSave(cb)\`, \`onTabChange(cb)\`, \`openFile(path)\`, \`newFile(name, content, lang)\`.
 
 ## UI helpers
 
-\`forge.ui\`: \`toast(msg, kind)\`, \`prompt(msg, default)\`, \`confirm(msg, okLabel)\`, \`form({title, fields})\`, \`modal({title, html, wide})\`, \`preview(html, title)\`.
+\`vx.ui\`: \`toast(msg, kind)\`, \`prompt(msg, default)\`, \`confirm(msg, okLabel)\`, \`form({title, fields})\`, \`modal({title, html, wide})\`, \`preview(html, title)\`.
 
 ## Designer components
 
 \`\`\`js
-forge.designer.registerComponent('ui', {
+vx.designer.registerComponent('ui', {
   type: 'badge', label: 'Badge', icon: '🏷', category: 'My components', w: 90, h: 30,
   props: { text: 'NEW', bg: '#e5534b' },
   schema: [{ key: 'text', label: 'Text', type: 'text' }, { key: 'bg', label: 'Colour', type: 'color' }],
@@ -510,7 +512,7 @@ forge.designer.registerComponent('ui', {
 
 ## Themes
 
-\`forge.themes.register({ id, name, type: 'dark', colors: { bg, bg2, bg3, border, text, muted, accent, accentFg } })\`
+\`vx.themes.register({ id, name, type: 'dark', colors: { bg, bg2, bg3, border, text, muted, accent, accentFg } })\`
 
 ## Game objects and blocks
 
@@ -518,18 +520,18 @@ See [Custom game objects & blocks](doc:plugin-game).
 
 ## Documentation
 
-\`forge.docs.register({ id: 'guide', title: 'Guide', markdown: '# Hello' })\`, and the \`@forge-docs\` block comment at the top of the file.
+\`vx.docs.register({ id: 'guide', title: 'Guide', markdown: '# Hello' })\`, and the \`@vx-docs\` block comment at the top of the file.
 
 ## Account and files
 
-\`forge.account.current()\`, \`forge.fs.readFile(path)\`, \`forge.fs.writeFile(path, text)\`, \`forge.fs.root()\`.`);
+\`vx.account.current()\`, \`vx.fs.readFile(path)\`, \`vx.fs.writeFile(path, text)\`, \`vx.fs.root()\`.`);
 
   A('plugin-game', 'Plugins', 'Custom game objects & blocks', `# Custom game objects & blocks
 
 ## A new logic block
 
 \`\`\`js
-forge.game.registerBlock({
+vx.game.registerBlock({
   id: 'double', label: 'Double', cat: 'plugins', desc: 'Doubles the number it receives.',
   inputs: ['in'], outputs: ['out'],
   params: [{ key: 'times', label: 'Times', type: 'number', def: 2 }],
@@ -546,7 +548,7 @@ forge.game.registerBlock({
 ## A new object type
 
 \`\`\`js
-forge.game.registerObjectType({
+vx.game.registerObjectType({
   type: 'star', label: 'Star', icon: '⭐', dim: '2d', category: 'My objects', w: 48, h: 48,
   props: { points: 5 },
   schema: [{ key: 'points', label: 'Points', type: 'number', min: 3, max: 12 }],
@@ -735,33 +737,33 @@ Temperature, max output and context window are filled in for the chosen provider
 ## Replies, layers and design tools
 Replies are shown as Markdown; raw action JSON is never shown. The AI knows the three layers (background, world, UI) and places HUD items on the UI layer. It can open the Sprite, Sound, 3D and Material editors, and drive **Blender** through the Vextra Blender add-on (other desktop apps are not controlled; save files to the project folder instead). Play-tests can run in a visible window with a Stop button (setting **Show play-tests**).
 
-For plugin authors: \`forge.game.playtest(steps, opts)\`, \`forge.game.screenshotPage(html, opts)\` and \`forge.panels.setState(panelId, 'working'|'done'|'paused'|'error')\`.`);
+For plugin authors: \`vx.game.playtest(steps, opts)\`, \`vx.game.screenshotPage(html, opts)\` and \`vx.panels.setState(panelId, 'working'|'done'|'paused'|'error')\`.`);
 
   A('plugin-hooks', 'Plugins', 'Plugin hooks & settings button', `# Plugin hooks and the Configure button
 
 ## Configure button
 \`\`\`js
-forge.config.register({
+vx.config.register({
   title: 'My plugin – settings',
   fields: [{ key: 'greeting', label: 'Greeting', value: 'Hello' }, { key: 'loud', label: 'Shout', type: 'checkbox' }],
   // optional: validate(values) → error text, load() → values, save(values)
 });
-const greeting = forge.settings.get('greeting', 'Hello');
+const greeting = vx.settings.get('greeting', 'Hello');
 \`\`\`
-The plugin card shows **⚙ Configure** while the plugin is enabled. Without \`load/save\` the values are kept with \`forge.settings\`. \`forge.config.open()\` opens it from code.
+The plugin card shows **⚙ Configure** while the plugin is enabled. Without \`load/save\` the values are kept with \`vx.settings\`. \`vx.config.open()\` opens it from code.
 
 ## Hooks
-\`forge.hooks.on(name, fn)\`:
+\`vx.hooks.on(name, fn)\`:
 
 | Hook | What you get | What you can do |
 |---|---|---|
 | \`game.export.html\` | \`(html, {play, publish, project})\` | return a changed HTML string |
-| \`account.register\`, \`account.password\` | \`{username, password, server}\` | \`throw forge.hooks.block('why')\` to stop it |
-| \`account.login\` | \`{username, server}\` | throw \`forge.hooks.block\` (e.g. lockout) |
+| \`account.register\`, \`account.password\` | \`{username, password, server}\` | \`throw vx.hooks.block('why')\` to stop it |
+| \`account.login\` | \`{username, server}\` | throw \`vx.hooks.block\` (e.g. lockout) |
 | \`account.loginOk\`, \`account.loginFailed\` | \`{username, error, status}\` | notification only |
-| \`publish.before\` | \`{slug, kind, title, files}\` | throw \`forge.hooks.block\` to cancel |
+| \`publish.before\` | \`{slug, kind, title, files}\` | throw \`vx.hooks.block\` to cancel |
 
-Also: \`forge.onUnload(fn)\`, \`forge.fs.list()\`, \`forge.account.signOut()\`.`);
+Also: \`vx.onUnload(fn)\`, \`vx.fs.list()\`, \`vx.account.signOut()\`.`);
 
   A('sensors', 'Making games', 'Microphone, Camera, VR & AR blocks', `# Microphone, Camera, VR & AR blocks
 
@@ -935,4 +937,34 @@ Options: \`node scripts/uninstall.js --mode=clean|full --auto --dry-run --keep-d
 - \`--toolchain\` additionally offers to remove Rust (\`rustup self uninstall\`). It is never done without an explicit flag and confirmation, because other projects may use Rust.
 
 You can also clean app data from **Settings → About & maintenance**.`);
+
+  A('vxscript', 'Making games', 'VXScript, packs & Night Shift', `# VXScript, project packs & the Night Shift game
+
+## VXScript (\`.vxs\`)
+A small language that is **converted to the block graph** (it is not JavaScript). Press **📜** in the game editor to paste or open a script; it becomes normal blocks you can keep editing.
+
+\`\`\`
+behavior "Player controls"
+when key space pressed:
+    jump
+when touching tag:coin:
+    destroy other
+    score += 1
+    if score >= 5:
+        show toast "You win!" kind success
+\`\`\`
+
+Scripts are compiled, never run. Unknown blocks or ports are reported with the line number.
+
+## Project packs (\`.vxpack\`)
+A pack is a ZIP of a project. **Opening one** (double-click, File → Open or the Command Palette) unpacks it into its own folder and builds everything: \`.vxs\` scripts become blocks, every \`.vxgame\` is checked and gets a web build in \`build/\`. Programs (.exe, .sh …) and unsafe paths are never written. Make one with *Pack this folder*.
+
+## Night Shift: Tape 07
+A 3D found-footage horror game seen through a VHS camcorder (the **VHS Tape** shader block): three levels, four cutscenes, objectives, a flashlight with a battery and a stalker that hunts by sound. It is built **only from blocks**: open it from the game editor's *Examples*, or open \`examples/night-shift/night-shift.vxgame\` from the download, and edit any behaviour in the Logic tab. The folder also has a ready \`.vxpack\` and a web build.
+
+# Hosting & collaborating
+**Settings → Host & share.** Private by default. Public mode offers a **ghost domain** (a tunnel address that hides your real IP; the helper is downloaded only after you agree) or a **direct port forward** (UPnP, which shows your real IP). You can create a self-signed certificate, hand out invite codes and set an auto-stop. Switch back to private to stop everything.
+
+# Updates & backups
+Your data lives outside the install folder; a safety copy is saved before each update (\`update-backups/\`, last 3). The **Backup** plugin makes your own backups.`);
 })();

@@ -1,5 +1,5 @@
-/** @forge-plugin {"id":"markdown-preview","name":"Markdown Preview","version":"4.1.0","description":"Full Markdown viewer: outline, tables, task lists, syntax-highlighted code with line numbers and a Copy button that follows the scroll."} */
-/** @forge-docs
+/** @vx-plugin {"id":"markdown-preview","name":"Markdown Preview","version":"4.2.0","description":"Full Markdown viewer: outline, tables, task lists, syntax-highlighted code with line numbers and a Copy button that follows the scroll."} */
+/** @vx-docs
  * ## Using Markdown Preview
  * Open any `.md` file and press **👁 Markdown Preview** in the toolbar, or run **Markdown: Preview current file** from the Command Palette.
  *
@@ -60,6 +60,6 @@ var bR=$('#bR'),bS=$('#bS'),bT=$('#bT');bR.onclick=function(){document.body.clas
 <div class="main"><div class="scroll"><div class="doc"><div id="rendered">${renderBody(src)}</div><div id="src">${sourceBlock(src)}</div></div></div><nav class="toc"></nav></div><script>${js.replace(/<\/script/gi, '<\\/script')}<\/script>`;
 }
 
-const open = () => forge.ui.preview(page(forge.editor.getValue(), 'Markdown preview'), 'Markdown preview');
-forge.commands.register({ id: 'preview', title: 'Markdown: Preview current file', run: open });
-forge.toolbar.add({ id: 'btn', label: '👁 Markdown Preview', run: open, when: (ctx) => ctx.language === 'markdown' });
+const open = () => vx.ui.preview(page(vx.editor.getValue(), 'Markdown preview'), 'Markdown preview');
+vx.commands.register({ id: 'preview', title: 'Markdown: Preview current file', run: open });
+vx.toolbar.add({ id: 'btn', label: '👁 Markdown Preview', run: open, when: (ctx) => ctx.language === 'markdown' });

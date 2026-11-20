@@ -33,7 +33,7 @@
       if (r.status >= 400) { const er = new Error(j.error || 'Server error ' + r.status); er.status = r.status; throw er; } return j;
     },
     async _session(j) { C.token = j.token; C.user = j.user; C.status = 'online'; await window.native.secret.set('cloudToken:' + C.base(), j.token); VX.emit('cloud'); C.loadLink(); return j.user; },
-    async register(username, password, displayName) { await VX.hooks.run('account.register', { username, password, displayName, server: C.base() }); return C._session(await C.request('POST', '/api/register', { username, password, displayName }, false)); },
+    async register(username, password, displayName) { await VX.hooks.run('account.register', { username, password, displayName, server: C.base() }); let invite; for (;;) { try { return C._session(await C.request('POST', '/api/register', { username, password, displayName, invite }, false)); } catch (e) { if (e.status === 403 && /invite code/i.test(e.message) && invite === undefined) { invite = await VX.ui.ask('This server is shared publicly. Enter the invite code from the host:', ''); if (invite) continue; } throw e; } } },
     async login(username, password) {
       await VX.hooks.run('account.login', { username, server: C.base() });
       try {

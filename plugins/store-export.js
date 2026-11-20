@@ -1,5 +1,5 @@
-/** @forge-plugin {"id":"store-export","name":"Store Export","version":"2.5.0","description":"Package a game and (on the desktop app) install, assign and build it automatically, with a progress bar, for for Steam (Electron), Google Play (Android) and the App Store (iOS)."} */
-/** @forge-docs
+/** @vx-plugin {"id":"store-export","name":"Store Export","version":"2.5.0","description":"Package a game and (on the desktop app) install, assign and build it automatically, with a progress bar, for for Steam (Electron), Google Play (Android) and the App Store (iOS)."} */
+/** @vx-docs
  * ## Using Store Export
  * Open a game and press **📦 Store export** in its toolbar (or run **Store Export: Package game…** from the Command Palette). A project folder must be open so the files have somewhere to go.
  *
@@ -383,7 +383,7 @@ async function autoBuild(o, out) {
     if (host === 'mac') work.push({ id: 'm3', cwd: d, p: 'npx', a: ['cap', 'add', 'ios'], ok: 'iOS project created' });
     work.push({ id: 'm4', cwd: d, p: 'npm', a: ['run', 'assets'], ok: 'Icons and splash screens generated' }, { id: 'm5', cwd: d, p: 'npm', a: ['run', 'patch'], ok: 'Orientation and version applied' }, { id: 'm6', cwd: d, p: 'npx', a: ['cap', 'sync'], ok: 'Game copied into the app' });
   }
-  const ui = forge.ui.checklist('Exporting ' + o.name, items); let cur = null; ui.onCancel(() => cur && cur.cancel());
+  const ui = vx.ui.checklist('Exporting ' + o.name, items); let cur = null; ui.onCancel(() => cur && cur.cancel());
   const clean = (l) => String(l).replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').slice(0, 400);
   const problems = [];
   const hint = (txt) => /could not start|ENOENT|not recognized|is Node/i.test(txt) ? 'Node.js was not found – install it from nodejs.org and restart Vextra.' : /EACCES|EPERM|operation not permitted/i.test(txt) ? 'A file was locked or permission was denied – close programs that use the folder and try again.' : /ENOTFOUND|ETIMEDOUT|ECONNRESET|EAI_AGAIN|network/i.test(txt) ? 'A network request failed – check the internet connection / proxy and try again.' : 'This step did not finish.';
@@ -391,7 +391,7 @@ async function autoBuild(o, out) {
   async function exec(st, phase) {
     let tail = '', last = null; const ids = new Set();
     try {
-      cur = forge.proc.run({ cwd: st.cwd, program: st.p, args: st.a, onLine: (l) => { const c = clean(l); if (!c.trim()) return; ui.detail(c); if (c.startsWith('@@vx ')) { try { const e = JSON.parse(c.slice(5)); if (e.id === 'build') e.id = 'm7'; ids.add(e.id); last = e; const state = phase === 'check' ? (e.state === 'ok' ? 'ok' : e.state === 'warn' ? 'todo' : e.state === 'run' ? 'run' : e.state) : e.state; ui.set(e.id, state, e.text); } catch { /* not ours */ } } else tail = (tail + '\n' + c).slice(-800); } });
+      cur = vx.proc.run({ cwd: st.cwd, program: st.p, args: st.a, onLine: (l) => { const c = clean(l); if (!c.trim()) return; ui.detail(c); if (c.startsWith('@@vx ')) { try { const e = JSON.parse(c.slice(5)); if (e.id === 'build') e.id = 'm7'; ids.add(e.id); last = e; const state = phase === 'check' ? (e.state === 'ok' ? 'ok' : e.state === 'warn' ? 'todo' : e.state === 'run' ? 'run' : e.state) : e.state; ui.set(e.id, state, e.text); } catch { /* not ours */ } } else tail = (tail + '\n' + c).slice(-800); } });
       const code = await cur; return { code, tail, last, ids };
     } catch (e) { ui.detail(String(e && e.message || e)); return { code: -1, tail: String(e && e.message || e), last, ids }; }
   }
@@ -427,22 +427,22 @@ async function autoBuild(o, out) {
   for (const it of items) if (['pending', 'run', 'todo'].includes(ui.state(it.id))) ui.set(it.id, ui.cancelled ? 'skip' : 'skip', ui.cancelled ? 'Cancelled' : 'Not run');
   const ok = !ui.cancelled && !problems.length;
   ui.note(ui.cancelled ? 'Cancelled – the project files that were already written are kept.' : ok ? 'All done. Everything is in the store-export folder of your project.' : 'Finished with problems: ' + problems.join('; ') + '. The project files were still written; the README in the folder has the manual steps. "Copy technical details" has the full output.');
-  ui.done('Close'); forge.ui.toast(ok ? 'Store export finished' : ui.cancelled ? 'Store export cancelled' : 'Store export finished with problems', ok ? 'ok' : 'warn');
+  ui.done('Close'); vx.ui.toast(ok ? 'Store export finished' : ui.cancelled ? 'Store export cancelled' : 'Store export finished with problems', ok ? 'ok' : 'warn');
 }
 
 async function run() {
-  const project = forge.game.current(); const root = forge.fs.root();
-  if (!project) return forge.ui.toast('Open a game first (a .vxgame tab).', 'warn');
-  if (!root) return forge.ui.toast('Open a folder first – the packages are written into it (store-export/).', 'warn');
+  const project = vx.game.current(); const root = vx.fs.root();
+  if (!project) return vx.ui.toast('Open a game first (a .vxgame tab).', 'warn');
+  if (!root) return vx.ui.toast('Open a folder first – the packages are written into it (store-export/).', 'warn');
   const sprites = Object.values(project.assets.sprites), det = xrKinds(project);
-  const v = await forge.ui.form({ title: 'Store Export', submit: 'Create packages', intro: 'Prepares build-ready projects. Signing, building and uploading are done with the store tools (see the README in each folder).', fields: [
+  const v = await vx.ui.form({ title: 'Store Export', submit: 'Create packages', intro: 'Prepares build-ready projects. Signing, building and uploading are done with the store tools (see the README in each folder).', fields: [
     { key: 'name', label: 'App name', value: project.settings.title, required: true },
     { key: 'id', label: 'Package id', value: 'com.yourname.' + slugify(project.settings.title).replace(/-/g, ''), hint: 'Reverse-domain, lowercase. Cannot change after publishing.', required: true },
     { key: 'version', label: 'Version', value: '1.0.0', required: true }, { key: 'code', label: 'Android version code', type: 'number', value: 1 },
     { key: 'orientation', label: 'Orientation', type: 'select', value: project.settings.width >= project.settings.height ? 'landscape' : 'portrait', options: [['landscape', 'Landscape'], ['portrait', 'Portrait'], ['any', 'Any']] },
     { key: 'color', label: 'Brand / splash colour', type: 'color', value: project.settings.bg || '#10131a' },
     { key: 'icon', label: 'Icon sprite', type: 'select', value: '', options: [['', 'Letter icon'], ...sprites.map((s) => [s.id, s.name])] },
-    { key: 'publisher', label: 'Publisher / author', value: forge.account.current()?.displayName || '' },
+    { key: 'publisher', label: 'Publisher / author', value: vx.account.current()?.displayName || '' },
     { key: 'steamId', label: 'Steam App ID (optional)', placeholder: 'e.g. 1234560' },
     { key: 'depotBase', label: 'First Steam depot id', type: 'number', value: 1234561, hint: 'Windows, macOS, Linux use this and the next two.' },
     { key: 'auto', label: 'Install, assign and build automatically (desktop app)', type: 'checkbox', value: true, hint: 'Installs, assigns and builds step by step with a plain checklist. Needs Node.js; for Android, Java, Gradle and the Android SDK are found automatically (JAVA_HOME …) or downloaded and kept up to date for you – official sources only, checksum-verified, no Android Studio needed.' },
@@ -456,12 +456,12 @@ async function run() {
   const o = Object.assign({}, v, { code: Math.max(1, Math.round(v.code) || 1), depotBase: Math.round(v.depotBase) || 1234561, webHost: String(v.webHost || '').trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, ''), steamId: String(v.steamId || '').trim().replace(/\D/g, ''), publisher: v.publisher || 'Your Name' });
   o.xrKinds = v.xrMode === 'none' ? { vr: false, ar: false } : v.xrMode === 'vr' ? { vr: true, ar: false } : v.xrMode === 'ar' ? { vr: false, ar: true } : v.xrMode === 'both' ? { vr: true, ar: true } : det; o.meta = !!v.meta; o.xr = !!v.xr;
   if ((o.meta || o.xr) && !o.xrKinds.vr && !o.xrKinds.ar) o.xrKinds = o.meta ? { vr: true, ar: false } : { vr: false, ar: true };
-  if (!o.xr && !o.meta && (o.xrKinds.vr || o.xrKinds.ar) && !(await forge.ui.confirm('This is a ' + xrWord(o.xrKinds) + ' game, but the Meta Quest and Android WebXR packages are off. Phone and Steam packages still work (phone VR / camera AR, Edge / Chrome on Steam), but headsets such as Meta Quest need the Meta Quest package. Continue anyway?', 'Continue'))) return;
+  if (!o.xr && !o.meta && (o.xrKinds.vr || o.xrKinds.ar) && !(await vx.ui.confirm('This is a ' + xrWord(o.xrKinds) + ' game, but the Meta Quest and Android WebXR packages are off. Phone and Steam packages still work (phone VR / camera AR, Edge / Chrome on Steam), but headsets such as Meta Quest need the Meta Quest package. Continue anyway?', 'Continue'))) return;
   const slug = slugify(o.name), out = root.replace(/[\\/]$/, '') + '/store-export/' + slug;
   try {
-    forge.ui.toast('Exporting game…');
-    const html = await forge.game.exportHTML(project); const cv = await makeCanvases(project, o);
-    const write = (rel, text) => forge.fs.writeFile(out + '/' + rel, text), writeImg = (rel, c) => forge.fs.writeBase64(out + '/' + rel, b64(c));
+    vx.ui.toast('Exporting game…');
+    const html = await vx.game.exportHTML(project); const cv = await makeCanvases(project, o);
+    const write = (rel, text) => vx.fs.writeFile(out + '/' + rel, text), writeImg = (rel, c) => vx.fs.writeBase64(out + '/' + rel, b64(c));
     await write('STORE-CHECKLIST.md', checklist(o)); await writeImg('assets/icon-only.png', cv.iconOnly);
     if (o.android) {
       await write('mobile/www/index.html', html); for (const [k, rel] of Object.entries(mobileFiles(o, slug))) await write('mobile/' + k, rel);
@@ -482,9 +482,9 @@ async function run() {
     if (o.steam) {
       await write('steam/www/index.html', html); for (const [k, rel] of Object.entries(steamFiles(o, slug))) await write('steam/' + k, rel); await writeImg('steam/build/icon.png', cv.iconOnly);
     }
-    forge.ui.toast('Packages written to store-export/' + slug, 'ok');
-    if (o.auto && forge.proc.available()) { await autoBuild(o, out); return; }
-    forge.ui.modal({ title: 'Packages ready', html: `<div style="line-height:1.6"><p>Created in <code>store-export/${slug}/</code>:</p><ul>${o.android ? '<li><b>mobile/</b> – Google Play + App Store (Capacitor). Open <code>README-MOBILE.md</code>.</li>' : ''}${o.steam ? '<li><b>steam/</b> – Steam (Electron + steamcmd files). Open <code>README-STEAM.md</code>.</li>' : ''}${o.meta ? '<li><b>meta/</b> – Meta Quest (Meta Horizon Store): web app to host on https + Bubblewrap project + store artwork. Open <code>README-META.md</code>.</li>' : ''}${o.xr ? '<li><b>xr/</b> – Android VR / AR (WebXR, ARCore): web app + Bubblewrap project. Open <code>README-XR.md</code>.</li>' : ''}<li><b>STORE-CHECKLIST.md</b> – assets and forms the stores require.</li></ul><p>Next: <code>npm install</code> in the target folder and follow its README. Signing and uploading happen with your own store accounts.</p></div>` });
-  } catch (e) { forge.ui.toast('Store export failed: ' + e.message, 'error'); }
+    vx.ui.toast('Packages written to store-export/' + slug, 'ok');
+    if (o.auto && vx.proc.available()) { await autoBuild(o, out); return; }
+    vx.ui.modal({ title: 'Packages ready', html: `<div style="line-height:1.6"><p>Created in <code>store-export/${slug}/</code>:</p><ul>${o.android ? '<li><b>mobile/</b> – Google Play + App Store (Capacitor). Open <code>README-MOBILE.md</code>.</li>' : ''}${o.steam ? '<li><b>steam/</b> – Steam (Electron + steamcmd files). Open <code>README-STEAM.md</code>.</li>' : ''}${o.meta ? '<li><b>meta/</b> – Meta Quest (Meta Horizon Store): web app to host on https + Bubblewrap project + store artwork. Open <code>README-META.md</code>.</li>' : ''}${o.xr ? '<li><b>xr/</b> – Android VR / AR (WebXR, ARCore): web app + Bubblewrap project. Open <code>README-XR.md</code>.</li>' : ''}<li><b>STORE-CHECKLIST.md</b> – assets and forms the stores require.</li></ul><p>Next: <code>npm install</code> in the target folder and follow its README. Signing and uploading happen with your own store accounts.</p></div>` });
+  } catch (e) { vx.ui.toast('Store export failed: ' + e.message, 'error'); }
 }
-forge.commands.register({ id: 'package', title: 'Store Export: Package game…', run });
+vx.commands.register({ id: 'package', title: 'Store Export: Package game…', run });

@@ -31,7 +31,7 @@
     const item = (txt, fn, title, adv) => h('span', { class: 'sb-item' + (adv ? ' adv' : '') + (fn ? ' click' : ''), title: title || '', onclick: fn }, txt);
     l.append(item([VX.icon('folder', 12), S.root ? VX.path.base(S.root) : 'No folder'], () => app.openFolder(), 'Open folder'));
     const probs = [...VX.tabs.problems.values()].flat(); l.append(item(`⊘ ${probs.filter((p) => p.type === 'error').length}  ⚠ ${probs.filter((p) => p.type === 'warning').length}`, () => BP.show('problems'), 'Problems', true));
-    for (const it of Forge.statusItems.values()) (it.align === 'right' ? r : l).append(item(it.text, it.onClick, it.tooltip));
+    for (const it of VXHost.statusItems.values()) (it.align === 'right' ? r : l).append(item(it.text, it.onClick, it.tooltip));
     const t = VX.tabs.active(); if (t && t.kind === 'code') { r.append(item(`Ln ${cur.l}, Col ${cur.c}`), item(t.lang || 'text', null, '', true), item('Spaces: ' + app.settings.tabSize, null, '', true)); }
     const u = VX.cloud && VX.cloud.user; r.append(item([VX.icon('user', 12), u ? u.username : 'Sign in'], () => VX.sidebar.show('cloud'), 'Account'), item(app.settings.mode === 'simple' ? 'Simple mode' : 'Advanced mode', () => { const m = app.settings.mode === 'simple' ? 'advanced' : 'simple'; app.set('mode', m); document.body.dataset.mode = m; renderStatus(); }, 'Toggle simple / advanced mode'), ...(() => { const U = VX.update, l = U && U.last; const txt = U && U.busy ? '⟳ Checking…' : U && U.pending() ? '⬆ Update v' + l.latest : null; return txt ? [h('span', { class: 'sb-item click upd-badge', title: U.message(), onclick: () => U.dialog() }, txt)] : []; })(), item('v' + app.version, () => VX.update.dialog(), 'Version ' + app.version + ' – click to check for updates'));
   }
@@ -42,14 +42,14 @@
     const C = [];
     const add = (title, run, hint) => C.push({ title, run, hint });
     add('New web project…', () => app.newProject()); add('New UI design', () => app.newUI()); add('New 2D game', () => app.newGame('2d')); add('New 3D game', () => app.newGame('3d')); add('Open 2D demo game', () => app.newGame('2d', true)); add('Open 3D demo game (first person)', () => app.newGame('3d', true)); add('Open UI example', () => app.newUIExample()); add('New file…', () => VX.sidebar.newFile()); add('Export website (ZIP / tar.gz)…', () => VX.web.exportSite()); add('Open project database', () => VX.web.openDatabase()); add('Run PHP site (desktop app)', () => { const t = VX.tabs.active(); VX.web.openPhp(t && t.path ? t : null); });
-    add('Open folder…', () => app.openFolder(), 'Ctrl+O'); add('Library: install from a link…', async () => { const u = await VX.ui.ask('Link to a .vxgame, .zip, .html, GitHub repository or library index'); if (u) VX.library.installUrl(u).catch(() => {}); }); add('Show library', () => VX.sidebar.show('library')); add('Check for updates', () => VX.update.check({ toast: true }).then(() => VX.update.dialog())); add('Close workspace', () => app.closeWorkspace()); add('Clear recent list', () => app.clearRecent()); add('Save', () => VX.tabs.save(), 'Ctrl+S'); add('Save as…', () => VX.tabs.save(VX.tabs.active(), true), 'Ctrl+Shift+S'); add('Save all', () => VX.tabs.saveAll()); add('Close tab', () => S.active && VX.tabs.close(S.active), 'Ctrl+W');
+    add('Open folder…', () => app.openFolder(), 'Ctrl+O'); add('Pack: open a .vxpack (unpack and build)…', () => VX.pack.pick()); add('Pack: save the open folder as a .vxpack…', () => VX.pack.create()); add('Library: install from a link…', async () => { const u = await VX.ui.ask('Link to a .vxgame, .zip, .html, GitHub repository or library index'); if (u) VX.library.installUrl(u).catch(() => {}); }); add('Show library', () => VX.sidebar.show('library')); add('Check for updates', () => VX.update.check({ toast: true }).then(() => VX.update.dialog())); add('Close workspace', () => app.closeWorkspace()); add('Clear recent list', () => app.clearRecent()); add('Save', () => VX.tabs.save(), 'Ctrl+S'); add('Save as…', () => VX.tabs.save(VX.tabs.active(), true), 'Ctrl+Shift+S'); add('Save all', () => VX.tabs.saveAll()); add('Close tab', () => S.active && VX.tabs.close(S.active), 'Ctrl+W');
     add('Quick open file…', () => quickOpen(), 'Ctrl+P'); add('Find in files', () => { VX.sidebar.show('search'); }, 'Ctrl+Shift+F'); add('Toggle sidebar', () => VX.sidebar.collapse(!$('#sidebar').classList.contains('collapsed')), 'Ctrl+B'); add('Toggle bottom panel', () => BP.toggle(), 'Ctrl+J');
     add('Show explorer', () => VX.sidebar.show('explorer')); add('Show create palette', () => VX.sidebar.show('create')); add('Show plugins', () => VX.sidebar.show('plugins')); add('Show themes', () => VX.sidebar.show('themes')); add('Account & sharing', () => VX.sidebar.show('cloud'));
     add('Documentation', () => VX.docs.open(), 'F1'); add('Docs: Block reference', () => VX.docs.open('blocks')); add('Docs: Plugin API', () => VX.docs.open('plugin-api')); add('Welcome page', () => app.showWelcome()); add('Settings', () => app.openSettings(), 'Ctrl+,');
     add('Preview current file', () => { const t = VX.tabs.active(); if (t) VX.web.openPreview(t); }, 'F5'); add('Design a theme…', () => VX.sidebar.themeDesigner()); add('Toggle simple / advanced mode', () => { const m = app.settings.mode === 'simple' ? 'advanced' : 'simple'; app.set('mode', m); document.body.dataset.mode = m; renderStatus(); });
     add('Publish to the web…', () => VX.cloudUI.publish()); add('Share / collaborate…', () => VX.cloudUI.share()); add('Sign in / account…', () => VX.sidebar.show('cloud'));
     for (const t of VX.theme.list()) add('Theme: ' + t.name, () => { app.set('theme', t.id); VX.theme.apply(t.id); });
-    for (const c of Forge.commands.values()) add(c.title, c.run, c.hint);
+    for (const c of VXHost.commands.values()) add(c.title, c.run, c.hint);
     return C;
   }
   function palette(items, placeholder, onPick, render) {
@@ -94,8 +94,8 @@
   function drag(el, onMove) { el.addEventListener('mousedown', (e) => { e.preventDefault(); el.classList.add('drag'); const mv = (ev) => onMove(ev); const up = () => { el.classList.remove('drag'); removeEventListener('mousemove', mv); removeEventListener('mouseup', up); }; addEventListener('mousemove', mv); addEventListener('mouseup', up); }); }
 
   /* ---------- host API for plugins ---------- */
-  Object.defineProperty(Forge.host, 'settings', { get: () => app.settings, configurable: true, enumerable: true }); // a live getter: Object.assign would copy the value once and go stale after settings load
-  Object.assign(Forge.host, { saveSettings: () => app.saveSettings(), applyTheme: (id) => { app.set('theme', id); VX.theme.apply(id); }, openDocs: (id) => VX.docs.open(id), account: () => (VX.cloud ? VX.cloud.user : null), root: () => S.root, setPluginSetting(pid, k, v) { const st = app.settings; st.plugins = st.plugins || {}; (st.plugins[pid] ||= {})[k] = v; app.saveSettings(); Forge.emit('pluginSetting', pid, k, v); } });
+  Object.defineProperty(VXHost.host, 'settings', { get: () => app.settings, configurable: true, enumerable: true }); // a live getter: Object.assign would copy the value once and go stale after settings load
+  Object.assign(VXHost.host, { saveSettings: () => app.saveSettings(), applyTheme: (id) => { app.set('theme', id); VX.theme.apply(id); }, openDocs: (id) => VX.docs.open(id), account: () => (VX.cloud ? VX.cloud.user : null), root: () => S.root, setPluginSetting(pid, k, v) { const st = app.settings; st.plugins = st.plugins || {}; (st.plugins[pid] ||= {})[k] = v; app.saveSettings(); VXHost.emit('pluginSetting', pid, k, v); } });
 
   /* ---------- boot ---------- */
   async function boot() {
@@ -105,13 +105,14 @@
     { const mq = window.matchMedia('(max-width: 860px)'); const fit = () => { if (mq.matches) VX.sidebar.collapse(true); }; mq.addEventListener('change', fit); setTimeout(fit, 700); }
     drag($('#side-resizer'), (e) => { const w = VX.clamp(e.clientX - 52, 180, 560); $('#app').style.setProperty('--sidew', w + 'px'); app.set('sidebarWidth', w); });
     drag($('#bottom-resizer'), (e) => { const w = VX.clamp(innerHeight - e.clientY - 24, 80, innerHeight * 0.7); $('#app').style.setProperty('--bottomh', w + 'px'); app.set('bottomHeight', w); });
-    await Forge.plugins_.loadAll();
+    await VXHost.plugins_.loadAll();
     VX.cloud && VX.cloud.init();
     VX.sidebar.show(app.settings.lastView && VX.sidebar.views[app.settings.lastView] ? app.settings.lastView : 'explorer'); renderStatus();
     if (window.native.onMenu) window.native.onMenu((id) => menu(id));
     if (!S.root) { try { const last = app.settings.autoOpen === false ? null : (app.settings.recent || []).find((r) => r.kind === 'folder'); if (last && window.native.isDesktop && (await window.native.exists(last.path))) await app.openRoot(last.path); } catch { /* ignore */ } }
     if (app.settings.welcome !== false) app.showWelcome(); VX.update.start();
     $('#splash').style.opacity = 0; setTimeout(() => $('#splash').remove(), 350);
+    try { const lf = await window.native.launchFiles(); for (const f of lf || []) await VX.pack.handleFile(f); window.native.onOpenFile((fs) => (fs || []).forEach((f) => VX.pack.handleFile(f))); } catch (e) { console.warn('launch files', e); }
     window.__vxReady = true;
   }
   function menu(id) {

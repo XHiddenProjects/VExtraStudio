@@ -10,7 +10,7 @@
   function ensureCode() {
     if (code) return code;
     code = CodeEditor.create($('#editor-host'), {
-      onChange() { const t = S.active && byId(S.active); if (t && t.kind === 'code' && t.doc) { t.dirty = true; renderTabs(); VX.emit('editorChange', t); Forge.emit('editorChange', code.text(t.doc), t.path); queueAuto(t); } },
+      onChange() { const t = S.active && byId(S.active); if (t && t.kind === 'code' && t.doc) { t.dirty = true; renderTabs(); VX.emit('editorChange', t); VXHost.emit('editorChange', code.text(t.doc), t.path); queueAuto(t); } },
       onCursor(l, c) { VX.emit('cursor', l, c); },
     });
     code.onProblems = (doc) => { const t = S.tabs.find((x) => x.doc === doc); if (t) { T.problems.set(t.id, doc.problems || []); VX.emit('problems'); } };
@@ -43,7 +43,7 @@
       if (['html', 'htm', 'php', 'css', 'js'].includes(ext)) out.push(h('button', { class: 'btn sm', title: 'Pack the whole site into a ZIP or tar.gz with .htaccess and nginx.conf', onclick: () => VX.web.exportSite() }, '📦 Export site'));
       if (['html', 'htm'].includes(ext)) out.push(h('button', { class: 'btn sm', title: 'Preview in a phone-sized frame', onclick: () => VX.web.openPreview(t, 'phone') }, VX.icon('phone', 14)));
       out.push(h('span', { class: 'spacer' }));
-      for (const it of Forge.toolbarItems.values()) if (!it.when || it.when(t.lang, t.path)) out.push(h('button', { class: 'btn sm', onclick: () => { try { it.run(); } catch (e) { VX.ui.toast(e.message, 'error'); } } }, it.label));
+      for (const it of VXHost.toolbarItems.values()) if (!it.when || it.when(t.lang, t.path)) out.push(h('button', { class: 'btn sm', onclick: () => { try { it.run(); } catch (e) { VX.ui.toast(e.message, 'error'); } } }, it.label));
       return out;
     },
   };
@@ -100,6 +100,7 @@
 
   /** Open or focus a tab. spec: {path} | {kind:'page', key, title, icon, render} | {kind:'code', title, text, lang} */
   T.open = async function (spec) {
+    if (spec.path && /\.vxpack$/i.test(spec.path) && VX.pack) return VX.pack.openPath(spec.path); // a project pack is unpacked and built, not shown as text
     let kind = spec.kind || (spec.path ? VX.app.fileKind(spec.path) : 'code');
     const key = spec.key || spec.path;
     let t = key && S.tabs.find((x) => x.key === key);
@@ -114,7 +115,7 @@
   };
   T.activate = function (id) {
     const t = byId(id); if (!t) return;
-    S.active = id; T.kinds[t.kind].show(t); renderTabs(); renderToolbar(); VX.emit('tabChange', t); Forge.emit('tabChange', t);
+    S.active = id; T.kinds[t.kind].show(t); renderTabs(); renderToolbar(); VX.emit('tabChange', t); VXHost.emit('tabChange', t);
     $('#statusbar') && VX.emit('status');
     VX.dnd.prune();
   };
@@ -142,7 +143,7 @@
         t.key = t.path; t.title = VX.path.base(t.path); if (t.kind === 'code') { t.lang = CodeEditor.langFromName(t.title); code.setLang(t.doc, t.lang); }
       }
       await window.native.writeFile(t.path, text); t.dirty = false; renderTabs(); VX.emit('fsChange'); VX.emit('saved', t);
-      if (t.kind === 'code') Forge.emit('save', text, t.path);
+      if (t.kind === 'code') VXHost.emit('save', text, t.path);
       if (t.ctl && t.ctl.setPath) t.ctl.setPath(t.path);
       return true;
     } catch (e) { VX.ui.toast('Save failed: ' + (e.message || e), 'error'); return false; }
@@ -174,13 +175,13 @@
   window.addEventListener('beforeunload', (e) => { if (S.tabs.some((t) => t.dirty)) { e.preventDefault(); e.returnValue = ''; } });
 
   /* editor access for plugins */
-  Forge.host.editorGet = () => { const t = T.active(); return t && t.kind === 'code' ? code.text(t.doc) : ''; };
-  Forge.host.editorSet = (v) => { const t = T.active(); if (t && t.kind === 'code') code.setValue(v); };
-  Forge.host.editorSelection = () => (code ? code.getSelection() : '');
-  Forge.host.editorInsert = (txt) => { const t = T.active(); if (t && t.kind === 'code') code.replaceSelection(txt); };
-  Forge.host.editorLang = () => { const t = T.active(); return t ? t.lang || t.kind : 'plaintext'; };
+  VXHost.host.editorGet = () => { const t = T.active(); return t && t.kind === 'code' ? code.text(t.doc) : ''; };
+  VXHost.host.editorSet = (v) => { const t = T.active(); if (t && t.kind === 'code') code.setValue(v); };
+  VXHost.host.editorSelection = () => (code ? code.getSelection() : '');
+  VXHost.host.editorInsert = (txt) => { const t = T.active(); if (t && t.kind === 'code') code.replaceSelection(txt); };
+  VXHost.host.editorLang = () => { const t = T.active(); return t ? t.lang || t.kind : 'plaintext'; };
   /* A pin ties a long-running plugin job (the AI) to the tab it started in: it keeps reading and editing THAT tab even when the user switches to another one. */
-  Forge.host.pin = () => {
+  VXHost.host.pin = () => {
     const t0 = T.active(), id = t0 && t0.id, get = () => (id ? S.tabs.find((x) => x.id === id) || null : null);
     return {
       id, kind: t0 ? t0.kind : null,
@@ -192,7 +193,7 @@
       game: () => { const t = get(); return t && t.kind === 'game' && t.ctl ? t.ctl : null; },
     };
   };
-  Forge.host.editorPath = () => (T.active() ? T.active().path || null : null);
-  Forge.host.openPath = (p) => T.open({ path: p });
-  Forge.host.newFile = (n, c, l) => T.newFile(n, c, l);
+  VXHost.host.editorPath = () => (T.active() ? T.active().path || null : null);
+  VXHost.host.openPath = (p) => T.open({ path: p });
+  VXHost.host.newFile = (n, c, l) => T.newFile(n, c, l);
 })();

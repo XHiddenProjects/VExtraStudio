@@ -1,5 +1,5 @@
 /* Vextra game editor – headless playtest. Runs the exported game in a hidden, sandboxed iframe, presses keys, collects errors and takes screenshots.
-   Used by the AI add-on ("play-test and look at the result"); also available to plugins as forge.game.playtest().
+   Used by the AI add-on ("play-test and look at the result"); also available to plugins as vx.game.playtest().
    The frame is sandboxed WITHOUT allow-same-origin (like Play): it cannot reach the editor. Every message carries a one-time token. */
 (function () {
   const KEYS = { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown', space: ' ', enter: 'Enter', esc: 'Escape', escape: 'Escape', shift: 'Shift', tab: 'Tab' };

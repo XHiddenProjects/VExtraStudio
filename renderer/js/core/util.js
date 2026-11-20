@@ -2,7 +2,7 @@
 (function () {
   const VX = (window.VX = window.VX || {});
 
-  /** Hooks let plugins react to / veto app actions. run(): listeners may throw an error made with forge.hooks.block(msg) to stop the action. filter(): each listener may return a changed value. */
+  /** Hooks let plugins react to / veto app actions. run(): listeners may throw an error made with vx.hooks.block(msg) to stop the action. filter(): each listener may return a changed value. */
   VX.hooks = (() => {
     const map = new Map(); const list = (n) => map.get(n) || [];
     return {

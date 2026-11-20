@@ -9,7 +9,7 @@ console.log('Syntax');
 for (const f of walk(ROOT).filter((x) => x.endsWith('.js'))) { const r = cp.spawnSync(process.execPath, ['--check', f]); ok(r.status === 0, path.relative(ROOT, f) + (r.status ? '\n' + r.stderr : '')); }
 console.log('Data files');
 for (const f of walk(path.join(ROOT, 'themes')).filter((x) => x.endsWith('.json'))) { try { JSON.parse(fs.readFileSync(f, 'utf8')); ok(true, path.relative(ROOT, f)); } catch (e) { ok(false, f + ' ' + e.message); } }
-for (const f of fs.readdirSync(path.join(ROOT, 'plugins'))) { const s = fs.readFileSync(path.join(ROOT, 'plugins', f), 'utf8'); ok(/@forge-plugin\s*\{/.test(s) && /@forge-docs/.test(s), 'plugins/' + f + ' has manifest + docs'); }
+for (const f of fs.readdirSync(path.join(ROOT, 'plugins'))) { const s = fs.readFileSync(path.join(ROOT, 'plugins', f), 'utf8'); ok(/@vx-plugin\s*\{/.test(s) && /@vx-docs/.test(s), 'plugins/' + f + ' has manifest + docs'); }
 const html = fs.readFileSync(path.join(ROOT, 'renderer', 'index.html'), 'utf8');
 for (const m of html.matchAll(/(?:src|href)="((?:js|css)\/[^"]+)"/g)) ok(fs.existsSync(path.join(ROOT, 'renderer', m[1])), 'index.html → ' + m[1]);
 
@@ -60,17 +60,30 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
   const ai = fs.readFileSync(path.join(ROOT, 'plugins', 'vextra-ai.js'), 'utf8'), pt = fs.readFileSync(path.join(ROOT, 'renderer/js/game/editor/playtest.js'), 'utf8'), pl = fs.readFileSync(path.join(ROOT, 'renderer/js/core/plugins.js'), 'utf8');
   ok(/setAttribute\('sandbox', 'allow-scripts'\)/.test(pt) && !/setAttribute\('sandbox'[^)]*same-origin/.test(pt), 'playtest frame is sandboxed without allow-same-origin');
   ok(/d\.token !== chan\.token/.test(pt) && /e\.source !== frame\.contentWindow/.test(pt), 'playtest messages are token- and source-checked');
-  ok(/playtest: \(script/.test(pl) && /screenshotPage/.test(pl), 'forge.game.playtest / screenshotPage exist');
+  ok(/playtest: \(script/.test(pl) && /screenshotPage/.test(pl), 'vx.game.playtest / screenshotPage exist');
   ok(/const over = !!\(c\.tokenLimit && \(bud\.used >= c\.tokenLimit \|\| reason === 'token limit'\)\)/.test(ai) && /COOLDOWN/.test(ai), 'AI token limit locks for a cooldown');
   ok(/modelCaps/.test(ai) && /applyCaps/.test(ai) && /fallbackModel/.test(ai), 'AI per-model settings and fallback model');
   ok(/cleanShown/.test(ai) && /looksCutOff/.test(ai), 'AI hides raw action JSON');
-  ok(/setState/.test(pl), 'forge.panels.setState exists');
+  ok(/setState/.test(pl), 'vx.panels.setState exists');
   ok(/'play', 'Play-test/.test(ai) && /case 'playtest'/.test(ai) && /case 'screenshot_site'/.test(ai), 'AI has the play-test permission and actions');
   ok(/STOP AND THINK/.test(ai) && /reason = 'stuck'/.test(ai) && /guard\.cache/.test(ai), 'AI has the loop guard');
   ok(/makeAttachment/.test(ai) && /save_attachment/.test(ai) && /add_image_sprite/.test(ai) && /add_sound_file/.test(ai), 'AI accepts attachments');
   ok(/ATT_COUNT/.test(ai) && /ATT_MAX/.test(ai), 'attachments have size / count limits');
   ok(/image_url/.test(ai) && /media_type/.test(ai) && /images: imgs\.map/.test(ai), 'pictures are sent in all three provider formats');
   ok(/safeRel\(a\.path \|\| at\.name\)/.test(ai) && /BAD_WRITE\.test\(p\)/.test(ai.slice(ai.indexOf("case 'save_attachment'"))), 'save_attachment uses the protected-path rules');
+}
+// ---- 4.2 additions
+{
+  const R = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const g = JSON.parse(R('examples/night-shift/night-shift.vxgame'));
+  let nodes = 0; (function w(o) { if (o && typeof o === 'object') { if (Array.isArray(o.nodes) && Array.isArray(o.wires)) nodes += o.nodes.length; for (const k in o) w(o[k]); } })(g);
+  ok(g.format && g.scenes.length === 7 && nodes > 500, 'Night Shift ships as a block-graph .vxgame (' + nodes + ' blocks)');
+  ok(fs.existsSync(path.join(__dirname, '..', 'examples/night-shift/night-shift.vxpack')) && fs.existsSync(path.join(__dirname, '..', 'examples/night-shift/build/night-shift.html')), 'Night Shift pack and web build present');
+  ok(/@vx-plugin/.test(R('plugins/backup.js')), 'backup plugin uses @vx-plugin');
+  ok(/vhs/.test(R('renderer/js/game/rt-fx.js')), 'VHS shader effect registered');
+  ok(/fileAssociations/.test(R('src-tauri/tauri.conf.json')), 'file associations configured');
+  ok(R('server/host.js') === R('src-tauri/resources/server/host.js') && R('server/server.js') === R('src-tauri/resources/server/server.js'), 'bundled server copies match');
+  ok(/vxscript/.test(R('renderer/index.html')) && /pack\.js/.test(R('renderer/index.html')), 'vxscript and pack scripts loaded');
 }
 (async () => {
   for (let i = 0; i < 30; i++) { if ((await call('GET', '/api/health')).status === 200) break; await new Promise((r) => setTimeout(r, 150)); }

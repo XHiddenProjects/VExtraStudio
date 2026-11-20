@@ -2,10 +2,25 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.1.0] — current
+## [4.2.0] — current
 
 ### Added
-- **sql.js upgraded to 1.16.0** (built-in SQLite database tool); `package.json` now pins `^1.16.0` instead of `latest`.
+- **Host & share** settings: private by default, ghost-domain tunnel, direct port forward (UPnP), self-signed certificates, invite codes, auto-stop (`server/host.js`, `/api/host/*`).
+- **Project packs (`.vxpack`)**: open to unpack and build everything (code, assets, levels); file associations for `.vxpack`, `.vxgame`, `.vxs`.
+- **VXScript (`.vxs`)**: a non-JavaScript language compiled to the block graph.
+- **Night Shift: Tape 07**: full 3D VHS horror game made of blocks (3 levels, 4 cutscenes). Shipped as `examples/night-shift/` (`.vxgame`, `.vxpack`, web build). New **VHS Tape** shader effect.
+- **Backup** plugin. Plugin fs API: `readBase64`, `readDir`; `VX.ui.progress`.
+- Update safety copy of user data before every install (`update-backups/`).
+
+### Changed
+- `@forge-*` → `@vx-*` (old tags and the `forge` API alias still work); internal `Forge` → `VXHost`.
+- Vextra AI: longer timeouts (never lowers a value you set), two retries instead of a lock; only the token limit locks.
+- Documentation and README (comparison chart).
+
+## [4.1.0]
+
+### Added
+- **sql.js upgraded to 1.16.0** (built-in SQLite database tool).
 - **Vextra AI 2.2 – token limit.** Live token meter; when the next request would pass the limit the AI stops at once, asks the model for a hand-over note, saves it as the checkpoint and locks for one hour, then resets. ▶ Continue resumes.
 - **Colour-changing bot icon** (working / done / paused / error) via `forge.panels.setState`.
 - **Empty-answer handling:** retries, optional fallback model, then a checkpoint.

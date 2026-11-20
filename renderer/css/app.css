@@ -211,7 +211,7 @@ body[data-mode="simple"] .adv { display: none !important; }
 .lib-top { margin-bottom: 4px; } .lib-row { display: flex; gap: 6px; margin: 4px 0; } .lib-row input { flex: 1; min-width: 0; } .lib-note { font-size: 11.5px; color: var(--muted); padding: 2px 2px 6px; line-height: 1.5; } .lib-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .lib-card { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg3, var(--bg2)); } .lib-card.slim { padding: 5px 8px; } .lib-ic { font-size: 20px; flex: none; width: 28px; text-align: center; } .lib-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; } .lib-tx b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lib-tx span { font-size: 11px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } .lib-x { float: right; cursor: pointer; color: var(--muted); font-weight: 400; } .lib-x:hover { color: var(--danger); }
 
-/* progress dialog (forge.ui.progress) */
+/* progress dialog (vx.ui.progress) */
 .prog{display:flex;flex-direction:column;gap:10px;min-width:min(520px,80vw)}
 .prog-row{display:flex;justify-content:space-between;gap:12px;font-size:13px}
 .prog-bar{height:10px;border-radius:6px;background:var(--bg-3,#222);overflow:hidden}
@@ -270,7 +270,7 @@ input[type=checkbox], input[type=radio] { flex: 0 0 auto; width: 18px; height: 1
 .act.drop-before { box-shadow: inset 0 3px 0 var(--accent); } .act.drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
 #tabbar .tab, #bp-tabs .bp-tab, #activity .act { user-select: none; }
 
-/* plain-text checklist dialog (forge.ui.checklist) */
+/* plain-text checklist dialog (vx.ui.checklist) */
 .chk{display:flex;flex-direction:column;gap:2px;min-width:min(520px,80vw);max-height:60vh;overflow:auto}
 .chk-group{margin:10px 0 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#8b95a8)}
 .chk-row{display:flex;gap:10px;align-items:flex-start;padding:5px 2px}

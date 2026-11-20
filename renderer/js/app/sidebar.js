@@ -16,7 +16,7 @@
       if (v === '-') return bar.append(h('div', { class: 'act-sep adv' }));
       bar.append(h('button', Object.assign({ class: 'act' + (v.adv ? ' adv' : '') + (SB.current === v.id ? ' active' : ''), title: v.title, 'data-view': v.id }, v.state ? { 'data-state': v.state } : {}, { onclick: () => (SB.current === v.id && !$('#sidebar').classList.contains('collapsed') ? SB.collapse(true) : SB.show(v.id)) }), VX.icon(v.icon)));
     };
-    const all = [...BUILTIN.filter((v) => v !== '-'), ...[...Forge.panels.values()].map((p) => ({ id: 'panel:' + p.id, icon: p.icon, title: p.title + ' (plugin)', state: Forge.panelState.get(p.id) }))];
+    const all = [...BUILTIN.filter((v) => v !== '-'), ...[...VXHost.panels.values()].map((p) => ({ id: 'panel:' + p.id, icon: p.icon, title: p.title + ' (plugin)', state: VXHost.panelState.get(p.id) }))];
     const ord = VX.app.settings.activityOrder || []; const rank = (v) => { const i = ord.indexOf(v.id); return i < 0 ? 1000 + all.indexOf(v) : i; }; all.sort((a, b) => rank(a) - rank(b));
     VX.dnd.sortable(bar, { item: '.act[data-view]', id: (el) => el.dataset.view, onMove: (f, t, after) => { const ids = [...bar.querySelectorAll('.act[data-view]')].map((n) => n.dataset.view).filter((x) => x !== f); ids.splice(ids.indexOf(t) + (after ? 1 : 0), 0, f); VX.app.set('activityOrder', ids); SB.renderActivity(); } });
     let sep = false; for (const v of all) { if (!sep && v.adv && !all.slice(0, all.indexOf(v)).every((x) => x.adv)) { add('-'); sep = true; } add(v); }
@@ -26,9 +26,9 @@
   };
   SB.collapse = (v) => { $('#sidebar').classList.toggle('collapsed', v); $('#side-resizer').classList.toggle('collapsed', v); };
   SB.show = function (id) {
-    SB.collapse(false); SB.current = id; VX.app.set('lastView', id); if (id.startsWith('panel:') && Forge.panelState.get(id.slice(6)) === 'done') Forge.setPanelState(id.slice(6), ''); SB.renderActivity();
+    SB.collapse(false); SB.current = id; VX.app.set('lastView', id); if (id.startsWith('panel:') && VXHost.panelState.get(id.slice(6)) === 'done') VXHost.setPanelState(id.slice(6), ''); SB.renderActivity();
     let def = SB.views[id];
-    if (id.startsWith('panel:')) { const p = Forge.panels.get(id.slice(6)); def = p && { title: p.title, render: (c) => p.render(c) }; }
+    if (id.startsWith('panel:')) { const p = VXHost.panels.get(id.slice(6)); def = p && { title: p.title, render: (c) => p.render(c) }; }
     if (!def) return; $('#side-title').textContent = def.title; const act = $('#side-actions'); act.textContent = ''; (def.actions ? def.actions() : []).forEach((a) => act.append(a));
     const body = $('#side-body'); body.textContent = ''; try { def.render(body); } catch (e) { body.append(h('div', { class: 'empty' }, 'View failed: ' + e.message)); console.error(e); }
   };
@@ -145,33 +145,33 @@
   /* ---------- plugins ---------- */
   SB.views.plugins = {
     title: 'Plugins',
-    actions: () => [abtn('plus', 'New plugin from template', newPlugin), abtn('folder', 'Import plugin file', async () => { try { const r = await window.native.ext.import('plugins'); if (r && r.length) { await Forge.plugins_.loadAll(); SB.refresh(); VX.ui.toast('Imported ' + r.length + ' plugin(s)', 'ok'); } } catch (e) { VX.ui.toast(e.message, 'error'); } }), abtn('docs', 'Plugin documentation', () => VX.docs.open('plugins'))],
+    actions: () => [abtn('plus', 'New plugin from template', newPlugin), abtn('folder', 'Import plugin file', async () => { try { const r = await window.native.ext.import('plugins'); if (r && r.length) { await VXHost.plugins_.loadAll(); SB.refresh(); VX.ui.toast('Imported ' + r.length + ' plugin(s)', 'ok'); } } catch (e) { VX.ui.toast(e.message, 'error'); } }), abtn('docs', 'Plugin documentation', () => VX.docs.open('plugins'))],
     render(c) {
-      const list = [...Forge.plugins.values()];
+      const list = [...VXHost.plugins.values()];
       c.append(h('div', { class: 'empty left', style: 'padding:6px;font-size:12px' }, 'Plugins add commands, UI components, themes, game objects and logic blocks. Every plugin has its own documentation page.'));
       for (const rec of list) {
         const m = rec.manifest; const contribs = Object.entries(rec.contrib || {}).filter(([, v]) => v.length).map(([k, v]) => `${v.length} ${k}`);
         c.append(h('div', { class: 'card' },
-          h('h4', {}, h('span', {}, m.name, ' ', h('small', { style: 'color:var(--muted);font-weight:400' }, 'v' + m.version)), VX.ui.sw(rec.enabled, (on) => { Forge.plugins_.setEnabled(m.id, on); SB.refresh(); })),
+          h('h4', {}, h('span', {}, m.name, ' ', h('small', { style: 'color:var(--muted);font-weight:400' }, 'v' + m.version)), VX.ui.sw(rec.enabled, (on) => { VXHost.plugins_.setEnabled(m.id, on); SB.refresh(); })),
           h('p', {}, m.description || 'No description'),
           rec.error ? h('p', { style: 'color:var(--danger)' }, '⚠ ' + rec.error) : null,
           h('div', { class: 'row' }, h('span', { class: 'tag' + (rec.source === 'builtin' ? '' : ' acc') }, rec.source === 'builtin' ? 'built-in' : 'yours'), ...contribs.map((x) => h('span', { class: 'tag' }, x))),
           h('div', { class: 'row card-actions' },
-            Forge.configs.has(m.id) && rec.enabled ? h('button', { class: 'btn sm primary', title: 'Plugin settings', onclick: () => Forge.openConfig(m.id) }, VX.icon('settings', 13), 'Configure') : null,
+            VXHost.configs.has(m.id) && rec.enabled ? h('button', { class: 'btn sm primary', title: 'Plugin settings', onclick: () => VXHost.openConfig(m.id) }, VX.icon('settings', 13), 'Configure') : null,
             h('button', { class: 'btn sm', onclick: () => VX.docs.open('plugin:' + m.id) }, VX.icon('docs', 13), 'Docs'),
             rec.source === 'user' ? h('button', { class: 'btn sm', title: 'Edit source', onclick: () => VX.tabs.open({ kind: 'code', key: 'plugin:' + m.id, title: rec.file, path: rec.path || undefined, text: rec.code, lang: 'javascript' }) }, 'Edit') : h('button', { class: 'btn sm', title: 'Copy to your plugins to modify', onclick: () => copyPlugin(rec) }, 'Copy'),
-            rec.source === 'user' ? h('button', { class: 'btn sm danger', onclick: async () => { if (await VX.ui.confirm(`Remove plugin “${m.name}”?`, 'Remove', { danger: true })) { await window.native.ext.remove('plugins', rec.file); await Forge.plugins_.loadAll(); SB.refresh(); } } }, VX.icon('trash', 13)) : null)));
+            rec.source === 'user' ? h('button', { class: 'btn sm danger', onclick: async () => { if (await VX.ui.confirm(`Remove plugin “${m.name}”?`, 'Remove', { danger: true })) { await window.native.ext.remove('plugins', rec.file); await VXHost.plugins_.loadAll(); SB.refresh(); } } }, VX.icon('trash', 13)) : null)));
       }
       c.append(h('button', { class: 'btn block', style: 'margin-top:8px', onclick: newPlugin }, VX.icon('plus', 14), 'Create a plugin'), h('button', { class: 'btn block', style: 'margin-top:6px', onclick: () => window.native.ext.openDir('plugins') }, VX.icon('folder', 14), 'Open plugins folder'));
     },
   };
   async function newPlugin() {
     const v = await VX.ui.form({ title: 'New plugin', fields: [{ key: 'name', label: 'Plugin name', required: true, placeholder: 'My Plugin' }], submit: 'Create' }); if (!v) return;
-    const tpl = Forge.plugins_.template(v.name); await window.native.ext.save('plugins', tpl.file, tpl.code); await Forge.plugins_.loadAll(); SB.refresh();
-    const rec = Forge.plugins.get(tpl.id); VX.tabs.open({ kind: 'code', key: 'plugin:' + tpl.id, title: tpl.file, path: rec && rec.path || undefined, text: tpl.code, lang: 'javascript' }); VX.ui.toast('Plugin created – edit and save to hot-reload it.', 'ok');
+    const tpl = VXHost.plugins_.template(v.name); await window.native.ext.save('plugins', tpl.file, tpl.code); await VXHost.plugins_.loadAll(); SB.refresh();
+    const rec = VXHost.plugins.get(tpl.id); VX.tabs.open({ kind: 'code', key: 'plugin:' + tpl.id, title: tpl.file, path: rec && rec.path || undefined, text: tpl.code, lang: 'javascript' }); VX.ui.toast('Plugin created – edit and save to hot-reload it.', 'ok');
   }
-  async function copyPlugin(rec) { const id = rec.manifest.id + '-copy'; const code = rec.code.replace(/"id"\s*:\s*"[^"]*"/, `"id":"${id}"`).replace(/"name"\s*:\s*"([^"]*)"/, '"name":"$1 (copy)"'); await window.native.ext.save('plugins', id + '.js', code); await Forge.plugins_.loadAll(); SB.refresh(); VX.ui.toast('Copied to your plugins', 'ok'); }
-  VX.on('saved', async (t) => { if (t.key && String(t.key).startsWith('plugin:') && t.kind === 'code') { try { await window.native.ext.save('plugins', t.title, VX.tabs.kinds.code.text(t)); await Forge.plugins_.loadAll(); SB.current === 'plugins' && SB.refresh(); VX.ui.toast('Plugin reloaded', 'ok'); } catch (e) { VX.ui.toast(e.message, 'error'); } } });
+  async function copyPlugin(rec) { const id = rec.manifest.id + '-copy'; const code = rec.code.replace(/"id"\s*:\s*"[^"]*"/, `"id":"${id}"`).replace(/"name"\s*:\s*"([^"]*)"/, '"name":"$1 (copy)"'); await window.native.ext.save('plugins', id + '.js', code); await VXHost.plugins_.loadAll(); SB.refresh(); VX.ui.toast('Copied to your plugins', 'ok'); }
+  VX.on('saved', async (t) => { if (t.key && String(t.key).startsWith('plugin:') && t.kind === 'code') { try { await window.native.ext.save('plugins', t.title, VX.tabs.kinds.code.text(t)); await VXHost.plugins_.loadAll(); SB.current === 'plugins' && SB.refresh(); VX.ui.toast('Plugin reloaded', 'ok'); } catch (e) { VX.ui.toast(e.message, 'error'); } } });
 
   /* ---------- themes ---------- */
   SB.views.themes = {

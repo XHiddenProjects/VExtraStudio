@@ -37,7 +37,31 @@ node scripts/uninstall.js --mode=full --auto --toolchain  # also uninstall rustu
 Your own projects and games are never deleted. The same clean-up of app data is available in the app under Settings.
 
 ## Write a plugin
-Drop a `.js` file in the plugins folder (Plugins panel → Open folder) with a `/** @forge-plugin {...} */` manifest and an optional `/** @forge-docs ... */` block. See `plugins/` for examples and Docs → Plugins → Plugin API.
+Drop a `.js` file in the plugins folder (Plugins panel → Open folder) with a `/** @vx-plugin {...} */` manifest and an optional `/** @vx-docs ... */` block. See `plugins/` for examples and Docs → Plugins → Plugin API.
+
+## What's new in 4.2.x
+- **Host & collaborate (Settings → Host & share).** Private by default. Switch to public to share your server with people outside your device, either through a **ghost domain** (a tunnel address that hides your real IP; the helper download is asked for first) or a **direct port forward** (UPnP). You can create a **self-signed certificate**, hand out **invite codes**, and set an auto-stop timer. Switching back to private stops everything.
+- **Project packs (`.vxpack`).** Double-click one (or File → Open): it is unpacked into its own folder and everything is built: `.vxs` scripts are compiled to blocks, every `.vxgame` is checked, and each game gets a web build in `build/`. Programs and unsafe paths are never written; nothing runs until you press Play.
+- **VXScript (`.vxs`).** A small non-JavaScript language that compiles to the block graph (📜 button in the game editor). Scripts are compiled, never executed.
+- **Night Shift: Tape 07.** A 3D found-footage horror game seen through a VHS camcorder (new *VHS Tape* shader block): 3 levels, 4 cutscenes, objectives, a stalker that hunts by sound. It is built **entirely from blocks**: open *Examples → Night Shift* in the game editor, or `examples/night-shift/night-shift.vxgame` (plus a ready `.vxpack` and web build in that folder) and edit every behaviour in the Logic tab.
+- **Backup add-on** (`plugins/backup.js`).
+- **Updates never touch your data.** It lives outside the install folder, and a safety copy is made before every update (`update-backups/`, last 3 kept).
+- **Vextra AI** waits longer for slow models and retries instead of locking; only the token limit locks.
+- **Everything is `vx` now:** `@vx-plugin`, `@vx-docs`, the `vx` plugin API. Old `@forge-*` tags and the `forge` name still work.
+
+## How Vextra compares
+Broad strokes, from each project's public information as of November 2026 (please verify before deciding; all of these are good tools and change often). Vextra is young and focused; it is not a replacement for a full AAA pipeline.
+
+| | Vextra Studio | Unity | Unreal Engine | Godot | GameMaker | Construct | Phaser / three.js |
+|---|---|---|---|---|---|---|---|
+| Kind | Web + game workspace | Game engine | Game engine | Game engine | 2D engine | 2D (browser) | JS libraries |
+| 2D / 3D | Both (basic 3D) | Both | Mostly 3D | Both | 2D | 2D | 2D / 3D |
+| Visual logic | Blocks + script view + VXScript | Visual Scripting | Blueprints | VisualScript removed; GDScript/C# | GML Visual | Event sheets | No (code) |
+| Web / code editor built in | Yes | No | No | Partly | No | Browser-based | No |
+| Web export | Single HTML file | WebGL | Limited | Yes | Yes | Yes | Native |
+| Source open | Yes | No | Source available | Yes (MIT) | No | No | Yes |
+| Heavy 3D / consoles | No | Yes | Yes | Partly | Some | No | Library only |
+| Install size | Small | Large | Very large | Small | Medium | None (web) | n/a |
 
 ## What's new in 3.11.x
 - A **live Blender link** (`tools/blender-addon`): pull models from Blender, send models to it, auto-sync edits – plus one-click glb export and a **model optimizer** (`tools/model-optimize`).
@@ -115,7 +139,7 @@ git push
 If the exe was already committed *without* LFS, convert it: `git lfs migrate import --include="src-tauri/resources/server/vextra-server.exe" --everything`, then `git push --force-with-lease`. GitHub's free plan allows 2 GB per LFS file but only 10 GiB of LFS storage + bandwidth per month; for many releases publish builds on the **Releases** page instead.
 
 ## What's new in 3.2.0
-- **Vextra Shield** security plugin with a ⚙ Configure button; plugin hooks and `forge.config`.
+- **Vextra Shield** security plugin with a ⚙ Configure button; plugin hooks and `vx.config`.
 - **One Animation block** for everything (sprite/model/clip, Auto walk-idle-jump), synced with its target; **F3** cycles 1st / 3rd-back / 3rd-front camera in 3D.
 - **Vextra AI** plugin (Claude, OpenAI, Gemini, Groq, Ollama… with Deny/Ask/Allow permissions) and **account security** (authenticator app, recovery codes, security keys).
 - **Start local server** button in the desktop app (bundled server, no terminal); every object/target field is a dropdown; settings open as `plugin:<name>` tabs.

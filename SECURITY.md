@@ -4,13 +4,14 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 4.1.x   | ✅ security fixes (current) |
-| 4.0.x   | ✅ security fixes (upgrade to 4.1.x) |
-| 3.12.x  | ⚠️ please upgrade to 4.1.x |
-| 3.11.x  | ⚠️ please upgrade to 4.1.x |
+| 4.2.x   | ✅ security fixes (current) |
+| 4.1.x   | ✅ security fixes (upgrade to 4.2.x) |
+| 4.0.x   | ✅ security fixes (upgrade to 4.2.x) |
+| 3.12.x  | ⚠️ please upgrade to 4.2.x |
+| 3.11.x  | ⚠️ please upgrade to 4.2.x |
 | 3.10.x and older | ❌ please upgrade |
 
-Current version: **4.1.0** (see `VERSION`). This policy was last reviewed for 4.1.0.
+Current version: **4.2.0** (see `VERSION`). This policy was last reviewed for 4.2.0.
 
 ## Reporting a vulnerability
 
@@ -48,6 +49,12 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
 
+## v4.2.0 notes
+- **Hosting:** private by default and never switched to public automatically. The host controls (`/api/host/*`) answer only to this computer (loopback, no proxy headers, localhost Host, `X-Vextra-Admin` header). The ghost-domain helper (cloudflared) is downloaded only after you agree. A direct port forward (UPnP) exposes your real IP address; the ghost domain hides it. Invite codes are required for new accounts while public. Self-signed certificates are for testing and collaboration and will show a browser warning.
+- **.vxpack / .vxs:** unpacking skips programs (.exe, .sh …), absolute and `..` paths and enforces size/file limits; scripts are compiled to blocks and never executed; games run only in the play sandbox.
+- **Updates:** a copy of your data is saved before installing; data is removed only by uninstalling with the data option.
+- Plugins can read files via `readBase64` / `readDir` only inside their permitted folders.
+
 ## v4.1.0 notes
 - **Play-test & screenshots (AI):** the game or page runs in a hidden iframe with `sandbox="allow-scripts"` only (no `allow-same-origin`, no forms, popups, pointer lock, camera or microphone), so it cannot reach the editor, your files or the Tauri bridge. Messages from it are accepted only from that frame's window and only with a one-time random token; the frame is removed when the test ends and a 25 s (games) / 12 s (pages) time limit stops runaway code. The probe script injected into the test copy is never written to your project or exported games. Screenshots are JPEG data URLs held in memory; they leave your computer only when you use a provider that receives images (below).
 - **Attachments (AI):** files are read in the browser, kept in memory for the session and never written anywhere unless the AI uses `save_attachment` (needs the *Create & edit files* permission; same protected-path rules as every file write: inside the open folder only, never `.env`/keys/`.git`/`node_modules`). Limits: 8 files per message, 12 MB pictures, 80 MB video, 40 MB audio, 25 MB other. Videos are reduced to four small frames. **Pictures, video frames, text-file contents and play-test screenshots are sent to the AI provider you selected** – use a local model (Ollama, LM Studio) to keep them on your computer. Attached text files are treated as data, not instructions, but remember any model can be influenced by text it reads; keep the permissions on *Ask* when working with files you do not trust.
@@ -68,7 +75,7 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 - **Extras plugin:** all text is escaped; the 2D/3D object code is self-contained and runs only inside the game's own sandbox.
 - **Editor suggestions:** not a security change, but nothing is sent anywhere – suggestions are local.
 - **CodeQL:** the two *Improper code sanitization* alerts (vxui exporter, Extras countdown) are fixed: values embedded in an inline `<script>` go through an escaper for `<`, `>`, `&` and U+2028/9 instead of a `</script>` search-and-replace.
-- **AI background runs:** `forge.pin()` only exposes the tab the request started in; a closed tab is reported as "no longer open" and nothing is written elsewhere. Permissions (deny / ask / allow) apply unchanged to background runs, and previews are not opened over another tab.
+- **AI background runs:** `vx.pin()` only exposes the tab the request started in; a closed tab is reported as "no longer open" and nothing is written elsewhere. Permissions (deny / ask / allow) apply unchanged to background runs, and previews are not opened over another tab.
 - **AI model list:** the list request goes to the URL you typed, with your key only when you entered one. It is sent through the app's own network call (https, or http only for this computer).
 - **vxui pages and previews:** page names and anchors are reduced to `A-Z a-z 0-9 _ -`; the phone/tablet preview is a sandboxed frame; `#` links change only the page's own hash.
 - **Updater errors** are shown as text only (no markup) and never expose the signing key.
@@ -158,5 +165,5 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 - Fixed: selection outlines left in the 3D editor after scaling (no security impact).
 - **Two-step sign-in** (server): authenticator-app codes (TOTP, SHA-1/6 digits/30 s, ±1 step, a code cannot be reused), 8 one-time recovery codes (stored hashed), and WebAuthn security keys (ES256, attestation `none`, signature-counter check). The second step uses a 5-minute ticket limited to 6 tries, plus the per-IP rate limit. Turning it on/off, adding/removing keys and new recovery codes require the account password. The TOTP secret is stored in the server's `users.json` (protect the data folder like any credential store). Keys only work from the app address they were added from.
 - **Vextra AI** plugin: prompts and anything the AI reads go to the provider you choose (local providers stay on your computer). API keys are stored in Vextra's local settings. Abilities (read, edit open file, create & edit files, delete/move, build & change game) are Deny / Ask / Allow; file deletion and moves have their own permission and never touch `.git`, `node_modules` or secret-looking files; secret-looking files (`.env`, keys, certificates) are never read or written; writes stay inside the open folder. Treat model output as untrusted – review changes you allow automatically (Agent mode).
-- **Local server** started from the desktop app listens on `127.0.0.1` only and keeps its data in the app's data folder. `forge.net.request` only allows `https://` (and `http://localhost`).
+- **Local server** started from the desktop app listens on `127.0.0.1` only and keeps its data in the app's data folder. `vx.net.request` only allows `https://` (and `http://localhost`).
 - Store Export projects approve install scripts only for `electron`, `sharp` and `esbuild`.

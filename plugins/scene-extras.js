@@ -1,5 +1,5 @@
-/** @forge-plugin {"id":"scene-extras","name":"Designer & Game Extras","version":"2.0.0","description":"A polished component pack for the UI designer (CTA banner, announcement bar, feature grid, steps, FAQ, countdown, status chip) and ready-made game objects: 2D Star, Coin, Heart and 3D Crystal, Orb, Portal ring."} */
-/** @forge-docs
+/** @vx-plugin {"id":"scene-extras","name":"Designer & Game Extras","version":"2.0.0","description":"A polished component pack for the UI designer (CTA banner, announcement bar, feature grid, steps, FAQ, countdown, status chip) and ready-made game objects: 2D Star, Coin, Heart and 3D Crystal, Orb, Portal ring."} */
+/** @vx-docs
  * ## Designer & Game Extras
  * A small, production-quality pack of things you can drag onto a canvas. Everything is escaped, themeable from the Properties panel
  * and works in the exported page and in exported games.
@@ -29,8 +29,8 @@
  * The Orb can carry a real point light.
  *
  * ### Developers
- * Read the source with **Plugins → Designer & Game Extras → Open source**. `forge.designer.registerComponent('ui', def)` takes
- * `html(item, exported)`; `forge.game.registerObjectType(def)` takes `draw(ctx, o, env)` for 2D or `build(THREE, o)` for 3D.
+ * Read the source with **Plugins → Designer & Game Extras → Open source**. `vx.designer.registerComponent('ui', def)` takes
+ * `html(item, exported)`; `vx.game.registerObjectType(def)` takes `draw(ctx, o, env)` for 2D or `build(THREE, o)` for 3D.
  * `draw` and `build` are copied into exported games as text, so they must be self-contained (no outside variables).
  */
 
@@ -46,7 +46,7 @@ const parts = (l) => l.split('|').map((x) => x.trim());
 const link = (h) => { h = String(h || '').trim(); return /^(#|\/|https?:|mailto:|tel:)/i.test(h) ? h : (h ? '#' + h.replace(/^#?/, '') : '#'); };
 const SANS = "font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;";
 const BOX = 'width:100%;height:100%;box-sizing:border-box;';
-const U = (def) => forge.designer.registerComponent('ui', Object.assign({ category: 'Extras' }, def));
+const U = (def) => vx.designer.registerComponent('ui', Object.assign({ category: 'Extras' }, def));
 const T = (key, label, extra) => Object.assign({ key, label, type: 'text' }, extra);
 const C = (key, label) => ({ key, label, type: 'color' });
 const N = (key, label, min, max) => ({ key, label, type: 'number', min, max });
@@ -137,7 +137,7 @@ U({
 /* ------------------------------------------------------------------------------------------------------------------ */
 const ANIM = { key: 'spin', label: 'Spin (degrees per second)', type: 'number', min: -720, max: 720, step: 15 };
 
-forge.game.registerObjectType({
+vx.game.registerObjectType({
   type: 'star', label: 'Star', icon: '⭐', dim: '2d', category: 'Plugins', w: 64, h: 64, color: '#ffd54a',
   props: { points: 5, inner: 0.45, spin: 0, glow: 0.5, outline: '#b8860b', outlineWidth: 2, pulse: 0 },
   schema: [{ key: 'points', label: 'Points', type: 'number', min: 3, max: 12 }, { key: 'inner', label: 'Inner radius (0.1 – 0.9)', type: 'number', min: 0.1, max: 0.9, step: 0.05 }, ANIM,
@@ -160,7 +160,7 @@ forge.game.registerObjectType({
   },
 });
 
-forge.game.registerObjectType({
+vx.game.registerObjectType({
   type: 'coin', label: 'Coin', icon: '🪙', dim: '2d', category: 'Plugins', w: 44, h: 44, color: '#ffc83d',
   props: { symbol: '$', flip: 1, rim: '#c98a00', shine: 1 },
   schema: [{ key: 'symbol', label: 'Symbol', type: 'text' }, { key: 'flip', label: 'Flip speed (0 = still)', type: 'number', min: 0, max: 8, step: 0.5 }, { key: 'rim', label: 'Rim color', type: 'color' }, { key: 'shine', label: 'Shine (0 = off, 1 = on)', type: 'number', min: 0, max: 1, step: 1 }],
@@ -179,7 +179,7 @@ forge.game.registerObjectType({
   },
 });
 
-forge.game.registerObjectType({
+vx.game.registerObjectType({
   type: 'heart', label: 'Heart', icon: '❤️', dim: '2d', category: 'Plugins', w: 48, h: 44, color: '#ff4d6d',
   props: { pulse: 1, glow: 0.4, outline: '#a3112f', outlineWidth: 2, fill: 1 },
   schema: [{ key: 'pulse', label: 'Heartbeat (0 = off, 1 = on)', type: 'number', min: 0, max: 1, step: 1 }, { key: 'fill', label: 'Fill (0 = empty, 1 = full)', type: 'number', min: 0, max: 1, step: 0.05 }, { key: 'glow', label: 'Glow (0 – 1)', type: 'number', min: 0, max: 1, step: 0.1 },
@@ -203,7 +203,7 @@ forge.game.registerObjectType({
   },
 });
 
-forge.game.registerObjectType({
+vx.game.registerObjectType({
   type: 'crystal', label: 'Crystal', icon: '💎', dim: '3d', category: 'Plugins', w: 1, h: 1.4, d: 1, color: '#6cf0ff',
   props: { glow: 0.35, facets: 1, wire: 1 },
   schema: [{ key: 'glow', label: 'Glow (0 – 1)', type: 'number', min: 0, max: 1, step: 0.05 }, { key: 'facets', label: 'Detail (1 = sharp, 2 = rounder)', type: 'number', min: 1, max: 2, step: 1 }, { key: 'wire', label: 'Edge lines (0 = off, 1 = on)', type: 'number', min: 0, max: 1, step: 1 }],
@@ -218,7 +218,7 @@ forge.game.registerObjectType({
   },
 });
 
-forge.game.registerObjectType({
+vx.game.registerObjectType({
   type: 'orb', label: 'Orb', icon: '🔮', dim: '3d', category: 'Plugins', w: 1, h: 1, d: 1, color: '#9b7bff',
   props: { glow: 1, halo: 1, light: 1, lightRange: 6 },
   schema: [{ key: 'glow', label: 'Glow (0 – 2)', type: 'number', min: 0, max: 2, step: 0.1 }, { key: 'halo', label: 'Halo (0 = off, 1 = on)', type: 'number', min: 0, max: 1, step: 1 }, { key: 'light', label: 'Casts light (0 = off, 1 = on)', type: 'number', min: 0, max: 1, step: 1 }, { key: 'lightRange', label: 'Light range', type: 'number', min: 1, max: 30, step: 1 }],
@@ -233,7 +233,7 @@ forge.game.registerObjectType({
   },
 });
 
-forge.game.registerObjectType({
+vx.game.registerObjectType({
   type: 'portal', label: 'Portal ring', icon: '🌀', dim: '3d', category: 'Plugins', w: 2, h: 2, d: 0.3, color: '#34e1c5',
   props: { glow: 1, thickness: 0.08, disc: 1 },
   schema: [{ key: 'glow', label: 'Glow (0 – 2)', type: 'number', min: 0, max: 2, step: 0.1 }, { key: 'thickness', label: 'Ring thickness', type: 'number', min: 0.02, max: 0.25, step: 0.01 }, { key: 'disc', label: 'Energy disc (0 = off, 1 = on)', type: 'number', min: 0, max: 1, step: 1 }],

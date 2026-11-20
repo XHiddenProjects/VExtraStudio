@@ -18,6 +18,7 @@ const ALLOW_REGISTER = process.env.ALLOW_REGISTER !== '0';
 const MAX_PROJECT_BYTES = 120 * 1024 * 1024;
 
 fs.mkdirSync(DATA, { recursive: true });
+const HOST_ = require('./host')({ DATA, PORT, handler: (req, res) => handle(req, res) });
 const F = (n) => path.join(DATA, n);
 
 /* ------------------------------------------------------------------ tiny JSON store */
@@ -81,12 +82,29 @@ const presence = {}; // pid -> user -> {file, at}
 /* ------------------------------------------------------------------ routes */
 async function api(req, res, url, ip) {
   const m = req.method, p = url.pathname, seg = p.split('/').filter(Boolean); // ['api', ...]
-  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.1.0', time: Date.now(), register: ALLOW_REGISTER });
+  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.2.0', time: Date.now(), register: ALLOW_REGISTER, invite: HOST_.requireInvite(req) });
+
+  /* --- hosting (this computer only) --- */
+  if (p.startsWith('/api/host')) {
+    if (!HOST_.isAdmin(req)) return fail(res, 403, 'Hosting can only be changed from the Vextra app on the computer that runs this server');
+    if (p === '/api/host' && m === 'GET') return send(res, 200, HOST_.status());
+    if (m !== 'POST') return fail(res, 405, 'Use POST');
+    const b = await readJson(req);
+    try {
+      if (p === '/api/host/config') return send(res, 200, HOST_.config(b));
+      if (p === '/api/host/start') { await HOST_.start(b.mode); return send(res, 200, HOST_.status()); }
+      if (p === '/api/host/stop') return send(res, 200, HOST_.stop());
+      if (p === '/api/host/cert') { HOST_.makeCert(); return send(res, 200, HOST_.status()); }
+      if (p === '/api/host/cloudflared') { await HOST_.downloadCloudflared(); return send(res, 200, HOST_.status()); }
+    } catch (e) { return fail(res, e.code === 'NO_CLOUDFLARED' ? 409 : 400, e.message); }
+    return fail(res, 404, 'Unknown hosting action');
+  }
 
   /* --- accounts --- */
   if (p === '/api/register' && m === 'POST') {
     if (!ALLOW_REGISTER) return fail(res, 403, 'Registration is closed on this server'); if (limited(ip, 'reg', 8, 3600e3)) return fail(res, 429, 'Too many sign-ups from your network, try later');
     const b = await readJson(req); const un = String(b.username || '').toLowerCase().trim(); const pw = String(b.password || '');
+    if (HOST_.requireInvite(req) && !HOST_.checkInvite(b.invite)) return fail(res, 403, 'This server is shared publicly: ask the host for the invite code');
     if (!safeName(un)) return fail(res, 400, 'Username: 2–31 characters, letters, numbers, - and _ (start with a letter or number)'); if (pw.length < 8 || pw.length > 200) return fail(res, 400, 'Password must be 8–200 characters');
     if (store.users[un]) return fail(res, 409, 'That username is taken');
     const salt = rid(16); store.users[un] = { id: rid(6), username: un, display: String(b.displayName || un).slice(0, 40), salt, hash: hashPw(pw, salt), created: Date.now() }; dirty('users');
@@ -238,8 +256,8 @@ function explorePage(req, res) {
 }
 
 /* ------------------------------------------------------------------ server */
-const server = http.createServer(async (req, res) => {
-  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim();
+async function handle(req, res) {
+  const ip = HOST_.clientIp(req);
   try {
     const url = new URL(req.url, 'http://x');
     if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
@@ -248,7 +266,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/' || url.pathname === '/explore') return explorePage(req, res);
     return send(res, 404, 'Not found');
   } catch (e) { if (!res.headersSent) fail(res, e.status || 500, e.status ? e.message : 'Server error'); if (!e.status) console.error('[error]', e); }
-});
+}
+const server = http.createServer(handle);
 const HOST = process.env.HOST || undefined; // the desktop app starts it with HOST=127.0.0.1 so only this computer can reach it
 server.listen(PORT, HOST, () => console.log(`Vextra server listening on http://${HOST || 'localhost'}:${PORT}\n  data: ${DATA}\n  sign-ups: ${ALLOW_REGISTER ? 'open' : 'closed'}`));
 module.exports = { server };

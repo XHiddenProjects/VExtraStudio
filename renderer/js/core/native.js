@@ -44,6 +44,8 @@
       secret: { get: (key) => inv('secret_get', { key }), set: (key, value) => inv('secret_set', { key, value: value ?? null }) },
       info: () => inv('app_info'),
       /* signed auto-update (GitHub releases): check() -> { enabled, available, version, notes, … }, install() downloads + verifies + installs, restart() relaunches */
+      /* files the OS asked us to open (double-click on .vxpack / .vxgame / .vxs): launchFiles() → paths, onOpenFile(cb) for files opened while running */
+      launchFiles: () => inv('app_launch_files'), onOpenFile: (cb) => T.event.listen('open-file', (e) => cb(e.payload)),
       updater: { check: () => inv('updater_check'), install: () => inv('updater_install'), restart: () => inv('app_restart'), onProgress: (cb) => T.event.listen('updater:progress', (e) => cb(e.payload)) },
       clean: (what) => inv('app_clean', { what }),
       http: (req) => inv('http_request', { req }),
@@ -119,7 +121,8 @@
     },
     settings: { async load() { return lsSettings; }, async save(data) { lsSettings = data; localStorage.setItem('vx-settings', JSON.stringify(data)); } },
     secret: { async get(k) { return localStorage.getItem('vx-secret-' + k); }, async set(k, v) { v == null ? localStorage.removeItem('vx-secret-' + k) : localStorage.setItem('vx-secret-' + k, v); } },
-    async info() { return { name: 'Vextra Studio', version: '4.1.0', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
+    async info() { return { name: 'Vextra Studio', version: '4.2.0', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
+    launchFiles: async () => [], onOpenFile: () => {},
     updater: { check: async () => ({ enabled: false, available: false, reason: 'The browser version updates itself – reload the page.' }), install: async () => { throw new Error('Updates are for the desktop app.'); }, restart: async () => location.reload(), onProgress: async () => () => {} },
     async clean(what) { const removed = []; const all = what.includes('all'); if (all || what.includes('settings')) { localStorage.removeItem('vx-settings'); removed.push('settings'); } for (const k of ['plugins', 'themes']) if (all || what.includes(k)) { localStorage.removeItem('vx-ext-' + k); removed.push(k); } if (all || what.includes('secrets')) { Object.keys(localStorage).filter((k) => k.startsWith('vx-secret-')).forEach((k) => localStorage.removeItem(k)); removed.push('secrets'); } return removed; },
     async httpDownload(url) { if (!/^https:\/\//.test(url)) throw new Error('only https:// links can be downloaded'); const r = await fetch(url); if (!r.ok) throw new Error('HTTP ' + r.status); const b = new Uint8Array(await r.arrayBuffer()); if (b.length > 50 * 1024 * 1024) throw new Error('file is larger than 50 MB'); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); },
