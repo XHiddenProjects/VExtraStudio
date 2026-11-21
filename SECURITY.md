@@ -12,7 +12,7 @@
 | 3.11.x  | ⚠️ please upgrade to 4.3.x |
 | 3.10.x and older | ❌ please upgrade |
 
-Current version: **4.3.0** (see `VERSION`). This policy was last reviewed for 4.3.0.
+Current version: **4.3.1** (see `VERSION`). This policy was last reviewed for 4.3.1.
 
 ## Reporting a vulnerability
 
@@ -50,10 +50,13 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
 
-## v4.3.0 notes
+## v4.3.1 notes
+- **Bundled server lifetime:** the desktop app passes its process id to the server it starts; the server exits when that process is gone. Leftover servers are ended only by the exact file name `vextra-server` (never by port or other names) and only when their reported version differs from the app's, before an update, or by the installer.
 - Fixed CodeQL "incomplete string escaping" findings: PHP ini values escape `\` and `"` and cannot contain line breaks; database `LIKE` filters escape `\`, `%` and `_`; docs table cells escape `\` and `|`.
 - The AI cool-down is read from the saved lock before every request, so it cannot be shortened by opening a new chat, switching chats or reloading.
 - Terminal shells are chosen from a fixed list or a custom program you enter yourself; the terminal still only runs after you confirm it and only from the panel.
+
+## v4.3.0 notes
 - **Share certificate:** a self-signed certificate is created per share, lives only as long as the share and is deleted when sharing stops (or earlier with *Delete certificate*; refused while in use). The auto-detected public address is looked up only when you start a public share; you can override it.
 - **Terminal / PHP / database commands** exist only in the desktop app. The terminal runs with your own user rights in your project folder. The PHP server binds to `127.0.0.1`, runs without a console window and is killed (with its children) on stop or exit.
 - **Database clients:** only `mysql`/`mariadb`/`psql` executables are accepted; host, user and database names are validated; passwords go through an environment variable (never on the command line, never saved to the project). SQL is sent on stdin.

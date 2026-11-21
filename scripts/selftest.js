@@ -98,6 +98,8 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
   ok(/isLocked/.test(R('plugins/vextra-ai.js')), 'AI cool-down enforced from the saved lock');
   ok(/pickedTop/.test(R('renderer/js/app/sidebar.js')), 'Explorer multi-select present');
   ok(/term_shells/.test(R('src-tauri/src/lib.rs')) && /terminalShell/.test(R('renderer/js/web/terminal.js')), 'terminal shell picker present');
+  ok(/VEXTRA_PARENT_PID/.test(R('server/server.js')) && /kill_stale_servers/.test(R('src-tauri/src/lib.rs')) && /taskkill/.test(R('src-tauri/windows/nsis-hooks.nsh')) && /nsis-hooks/.test(R('src-tauri/tauri.conf.json')), 'server exits with the app; installer and updater stop it');
+  ok(/stop-server\.sh/.test(R('src-tauri/tauri.conf.json')) && /RunEvent::Exit/.test(R('src-tauri/src/lib.rs')), 'Linux packages and every OS stop the server on quit');
 }
 (async () => {
   for (let i = 0; i < 30; i++) { if ((await call('GET', '/api/health')).status === 200) break; await new Promise((r) => setTimeout(r, 150)); }

@@ -82,12 +82,12 @@ const presence = {}; // pid -> user -> {file, at}
 /* ------------------------------------------------------------------ routes */
 async function api(req, res, url, ip) {
   const m = req.method, p = url.pathname, seg = p.split('/').filter(Boolean); // ['api', ...]
-  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.3.0', time: Date.now(), register: ALLOW_REGISTER, invite: HOST_.requireInvite(req) });
+  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.3.1', time: Date.now(), register: ALLOW_REGISTER, invite: HOST_.requireInvite(req) });
 
   /* --- hosting (this computer only) --- */
   if (p.startsWith('/api/host')) {
     if (!HOST_.isAdmin(req)) return fail(res, 403, 'Hosting can only be changed from the Vextra app on the computer that runs this server');
-    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.3.0' });
+    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.3.1' });
     if (m !== 'POST') return fail(res, 405, 'Use POST');
     const b = await readJson(req);
     try {
@@ -272,4 +272,10 @@ async function handle(req, res) {
 const server = http.createServer(handle);
 const HOST = process.env.HOST || undefined; // the desktop app starts it with HOST=127.0.0.1 so only this computer can reach it
 server.listen(PORT, HOST, () => console.log(`Vextra server listening on http://${HOST || 'localhost'}:${PORT}\n  data: ${DATA}\n  sign-ups: ${ALLOW_REGISTER ? 'open' : 'closed'}`));
+/* Started by the desktop app? Then leave when the app is gone (closed, crashed, being updated) so this file is never locked and no server is left behind. */
+if (process.env.VEXTRA_PARENT_PID) {
+  const parent = +process.env.VEXTRA_PARENT_PID;
+  const gone = () => { try { process.kill(parent, 0); return false; } catch (e) { return e.code !== 'EPERM'; } };
+  setInterval(() => { if (gone()) { try { for (const n of Object.keys(store)) save(n); } catch { /* ignore */ } process.exit(0); } }, 2000);
+}
 module.exports = { server };

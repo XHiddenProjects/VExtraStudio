@@ -573,6 +573,12 @@ async fn updater_install(app: AppHandle, state: tauri::State<'_, UpdaterState>) 
     let update = state.0.lock().map_err(err)?.clone().ok_or_else(|| "Check for updates first.".to_string())?;
     // safety net: copy the user's data first; a failure here never blocks the update (the data is outside the install folder anyway)
     if let Err(e) = snapshot_user_data(&app) { eprintln!("update snapshot skipped: {e}"); }
+    /* the bundled server must not be running while its file is replaced */
+    if let Some(mut c) = app.state::<ServerState>().inner().0.lock().map_err(err)?.take() {
+        let _ = c.kill();
+        let _ = c.wait();
+    }
+    kill_stale_servers();
     let handle = app.clone();
     let mut done: u64 = 0;
     update
@@ -1500,6 +1506,31 @@ struct ServerInfo {
     detail: String,
 }
 
+/// The version a server on this port reports (plain HTTP on loopback, no extra crate).
+fn server_version(port: u16) -> Option<String> {
+    use std::io::{Read, Write};
+    let mut s = std::net::TcpStream::connect_timeout(&std::net::SocketAddr::from(([127, 0, 0, 1], port)), Duration::from_millis(400)).ok()?;
+    s.set_read_timeout(Some(Duration::from_millis(900))).ok()?;
+    s.write_all(b"GET /api/health HTTP/1.0\r\nHost: localhost\r\n\r\n").ok()?;
+    let mut buf = String::new();
+    let _ = s.read_to_string(&mut buf);
+    let i = buf.find("\"version\":\"")? + 11;
+    Some(buf[i..].chars().take_while(|c| *c != '"').collect())
+}
+
+/// Ends leftover Vextra servers (our own bundled binary, found by its file name) so a new one can start and the installer can replace the file.
+fn kill_stale_servers() {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = Command::new("taskkill").args(["/F", "/T", "/IM", "vextra-server.exe"]).creation_flags(0x0800_0000).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = Command::new("pkill").args(["-x", "vextra-server"]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    }
+}
+
 fn port_open(port: u16) -> bool {
     std::net::TcpStream::connect_timeout(&std::net::SocketAddr::from(([127, 0, 0, 1], port)), Duration::from_millis(250)).is_ok()
 }
@@ -1548,7 +1579,19 @@ async fn server_start(app: AppHandle, state: tauri::State<'_, ServerState>, port
         }
     }
     if port_open(port) {
-        return Ok(ServerInfo { running: true, url, mode: "external".into(), detail: "a server is already listening on this port".into() });
+        /* a server from an older version (left running after an update or crash) is replaced; a server of this version is reused */
+        if server_version(port).as_deref() != Some(env!("CARGO_PKG_VERSION")) {
+            kill_stale_servers();
+            for _ in 0..20 {
+                if !port_open(port) {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+        if port_open(port) {
+            return Ok(ServerInfo { running: true, url, mode: "external".into(), detail: "a server is already listening on this port".into() });
+        }
     }
     let (path, compiled) = find_server(&app).ok_or("The server files were not found in this build. Run `npm run server` once, or rebuild the app with `npm run build:win` / `build:linux` / `build:mac`.")?;
     let data = app.path().app_data_dir().map_err(err)?.join("server-data");
@@ -1560,7 +1603,7 @@ async fn server_start(app: AppHandle, state: tauri::State<'_, ServerState>, port
         c.arg(&path);
         c
     };
-    cmd.env("PORT", port.to_string()).env("HOST", "127.0.0.1").env("DATA_DIR", &data).stdin(Stdio::null());
+    cmd.env("PORT", port.to_string()).env("HOST", "127.0.0.1").env("DATA_DIR", &data).env("VEXTRA_PARENT_PID", std::process::id().to_string()).stdin(Stdio::null());
     let log_path = data.join("server.log");
     match fs::File::create(&log_path) {
         Ok(f) => {
@@ -1682,6 +1725,21 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building Vextra Studio");
     app.run(|_handle, _event| {
+        /* every OS: when the app really quits (Cmd+Q on macOS, last window on Linux/Windows, a restart for an update) the bundled server and PHP servers go with it */
+        if let tauri::RunEvent::Exit = _event {
+            if let Ok(mut g) = _handle.state::<ServerState>().inner().0.lock() {
+                if let Some(mut c) = g.take() {
+                    let _ = c.kill();
+                    let _ = c.wait();
+                }
+            }
+            if let Ok(mut map) = _handle.state::<PhpState>().inner().0.lock() {
+                for (_, mut c) in map.drain() {
+                    let _ = c.child.kill();
+                    let _ = c.child.wait();
+                }
+            }
+        }
         // macOS delivers "open with" / double-click as an event while the app is already running
         #[cfg(target_os = "macos")]
         if let tauri::RunEvent::Opened { urls } = _event {
