@@ -23,8 +23,10 @@ when touching tag:coin:
     EXAMPLE,
     /** onAdd(result) is called after behaviours were added to `project`. */
     open(project, onAdd) {
-      const ta = h('textarea', { spellcheck: false, style: 'width:100%;height:300px;font:13px/1.5 var(--mono,monospace);background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;resize:vertical;tab-size:4', value: EXAMPLE });
-      ta.value = EXAMPLE; const out = h('div', { style: 'font-size:12.5px;margin-top:8px;min-height:44px' });
+      const host = h('div', { style: 'height:340px;border:1px solid var(--border);border-radius:8px;overflow:hidden' });
+      let ce = null, doc = null;
+      const ta = { get value() { return doc ? ce.text(doc) : this._v; }, set value(v) { this._v = v; if (doc) ce.setDocValue(doc, v); } };
+      ta._v = EXAMPLE; const out = h('div', { style: 'font-size:12.5px;margin-top:8px;min-height:44px' });
       let last = null;
       const check = () => { last = VX.vxs.compile(ta.value); out.textContent = '';
         if (last.errors.length) for (const e of last.errors.slice(0, 8)) out.append(h('div', { style: 'color:var(--danger,#e55)' }, `Line ${e.line}: ${e.message}`));
@@ -32,8 +34,10 @@ when touching tag:coin:
         for (const w of last.warnings.slice(0, 4)) out.append(h('div', { style: 'color:var(--muted)' }, `Line ${w.line}: ${w.message}`)); add.disabled = !!last.errors.length || !last.behaviors.length; };
       const openFile = h('button', { class: 'btn', onclick: async () => { try { const ps = await window.native.openFile(); const p = ps && (Array.isArray(ps) ? ps[0] : ps); if (!p) return; ta.value = await window.native.readFile(p); check(); } catch (e) { VX.ui.toast(e.message || String(e), 'error'); } } }, 'Open a .vxs file…');
       const add = h('button', { class: 'btn primary', onclick: () => { check(); if (last.errors.length) return; const r = VX.vxs.addTo(project, ta.value); VX.ui.toast(`${r.added} behaviour${r.added === 1 ? '' : 's'} added${r.replaced ? `, ${r.replaced} updated` : ''}. Attach them to objects in the Logic tab.`); m.close(); onAdd && onAdd(r); } }, 'Add to this game');
-      ta.addEventListener('input', check); ta.addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); const s = ta.selectionStart; ta.setRangeText('    ', s, ta.selectionEnd, 'end'); check(); } });
-      const m = VX.ui.modal({ title: 'VXScript → blocks', wide: true, body: h('div', {}, h('p', { style: 'margin-top:0;color:var(--muted);font-size:12.5px' }, 'Write simple lines; they become blocks. Same name = the earlier import is updated. See Docs → VXScript.'), ta, out), actions: [openFile, add] });
+      const m = VX.ui.modal({ title: 'VXScript → blocks', wide: true, body: h('div', {}, h('p', { style: 'margin-top:0;color:var(--muted);font-size:12.5px' }, 'Write simple lines; they become blocks. Colours and suggestions appear as you type (Ctrl+Space = all). Same name = the earlier import is updated. See Docs → VXScript.'), host, out), actions: [openFile, add] });
+      const look = () => { const st = VX.app.settings, th = VX.theme.current(); if (th) ce.setLook(th, { fontSize: st.fontSize, tabSize: 4, wrap: false, fontFamily: st.fontFamily || 'JetBrains Mono, Consolas, monospace' }); };
+      if (window.CodeEditor && window.ace) { try { ce = window.CodeEditor.create(host, { onChange: () => check() }); doc = ce.createDoc(EXAMPLE, 'vxscript', false); ce.setDoc(doc); look(); setTimeout(() => ce.ed.resize(), 60); } catch { ce = null; doc = null; } }
+      if (!ce) { const t = h('textarea', { spellcheck: false, style: 'width:100%;height:100%;box-sizing:border-box;font:13px/1.5 monospace;background:var(--bg);color:var(--text);border:0;padding:10px;tab-size:4' }); t.value = EXAMPLE; host.append(t); Object.defineProperty(ta, 'value', { get: () => t.value, set: (v) => { t.value = v; } }); t.addEventListener('input', check); }
       check();
     },
   };

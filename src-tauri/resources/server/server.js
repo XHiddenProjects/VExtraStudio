@@ -82,7 +82,7 @@ const presence = {}; // pid -> user -> {file, at}
 /* ------------------------------------------------------------------ routes */
 async function api(req, res, url, ip) {
   const m = req.method, p = url.pathname, seg = p.split('/').filter(Boolean); // ['api', ...]
-  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.2.0', time: Date.now(), register: ALLOW_REGISTER, invite: HOST_.requireInvite(req) });
+  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.3.0', time: Date.now(), register: ALLOW_REGISTER, invite: HOST_.requireInvite(req) });
 
   /* --- hosting (this computer only) --- */
   if (p.startsWith('/api/host')) {
@@ -95,6 +95,8 @@ async function api(req, res, url, ip) {
       if (p === '/api/host/start') { await HOST_.start(b.mode); return send(res, 200, HOST_.status()); }
       if (p === '/api/host/stop') return send(res, 200, HOST_.stop());
       if (p === '/api/host/cert') { HOST_.makeCert(); return send(res, 200, HOST_.status()); }
+      if (p === '/api/host/ip') return send(res, 200, { ip: await HOST_.detectPublicIp() });
+      if (p === '/api/host/cert/delete') return send(res, 200, HOST_.removeCert());
       if (p === '/api/host/cloudflared') { await HOST_.downloadCloudflared(); return send(res, 200, HOST_.status()); }
     } catch (e) { return fail(res, e.code === 'NO_CLOUDFLARED' ? 409 : 400, e.message); }
     return fail(res, 404, 'Unknown hosting action');

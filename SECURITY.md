@@ -4,14 +4,15 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 4.2.x   | ✅ security fixes (current) |
-| 4.1.x   | ✅ security fixes (upgrade to 4.2.x) |
-| 4.0.x   | ✅ security fixes (upgrade to 4.2.x) |
-| 3.12.x  | ⚠️ please upgrade to 4.2.x |
-| 3.11.x  | ⚠️ please upgrade to 4.2.x |
+| 4.3.x   | ✅ security fixes (current) |
+| 4.2.x   | ✅ security fixes (upgrade to 4.3.x) |
+| 4.1.x   | ✅ security fixes (upgrade to 4.3.x) |
+| 4.0.x   | ✅ security fixes (upgrade to 4.3.x) |
+| 3.12.x  | ⚠️ please upgrade to 4.3.x |
+| 3.11.x  | ⚠️ please upgrade to 4.3.x |
 | 3.10.x and older | ❌ please upgrade |
 
-Current version: **4.2.0** (see `VERSION`). This policy was last reviewed for 4.2.0.
+Current version: **4.3.0** (see `VERSION`). This policy was last reviewed for 4.3.0.
 
 ## Reporting a vulnerability
 
@@ -48,6 +49,13 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 ## v3.0.0 additions (still apply in 3.1.0)
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
+
+## v4.3.0 notes
+- **Share certificate:** a self-signed certificate is created per share, lives only as long as the share and is deleted when sharing stops (or earlier with *Delete certificate*; refused while in use). The auto-detected public address is looked up only when you start a public share; you can override it.
+- **Terminal / PHP / database commands** exist only in the desktop app. The terminal runs with your own user rights in your project folder. The PHP server binds to `127.0.0.1`, runs without a console window and is killed (with its children) on stop or exit.
+- **Database clients:** only `mysql`/`mariadb`/`psql` executables are accepted; host, user and database names are validated; passwords go through an environment variable (never on the command line, never saved to the project). SQL is sent on stdin.
+- **PHP recommended setup** disables remote includes/URL fopen, hides PHP version and errors, hardens session cookies and disables shell-execution functions; changes are shown before saving and stored in your project (`.vextra/php.ini`), never in the system php.ini.
+- **VXScript** remains compile-only; the new `block` statements are checked against the real block registry.
 
 ## v4.2.0 notes
 - **Hosting:** private by default and never switched to public automatically. The host controls (`/api/host/*`) answer only to this computer (loopback, no proxy headers, localhost Host, `X-Vextra-Admin` header). The ghost-domain helper (cloudflared) is downloaded only after you agree. A direct port forward (UPnP) exposes your real IP address; the ghost domain hides it. Invite codes are required for new accounts while public. Self-signed certificates are for testing and collaboration and will show a browser warning.

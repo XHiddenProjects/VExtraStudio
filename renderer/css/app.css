@@ -295,3 +295,34 @@ input[type=checkbox], input[type=radio] { flex: 0 0 auto; width: 18px; height: 1
 #activity .act[data-state="paused"] { color: #ff9f0a !important; }
 @keyframes act-cycle { 0% { color: #ff6b6b; } 17% { color: #ffb347; } 34% { color: #ffe14d; } 51% { color: #4ddc8c; } 68% { color: #4da6ff; } 85% { color: #c78bff; } 100% { color: #ff6b6b; } }
 @media (prefers-reduced-motion: reduce) { #activity .act[data-state="working"] { animation: none; color: #ff9f0a !important; } }
+
+/* ---- terminal, PHP settings, server tab (4.3) ---- */
+.term { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--bg-2, #11141b); font: 12.5px ui-monospace, Menlo, Consolas, monospace; }
+.term-bar { display: flex; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--border, #2a2f3a); align-items: center; }
+.term-out { flex: 1; min-height: 0; overflow: auto; padding: 6px 10px; user-select: text; }
+.term-out .tl { white-space: pre-wrap; word-break: break-word; line-height: 1.45; }
+.term-out .tl.cmd { color: var(--accent, #58a6ff); font-weight: 600; margin-top: 4px; }
+.term-out .tl.in { color: var(--accent, #58a6ff); }
+.term-out .tl.err { color: #ff7b72; } .term-out .tl.dim { color: var(--muted, #8b93a5); }
+.term-out .tlink { color: #7ee787; text-decoration: underline; cursor: pointer; }
+.term-row { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-top: 1px solid var(--border, #2a2f3a); }
+.term-prompt { color: var(--accent, #58a6ff); white-space: nowrap; font-weight: 600; }
+.term-input { flex: 1; background: transparent; border: 0; outline: 0; color: inherit; font: inherit; }
+.pv-dot { width: 9px; height: 9px; border-radius: 50%; background: #888; display: inline-block; margin: 0 6px; } .pv-dot.on { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+.pv-log { max-height: 30%; overflow: auto; margin: 0; padding: 6px 10px; background: #0b0d12; color: #c9d1d9; font: 12px ui-monospace, Consolas, monospace; border-top: 1px solid var(--border, #2a2f3a); white-space: pre-wrap; }
+.phpcfg-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.phpcfg-sum { padding: 8px 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; } .phpcfg-sum.ok { background: rgba(63,185,80,.15); } .phpcfg-sum.warn { background: rgba(240,170,40,.16); }
+.phpcfg { max-height: 56vh; overflow: auto; }
+.phpcfg-g { font-weight: 700; margin: 12px 0 4px; color: var(--muted, #8b93a5); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.phpcfg-row { display: grid; grid-template-columns: 20px minmax(150px, 220px) minmax(120px, 1fr) auto; gap: 4px 8px; align-items: center; padding: 3px 0; }
+.phpcfg-row .why { grid-column: 2 / -1; font-size: 11.5px; color: var(--muted, #8b93a5); }
+.phpcfg-row.bad .st { color: #f0a828; } .phpcfg-row.ok .st { color: #3fb950; } .phpcfg-row input, .phpcfg-row select { min-width: 0; }
+.dbt-gtools { display: flex; gap: 6px; align-items: center; padding: 4px 8px; flex-wrap: wrap; } .dbt-gtools:empty { display: none; }
+.dbt-find { min-width: 140px; max-width: 220px; } .dbt-page { font-size: 12px; min-width: 48px; text-align: center; }
+.dbt-auto { font-size: 12px; display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+.dbt-grid th.sortable { cursor: pointer; user-select: none; } .dbt-grid th.sortable:hover { background: var(--hover, rgba(255,255,255,.06)); }
+.dbt-grid td.act { white-space: nowrap; } .dbt-create { margin: 10px 8px; padding: 8px 10px; background: var(--bg-2, #11141b); border-radius: 8px; white-space: pre-wrap; font: 12px ui-monospace, Consolas, monospace; }
+.dbt-form { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow: auto; width: min(520px, 76vw); box-sizing: border-box; padding-right: 4px; }
+.dbt-field { display: flex; flex-direction: column; gap: 3px; } .dbt-field > label { display: flex; gap: 6px; align-items: baseline; font-size: 12.5px; } .dbt-field .nl { flex: none; margin-left: auto; font-size: 12px; display: inline-flex; gap: 3px; align-items: center; }
+.dbt-field input, .dbt-field textarea, .dbt-field select { width: 100%; box-sizing: border-box; } .dbt-field input:disabled, .dbt-field textarea:disabled { opacity: .45; }
+.frow .hint { white-space: pre-line; }

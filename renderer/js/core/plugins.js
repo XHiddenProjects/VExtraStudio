@@ -17,7 +17,7 @@
   };
 
   const VXHost = {
-    version: '4.2.0',
+    version: '4.3.0',
     host: {},                 // filled in by app.js
     commands: new Map(),      // id -> {id,title,run,plugin}
     statusItems: new Map(),   // id -> {id,text,align,onClick,plugin}

@@ -26,7 +26,9 @@
       const c = s[i];
       if (c === ' ' || c === '\t') { i++; continue; }
       if (c === '"') { let j = i + 1, v = ''; while (j < s.length && s[j] !== '"') { if (s[j] === '\\' && j + 1 < s.length) { v += s[j + 1] === 'n' ? '\n' : s[j + 1]; j += 2; } else v += s[j++]; } if (j >= s.length) throw new Err(ln, 'A quote was opened but never closed'); out.push({ v, q: true }); i = j + 1; continue; }
-      let j = i; while (j < s.length && s[j] !== ' ' && s[j] !== '\t') j++; out.push({ v: s.slice(i, j), q: false }); i = j;
+      /* a bare word may carry a quoted value: key="two words" */
+      let j = i, v = ''; while (j < s.length && s[j] !== ' ' && s[j] !== '\t') { if (s[j] === '"' && j > i) { j++; while (j < s.length && s[j] !== '"') { if (s[j] === '\\' && j + 1 < s.length) { v += s[j + 1] === 'n' ? '\n' : s[j + 1]; j += 2; } else v += s[j++]; } if (j >= s.length) throw new Err(ln, 'A quote is not closed'); j++; } else v += s[j++]; }
+      out.push({ v, q: false }); i = j;
     }
     return out;
   }
@@ -55,6 +57,7 @@
     message(r) { return { type: 'mailbox', params: { channel: r.need('a channel name') } }; },
     near(r) { const target = r.need('a target (tag:player)'); const p = { target, radius: 150, mode: 'enter' }; if (r.eat('within')) p.radius = r.num('distance'); if (r.eat('leaves', 'exit')) p.mode = 'exit'; return { type: 'proximity', params: p }; },
     visible: () => ({ type: 'inView', params: { mode: 'enter' } }),
+    setting(r) { r.eat('changed', 'changes'); const key = r.more() ? r.word() : ''; return { type: 'gameSettings', params: { key }, out: 'changed' }; },
   };
 
   /* ---------------------------------------------------------------- statements: each returns { type, params, in?, out? } (or a list for sugar that needs several blocks) */
@@ -67,6 +70,7 @@
       }
       if (what === 'rotation') { r.eat('to'); const ang = r.num('angle'); const o = r.opts({ axis: 'value', over: 'value' }); return { type: 'rotation', params: { mode: 'set', angle: ang, axis: o.axis || 'y', duration: o.over ? +o.over : 0 } }; }
       if (what === 'alpha' || what === 'opacity') { r.eat('to'); return { type: 'alpha', params: { mode: 'set', value: r.num('value') } }; }
+      if (what === 'setting') { const key = r.need('a setting name (volume, sensitivity, fps, showFps or your own)'); r.eat('to'); return { type: 'gameSettings', params: { key, value: r.need('a value') }, in: 'set' }; }
       throw new Err(ln, `“set ${what}” is not known. Use: set velocity/position/size/rotation/alpha …  (for variables write  name = value)`);
     },
     add(r, ln) { const what = r.need('what to add').toLowerCase(); if (what === 'velocity' || what === 'position' || what === 'size') return axes(r, what, 'add', ln); if (what === 'rotation') { r.eat('to'); const ang = r.num('angle'); const o = r.opts({ axis: 'value', over: 'value' }); return { type: 'rotation', params: { mode: 'add', angle: ang, axis: o.axis || 'y', duration: o.over ? +o.over : 0 } }; } throw new Err(ln, `“add ${what}” is not known. Use: add velocity/position/size/rotation …`); },
@@ -84,6 +88,9 @@
     spawn(r) { const tpl = r.need('a template object'); const p = { template: tpl, count: 1, at: 'self', offsetX: 0, offsetY: 0, offsetZ: 0, randomX: 0, randomY: 0 }; const o = r.opts({ count: 'value', at: 'value', x: 'value', y: 'value', z: 'value', randomx: 'value', randomy: 'value' }); if (o.count) p.count = +o.count; if (o.at) p.at = o.at; if (o.x) p.offsetX = +o.x; if (o.y) p.offsetY = +o.y; if (o.z) p.offsetZ = +o.z; if (o.randomx) p.randomX = +o.randomx; if (o.randomy) p.randomY = +o.randomy; return { type: 'spawn', params: p }; },
     load(r, ln) { if (!r.eat('level')) throw new Err(ln, 'Use: load level next | NAME [after N seconds]'); const lv = r.need('a level name or “next”'); const o = r.opts({ after: 'value' }); return { type: 'loadLevel', params: { level: lv, delay: o.after ? +o.after : 0 } }; },
     restart(r) { const s = (r.peek() || 'scene').toLowerCase(); if (r.more()) r.word(); return { type: 'restartGame', params: { scope: s === 'game' ? 'game' : s === 'reset' ? 'sceneReset' : 'scene' } }; },
+    open(r, ln) { if (!r.eat('settings', 'setting')) throw new Err(ln, 'Use: open settings'); return { type: 'gameSettings', params: {}, in: 'open' }; },
+    close(r, ln) { if (!r.eat('settings', 'setting')) throw new Err(ln, 'Use: close settings'); return { type: 'gameSettings', params: {}, in: 'close' }; },
+    reset(r, ln) { if (!r.eat('settings', 'setting')) throw new Err(ln, 'Use: reset settings'); return { type: 'gameSettings', params: {}, in: 'reset' }; },
     pause: () => ({ type: 'pauseGame', params: { action: 'pause' } }), resume: () => ({ type: 'pauseGame', params: { action: 'resume' } }),
     enable(r) { return { type: 'enabled', params: { target: r.more() ? r.word() : 'self', state: 'enable', what: 'all' } }; },
     disable(r) { return { type: 'enabled', params: { target: r.more() ? r.word() : 'self', state: 'disable', what: 'all' } }; },
@@ -113,6 +120,27 @@
     return { type: what, params: p };
   }
 
+  /** reads `TYPE key=value … [from INPUT] [out OUTPUT]` (used by `block` and `when block`) and checks it against the real block definition */
+  function blockSpec(r, ln, reg) {
+    const type = r.need('a block type'); const def = reg && reg[type]; if (reg && !def) throw new Err(ln, `There is no block called “${type}”.${nearest(type, Object.keys(reg))}`);
+    const params = {}; let via = null, outp = null; const keys = def ? (def.params || []).map((q) => q.key) : null;
+    while (r.more()) {
+      const w = r.word(); if (w === 'from') { via = r.need('an input port'); continue; } if (w === 'out') { outp = r.need('an output port'); continue; }
+      const eq = w.indexOf('='); if (eq < 1) throw new Err(ln, `Write block settings as name=value (found “${w}”)`);
+      const k = w.slice(0, eq), v = w.slice(eq + 1); if (keys && !keys.includes(k)) throw new Err(ln, `Block “${type}” has no setting “${k}”.${keys.length ? ' Settings: ' + keys.join(', ') + '.' : ''}${nearest(k, keys)}`);
+      const pd = def && def.params.find((q) => q.key === k); params[k] = pd && (pd.type === 'text' || pd.type === 'string') ? v : NUM.test(v) ? +v : v === 'true' ? true : v === 'false' ? false : v;
+    }
+    if (def) {
+      let ports = null; try { ports = VXRT.ports(def, Object.assign(VXRT.paramDefaults(def), params)); } catch { /* ports depend on settings */ }
+      if (ports && via && !ports.inputs.some((i) => i.id === via)) throw new Err(ln, `Block “${type}” has no input “${via}”. Inputs: ${ports.inputs.map((i) => i.id).join(', ') || 'none'}.`);
+      if (ports && outp && !ports.outputs.some((o) => o.id === outp)) throw new Err(ln, `Block “${type}” has no output “${outp}”. Outputs: ${ports.outputs.map((o) => o.id).join(', ') || 'none'}.`);
+    }
+    return { type, params, via, outp };
+  }
+  const nearest = (w, list) => { if (!list || !list.length) return ''; let best = null, bd = 99; for (const c of list) { const d = lev2(String(c).toLowerCase(), String(w).toLowerCase()); if (d < bd) { bd = d; best = c; } } return best && bd <= 2 ? ` Did you mean “${best}”?` : ''; };
+  function lev2(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
+  const CLAUSE = /^on\s+(\S+?)\s*:?$/i;
+
   /* ---------------------------------------------------------------- compile */
   function compile(source, hooks) {
     const reg = (hooks && hooks.blocks) || (typeof VXRT !== 'undefined' ? VXRT.blocks : null);
@@ -121,6 +149,7 @@
     const startBehavior = (name) => { cur = { name: name || 'Behavior', graph: { nodes: [], wires: [] } }; res.behaviors.push(cur); };
     const addNode = (n, x, y) => { const id = 'n' + ++uid; cur.graph.nodes.push({ id, type: n.type, params: n.params || {}, x, y }); return id; };
     const wire = (from, to, out, inp) => cur.graph.wires.push({ from, to, out: out || 'out', in: inp || 'in' });
+    const checkOut = (type, params, port, line) => { const d = reg && reg[type]; if (!d) return; try { const o = VXRT.ports(d, Object.assign(VXRT.paramDefaults(d), params)).outputs; if (!o.some((q) => q.id === port)) throw new Err(line, `Block “${type}” has no output “${port}”. Outputs: ${o.map((q) => q.id).join(', ') || 'none'}.`); } catch (e) { if (e instanceof Err) throw e; } };
     const outOf = (type, want) => { if (want) return want; const d = reg && reg[type]; if (d) { try { const o = VXRT.ports(d, VXRT.paramDefaults(d)).outputs; if (o.length) return o[0].id; } catch { /* default */ } } return { timer: 'tick', collision: 'out' }[type] || 'out'; };
     const endsFor = (id, type, port) => { const d = reg && reg[type]; if (d) { try { if (!VXRT.ports(d, VXRT.paramDefaults(d)).outputs.length) return []; } catch { /* keep */ } } else if (['loadLevel', 'restartGame', 'pushMotor'].includes(type)) return []; return [{ id, port }]; };
     const inOf = (type, want) => { if (want) return want; const d = reg && reg[type]; if (d) { try { const i = VXRT.ports(d, VXRT.paramDefaults(d)).inputs; if (i.length) return i[0].id; } catch { /* default */ } } return 'in'; };
@@ -172,9 +201,13 @@
           }
           if (head === 'wait') { const sc = secs(r); const id = addNode({ type: 'timer', params: { interval: sc, delay: 0, repeat: false, autoStart: false } }, x, yy); link(id, 'start', 'timer'); ends = [{ id, port: 'tick' }]; x += 290; continue; }
           if (head === 'block') {
-            const type = r.need('a block type'); if (reg && !reg[type]) throw new Err(k.line, `There is no block called “${type}”`); const params = {}; let via = null, outp = null;
-            while (r.more()) { const w = r.word(); if (w === 'from') { via = r.need('an input port'); continue; } if (w === 'out') { outp = r.need('an output port'); continue; } const eq = w.indexOf('='); if (eq < 1) throw new Err(k.line, `Write block settings as name=value (found “${w}”)`); const v = w.slice(eq + 1); params[w.slice(0, eq)] = NUM.test(v) ? +v : v === 'true' ? true : v === 'false' ? false : v; }
-            const id = addNode({ type, params }, x, yy); link(id, via, type); ends = endsFor(id, type, outOf(type, outp)); x += 290; continue;
+            const sp = blockSpec(r, k.line, reg); const id = addNode({ type: sp.type, params: sp.params }, x, yy); link(id, sp.via, sp.type);
+            if (hasBlock) {   /* block TYPE …:  with  on PORT:  branches */
+              if (!k.kids.length || !k.kids.every((c) => CLAUSE.test(c.text))) throw new Err(k.line, 'Under a block line that ends with “:” write one “on PORT:” branch per output, e.g.  on pass:');
+              const found = []; let yb = yy; for (const c of k.kids) { const port = CLAUSE.exec(c.text)[1]; checkOut(sp.type, sp.params, port, c.line); found.push(...chain(c.kids, [{ id, port }], x + 290, yb)); yb += 110 * rows(c.kids); }
+              ends = found; yy = yb; x += 290 * 2; continue;
+            }
+            ends = endsFor(id, sp.type, outOf(sp.type, sp.outp)); x += 290; continue;
           }
           /* variable statements: name = 5, name += 1, self.health -= 10 */
           const vm = /^(.+?)\s*(\+=|-=|\*=|\/=|=)\s*(.+)$/.exec(k.text.replace(/:$/, ''));
@@ -209,14 +242,16 @@
         const t = tokens(top.text, top.line); const hasBlock = colon(t); const r = reader(t, top.line); const head = (r.word() || '').toLowerCase();
         if (head === 'behavior' || head === 'behaviour') { const name = r.need('a name in quotes'); if (r.more()) throw new Err(top.line, 'Put the name in quotes: behavior "My name"'); if (hasBlock || top.kids.length) throw new Err(top.line, 'A behavior line has nothing indented below it – write the “when …” lines at the same level'); if (!used && cur === first) { first.name = name; } else startBehavior(name); used = false; continue; }
         if (!['when', 'on', 'every', 'after', 'always'].includes(head)) throw new Err(top.line, `A line at the left edge must start with behavior, when, every, after or always (found “${head}”)`);
-        if (!hasBlock) throw new Err(top.line, 'End the line with “:”'); let node;
+        if (!hasBlock) throw new Err(top.line, 'End the line with “:”'); let node, trigClauses = false;
         if (head === 'every') { const s = secs(r); node = { type: 'timer', params: { interval: s, delay: 0, repeat: true, autoStart: true } }; if (r.more()) throw new Err(top.line, `Unexpected “${r.rest().join(' ')}”`); node.out = 'tick'; }
         else if (head === 'after') { const s = secs(r); node = { type: 'timer', params: { interval: s, delay: 0, repeat: false, autoStart: true } }; node.out = 'tick'; if (r.more()) throw new Err(top.line, `Unexpected “${r.rest().join(' ')}”`); }
         else if (head === 'always') { node = { type: 'always', params: {} }; }
+        else if ((r.peek() || '').toLowerCase() === 'block') { r.word(); const sp = blockSpec(r, top.line, reg); node = { type: sp.type, params: sp.params, out: sp.outp }; trigClauses = true; }
         else { const kind = (r.word() || '').toLowerCase(); if (!kind) throw new Err(top.line, 'Say what to wait for: when start | key K | click | touching T | message M | near T'); const tf = TRIG[kind]; if (!tf) throw new Err(top.line, `I do not know the trigger “${kind}”. Triggers: ${Object.keys(TRIG).join(', ')}, or every N seconds / after N seconds`); node = tf(r, top.line); if (r.more()) throw new Err(top.line, `Unexpected “${r.rest().join(' ')}”`); }
         if (reg && !reg[node.type]) throw new Err(top.line, `This version of Vextra has no “${node.type}” block`);
         const rowY = 40 + (cur.graph.nodes.length ? Math.max(...cur.graph.nodes.map((n) => n.y)) + 160 : 0); const id = addNode(node, 40, rowY); used = true;
-        pairElse(top.kids); chain(top.kids, [{ id, port: outOf(node.type, node.out) }], 330, rowY);
+        if (trigClauses && top.kids.length && top.kids.every((c) => CLAUSE.test(c.text))) { let yb = rowY; for (const c of top.kids) { const port = CLAUSE.exec(c.text)[1]; checkOut(node.type, node.params, port, c.line); pairElse(c.kids); chain(c.kids, [{ id, port }], 330, yb); yb += 110 * Math.max(1, c.kids.length); } }
+        else { pairElse(top.kids); chain(top.kids, [{ id, port: outOf(node.type, node.out) }], 330, rowY); }
       } catch (e) { fail(e, top.line); }
     }
     function pairElse(kids) { for (let i = 0; i < kids.length; i++) { const k = kids[i]; if (/^else\s*:?$/i.test(k.text)) { const p = kids[i - 1]; if (!p || !/^(if|unless|chance)\b/i.test(p.text)) { res.errors.push({ line: k.line, message: '“else:” must come right after an “if” or “chance” block' }); } else p.elseKid = k; k.isElse = true; } pairElse(k.kids); } }
@@ -239,6 +274,73 @@
     return Object.assign({ added, replaced, ids }, r);
   }
 
-  const api = { compile, addTo, triggers: Object.keys(TRIG), statements: Object.keys(ST) };
+
+  /* ---------------------------------------------------------------- reference table: feeds the editor's auto-complete, the hover help and the documentation */
+  const HELP = {
+    triggers: [
+      { name: 'start', usage: 'when start:', desc: 'Runs once, when the scene begins.', ex: 'when start:\n    label hud "Score: {score}"' },
+      { name: 'always', usage: 'when always:', desc: 'Runs every frame (also written “always:” or “when frame:”).', ex: 'always:\n    set velocity x 120' },
+      { name: 'key', usage: 'when key KEY [pressed|held|released]:', desc: 'A keyboard key. KEY is a-z, 0-9, space, enter, shift, arrowleft … or any.', ex: 'when key space pressed:\n    jump' },
+      { name: 'click', usage: 'when click [left|right|middle|any]:', desc: 'A mouse click or tap.', ex: 'when click:\n    spawn bullet' },
+      { name: 'touching', usage: 'when touching WHAT [enter|stay|exit] [top|bottom|left|right|front|back]:', desc: 'Contact with another object. WHAT is any, tag:NAME or name:OBJECT.', ex: 'when touching tag:coin:\n    destroy other' },
+      { name: 'message', usage: 'when message CHANNEL:', desc: 'A message sent with “send CHANNEL”.', ex: 'when message boss_dead:\n    load level next' },
+      { name: 'near', usage: 'when near TARGET [within DISTANCE] [leaves]:', desc: 'Another object comes within a distance (or leaves it).', ex: 'when near tag:player within 200:\n    play sound alarm' },
+      { name: 'visible', usage: 'when visible:', desc: 'The object enters the camera view.', ex: 'when visible:\n    play animation wake' },
+      { name: 'setting', usage: 'when setting changed [KEY]:', desc: 'The player changed a setting in the settings panel (volume, sensitivity, fps, showFps or one of your own).', ex: 'when setting changed difficulty:\n    show toast "Difficulty changed"' },
+      { name: 'every', usage: 'every N seconds:', desc: 'Repeats on a timer.', ex: 'every 2 seconds:\n    spawn enemy' },
+      { name: 'after', usage: 'after N seconds:', desc: 'Runs once, N seconds after the scene begins.', ex: 'after 5 seconds:\n    show toast "Hurry!"' },
+      { name: 'block', usage: 'when block TYPE name=value … [out PORT]:', desc: 'Any trigger block by its type name – every block in Vextra can be written this way. Branch outputs with “on PORT:” lines.', ex: 'when block lockedMouse sensitivity=1.5:\n    on dx:\n        rotate 1 axis y' },
+    ],
+    statements: [
+      { name: 'set', usage: 'set velocity|position|size X Y Z … | set rotation ANGLE | set alpha V | set setting KEY VALUE', desc: 'Sets a property of the object (axes as “x 10 y 20” or bare numbers). “over S” animates it.', ex: 'set velocity x -240\nset position 10 20\nset alpha 0.5\nset setting volume 0.8' },
+      { name: 'add', usage: 'add velocity|position|size … | add rotation ANGLE [axis A] [over S]', desc: 'Adds to a property.', ex: 'add position x 10' },
+      { name: 'stop', usage: 'stop velocity | stop sound NAME | stop animation', desc: 'Stops movement, a sound or an animation.', ex: 'stop sound music' },
+      { name: 'jump', usage: 'jump [FORCE] [anywhere]', desc: 'Jumps (only on the ground unless “anywhere”).', ex: 'jump 520' },
+      { name: 'push', usage: 'push FORCE DIRECTION [target T]', desc: 'Pushes an object (up, down, left, right, forward, back).', ex: 'push 300 right target other' },
+      { name: 'play', usage: 'play sound NAME [volume V] [pitch P] [loop] | play animation NAME [loop|once] [speed S] [on T]', desc: 'Plays a sound or an animation.', ex: 'play sound snd_coin volume 0.6' },
+      { name: 'show', usage: 'show toast|modal "TEXT" [title T] [kind info|success|warn|error] [button B] [for S]', desc: 'Shows a message to the player.', ex: 'show toast "Saved!" kind success' },
+      { name: 'destroy', usage: 'destroy [TARGET] [after S] [burst]', desc: 'Removes an object (default: itself; “other” is what you touched).', ex: 'destroy other burst' },
+      { name: 'spawn', usage: 'spawn TEMPLATE [count N] [at T] [x N] [y N] [z N] [randomx N] [randomy N]', desc: 'Creates copies of a template object.', ex: 'spawn coin count 3 randomx 80' },
+      { name: 'load', usage: 'load level next|NAME [after S]', desc: 'Switches to another level (scene).', ex: 'load level next after 2 seconds' },
+      { name: 'restart', usage: 'restart [scene|game|reset]', desc: 'Restarts the scene or the whole game.', ex: 'restart game' },
+      { name: 'pause', usage: 'pause', desc: 'Pauses the game.', ex: 'pause' },
+      { name: 'resume', usage: 'resume', desc: 'Resumes the game.', ex: 'resume' },
+      { name: 'enable', usage: 'enable [TARGET]', desc: 'Turns an object’s behaviour on.', ex: 'enable door' },
+      { name: 'disable', usage: 'disable [TARGET]', desc: 'Turns an object’s behaviour off.', ex: 'disable trap' },
+      { name: 'toggle', usage: 'toggle VARIABLE', desc: 'Flips a variable between 0 and 1.', ex: 'toggle lights' },
+      { name: 'send', usage: 'send CHANNEL [to T] [payload V]', desc: 'Sends a message other behaviours can wait for.', ex: 'send boss_dead' },
+      { name: 'camera', usage: 'camera follow [T] | stop | shake N | zoom N | look X Y [Z] | move to X Y [Z]', desc: 'Controls the camera.', ex: 'camera shake 8' },
+      { name: 'emit', usage: 'emit [particles] [N] [color C] [emoji E] [speed S] [spread D] [on T]', desc: 'Particle burst.', ex: 'emit particles 20 color #ffcc00' },
+      { name: 'label', usage: 'label ID "TEXT" [at ANCHOR] [x N] [y N] [size N] [color C] [bold]', desc: 'On-screen text. {name} inside the text shows a variable.', ex: 'label hud "Score: {score}" at topLeft size 28' },
+      { name: 'bar', usage: 'bar ID [variable V] [max N] [at ANCHOR] [x N] [y N] [w N] [h N]', desc: 'A progress bar bound to a variable.', ex: 'bar hp variable health max 100' },
+      { name: 'save', usage: 'save SLOT', desc: 'Saves the game to a slot.', ex: 'save slot1' },
+      { name: 'rotate', usage: 'rotate ANGLE [axis A] [over S] [target T]', desc: 'Turns an object.', ex: 'rotate 90 axis y over 0.5' },
+      { name: 'fade', usage: 'fade [to] ALPHA [over S] [target T]', desc: 'Fades an object.', ex: 'fade to 0 over 1' },
+      { name: 'move', usage: 'move [to] X Y [Z] [over S] [target T] [ease E]', desc: 'Moves an object to a place.', ex: 'move to 400 120 over 2' },
+      { name: 'say', usage: 'say "TEXT"', desc: 'Passes text on (for blocks that read text).', ex: 'say "Hello"' },
+      { name: 'open', usage: 'open settings', desc: 'Opens the player settings panel (volume, sensitivity, frame rate, your own options).', ex: 'when key o pressed:\n    open settings' },
+      { name: 'close', usage: 'close settings', desc: 'Closes the settings panel.', ex: 'close settings' },
+      { name: 'reset', usage: 'reset settings', desc: 'Puts every setting back to its default.', ex: 'reset settings' },
+      { name: 'wait', usage: 'wait N [seconds]', desc: 'Pauses this chain, then continues.', ex: 'wait 2 seconds' },
+    ],
+    flow: [
+      { name: 'if', usage: 'if VARIABLE OP VALUE:   (OP: > < >= <= == !=)   …   [else:]', desc: 'Runs the indented lines when the test is true. VARIABLE can be a variable, self.property, or “value” (the incoming signal). “unless” inverts it.', ex: 'if score >= 5:\n    load level next\nelse:\n    show toast "Keep going"' },
+      { name: 'chance', usage: 'chance PERCENT%:   …   [else:]', desc: 'Random branch.', ex: 'chance 30%:\n    spawn health' },
+      { name: 'repeat', usage: 'repeat N [times] [every S]:', desc: 'Runs the indented lines N times.', ex: 'repeat 3 times every 0.5:\n    spawn bullet' },
+      { name: 'block', usage: 'block TYPE name=value … [from INPUT] [out OUTPUT]  or  block TYPE …:  with  on OUTPUT:  branches', desc: 'Any block in Vextra, by its type name. Ports and settings are checked against the real block, so typos are reported.', ex: 'block filter op=">" value=3:\n    on pass:\n        say "big"\n    on fail:\n        say "small"' },
+      { name: 'VAR += N', usage: 'NAME = N | NAME += N | NAME -= N | NAME *= N | NAME /= N | OBJECT.NAME op N', desc: 'Variable maths (numbers).', ex: 'score += 10\nself.health -= 25' },
+    ],
+    keys: ['space', 'enter', 'escape', 'shift', 'control', 'alt', 'tab', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'any', 'w', 'a', 's', 'd', 'e', 'f', 'q', 'r', 'z', 'x'],
+    anchors: ['topLeft', 'top', 'topRight', 'left', 'center', 'right', 'bottomLeft', 'bottom', 'bottomRight'],
+    options: { 'play': ['sound', 'animation', 'volume', 'pitch', 'loop', 'once', 'speed', 'on'], 'show': ['toast', 'modal', 'title', 'kind', 'button', 'for'], 'spawn': ['count', 'at', 'x', 'y', 'z', 'randomx', 'randomy'], 'label': ['at', 'x', 'y', 'size', 'color', 'bold'], 'bar': ['variable', 'max', 'at', 'x', 'y', 'w', 'h'], 'move': ['to', 'over', 'target', 'ease'], 'rotate': ['axis', 'over', 'target'], 'fade': ['to', 'over', 'target'], 'destroy': ['after', 'with', 'burst'], 'emit': ['particles', 'color', 'emoji', 'speed', 'spread', 'on'], 'camera': ['follow', 'stop', 'shake', 'zoom', 'look', 'move'], 'send': ['to', 'payload'], 'load': ['level', 'next', 'after'], 'set': ['velocity', 'position', 'size', 'rotation', 'alpha', 'setting'], 'add': ['velocity', 'position', 'size', 'rotation'] },
+  };
+  /** every block type with its settings and ports, for auto-complete and the docs (needs the game runtime to be loaded) */
+  function catalog() {
+    const reg = typeof VXRT !== 'undefined' ? VXRT.blocks : null; if (!reg) return [];
+    return Object.keys(reg).sort().map((id) => { const d = reg[id]; let ports = { inputs: [], outputs: [] }; try { ports = VXRT.ports(d, VXRT.paramDefaults(d)); } catch { /* dynamic ports */ }
+      return { id, label: d.label || id, cat: d.cat || '', desc: d.desc || '', params: (d.params || []).map((q) => ({ key: q.key, label: q.label || q.key, type: q.type, def: q.def, options: q.options })), inputs: ports.inputs.map((i) => i.id), outputs: ports.outputs.map((o) => o.id), trigger: !(d.inputs && d.inputs.length) && !!(ports.outputs && ports.outputs.length) }; });
+  }
+
+  const api = { compile, addTo, catalog, help: HELP, triggers: Object.keys(TRIG), statements: Object.keys(ST) };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else { root.VX = root.VX || {}; root.VX.vxs = api; }
 })(typeof window !== 'undefined' ? window : globalThis);

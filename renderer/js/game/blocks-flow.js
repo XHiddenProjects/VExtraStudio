@@ -81,6 +81,12 @@
     inputs: ['in', 'pause', 'resume'], outputs: ['out'], params: [P.sel('action', 'When "in" arrives', ['toggle', 'pause', 'resume'])],
     onInput(n, port, v, g) { const a = port === 'in' ? n.p.action : port; const f = () => g.pause(a === 'toggle' ? undefined : a === 'pause'); if (g.paused) f(); else g.later(f); g.send(n, 'out', a); } });
 
+  B({ id: 'gameSettings', cat: 'flow', label: 'Game Settings', desc: 'The player settings panel: volume, mouse sensitivity, frame rate, FPS counter and the options you define in Game settings ▸ Player settings. Open it, read or change one setting, reset them, and react when the player changes something.',
+    inputs: ['open', 'close', 'reset', 'get', 'set'], outputs: ['changed', 'value', 'closed'],
+    params: [P.text('key', 'Setting (volume, sensitivity, fps, showFps or your own)', ''), P.text('value', 'Value for "set" (empty = the incoming value)', '')],
+    init(n, g) { const m = g.menu; if (!m) return; n.cleanups.push(m.onSetting((k, v) => { if (!n.p.key || n.p.key === k) { g.send(n, 'value', v); g.send(n, 'changed', { key: k, value: v }); } })); n.cleanups.push(m.onClose(() => g.send(n, 'closed', true))); },
+    onInput(n, port, v, g) { const m = g.menu; if (!m) return; if (port === 'open') m.openSettings(); else if (port === 'close') m.close(); else if (port === 'reset') m.reset(); else if (port === 'get') g.send(n, 'value', m.get(n.p.key)); else if (port === 'set') m.set(n.p.key, n.p.value !== '' ? n.p.value : v); } });
+
   B({ id: 'loadLevel', cat: 'flow', label: 'Load Level', desc: 'Switches to another scene: by name, number (1 = first), "next" or "previous". An incoming text/number is used when the field is empty. May switch between 2D and 3D scenes.',
     inputs: ['in'], outputs: [], params: [P.text('level', 'Level', 'next'), P.num('delay', 'Delay (s)', 0, { min: 0, step: 0.1 })],
     onInput(n, port, v, g) { const ref = n.p.level !== '' ? n.p.level : (typeof v === 'string' || typeof v === 'number' ? v : 'next'); const go = () => g.later(() => g.loadScene(typeof ref === 'string' && /^\d+$/.test(ref) ? parseInt(ref, 10) - 1 : ref)); if (U.num(n.p.delay) > 0) setTimeout(go, n.p.delay * 1000); else go(); } });

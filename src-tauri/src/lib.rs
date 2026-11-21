@@ -212,6 +212,13 @@ async fn fs_rename(path: String, new_name: String) -> Res<String> {
     Ok(s(&dest))
 }
 
+/// When a file was last changed (milliseconds since 1970), so the database viewer can notice another program writing to it.
+#[tauri::command]
+async fn fs_mtime(path: String) -> Res<u64> {
+    let t = fs::metadata(&path).and_then(|m| m.modified()).map_err(err)?;
+    Ok(t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0))
+}
+
 #[tauri::command]
 async fn fs_exists(path: String) -> Res<bool> {
     Ok(Path::new(&path).exists())
@@ -678,6 +685,7 @@ struct Run {
     done: Arc<AtomicBool>,
     code: Arc<Mutex<Option<i32>>>,
     child: Arc<Mutex<Child>>,
+    stdin: Arc<Mutex<Option<std::process::ChildStdin>>>,
 }
 #[derive(Default)]
 struct RunState(Mutex<HashMap<u32, Run>>, AtomicU32);
@@ -710,13 +718,20 @@ async fn run_start(state: tauri::State<'_, RunState>, cwd: String, program: Stri
     }
     let exe = if cfg!(windows) && program != "node" { format!("{program}.cmd") } else { program.clone() };
     let mut cmd = Command::new(exe);
-    cmd.args(&args).current_dir(&dir).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).env("CI", "1").env("CSC_IDENTITY_AUTO_DISCOVERY", "false").env("ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES", "true").env("FORCE_COLOR", "0").env("NO_COLOR", "1");
+    cmd.args(&args).current_dir(&dir).stdout(Stdio::piped()).stderr(Stdio::piped()).env("CI", "1").env("CSC_IDENTITY_AUTO_DISCOVERY", "false").env("ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES", "true").env("FORCE_COLOR", "0").env("NO_COLOR", "1");
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000);
     }
-    let mut child = cmd.spawn().map_err(|e| format!("could not start {program}: {e} (is Node.js installed and on your PATH?)"))?;
+    launch(state.inner(), cmd, &program, false)
+}
+
+/// Starts `cmd` with piped output (and optionally piped input) and collects its output lines for run_poll.
+fn launch(state: &RunState, mut cmd: Command, name: &str, piped_stdin: bool) -> Res<u32> {
+    cmd.stdin(if piped_stdin { Stdio::piped() } else { Stdio::null() });
+    let mut child = cmd.spawn().map_err(|e| format!("could not start {name}: {e}"))?;
+    let stdin = Arc::new(Mutex::new(if piped_stdin { child.stdin.take() } else { None }));
     let lines = Arc::new(Mutex::new(Vec::<String>::new()));
     let pump = |stream: Option<Box<dyn std::io::Read + Send>>, lines: Arc<Mutex<Vec<String>>>| {
         if let Some(mut s) = stream {
@@ -768,8 +783,8 @@ async fn run_start(state: tauri::State<'_, RunState>, cwd: String, program: Stri
             std::thread::sleep(Duration::from_millis(120));
         });
     }
-    let id = state.inner().1.fetch_add(1, Ordering::SeqCst) + 1;
-    state.inner().0.lock().map_err(err)?.insert(id, Run { lines, done, code, child });
+    let id = state.1.fetch_add(1, Ordering::SeqCst) + 1;
+    state.0.lock().map_err(err)?.insert(id, Run { lines, done, code, child, stdin });
     Ok(id)
 }
 
@@ -799,7 +814,70 @@ async fn run_cancel(state: tauri::State<'_, RunState>, id: u32) -> Res<()> {
     let map = state.inner().0.lock().map_err(err)?;
     if let Some(r) = map.get(&id) {
         if let Ok(mut c) = r.child.lock() {
+            kill_tree(c.id());
             let _ = c.kill();
+        }
+    }
+    Ok(())
+}
+
+
+/// Ends a process and everything it started (npm starts node, which starts more).
+fn kill_tree(pid: u32) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = Command::new("taskkill").args(["/PID", &pid.to_string(), "/T", "/F"]).creation_flags(0x0800_0000).output();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = Command::new("pkill").args(["-TERM", "-P", &pid.to_string()]).output();
+    }
+}
+
+/// Terminal: runs one command line in a folder with the computer's own shell and streams the output (poll with run_poll, stop with run_cancel).
+/// It is a normal user shell – like any terminal – so it is only started by the Terminal panel after the person confirmed it, never by plugins or previews.
+#[tauri::command]
+async fn term_start(state: tauri::State<'_, RunState>, cwd: String, command: String) -> Res<u32> {
+    let dir = PathBuf::from(&cwd);
+    if !dir.is_dir() {
+        return Err("that folder does not exist".into());
+    }
+    if command.trim().is_empty() || command.len() > 8000 || command.contains('\0') {
+        return Err("that command is empty or too long".into());
+    }
+    #[cfg(windows)]
+    let mut cmd = {
+        use std::os::windows::process::CommandExt;
+        let mut c = Command::new("cmd");
+        c.args(["/D", "/S", "/C"]).raw_arg(format!("\"{}\"", command));
+        c.creation_flags(0x0800_0000);
+        c
+    };
+    #[cfg(not(windows))]
+    let mut cmd = {
+        let mut c = Command::new("sh");
+        c.arg("-c").arg(&command);
+        c
+    };
+    cmd.current_dir(&dir).env("NO_COLOR", "1").env("FORCE_COLOR", "0").env("TERM", "dumb").stderr(Stdio::piped()).stdout(Stdio::piped());
+    launch(state.inner(), cmd, "the shell", true)
+}
+
+/// Sends a line of text to the running terminal command (for prompts such as `npm init`).
+#[tauri::command]
+async fn term_write(state: tauri::State<'_, RunState>, id: u32, text: String) -> Res<()> {
+    if text.len() > 8192 {
+        return Err("that is too much text".into());
+    }
+    let map = state.inner().0.lock().map_err(err)?;
+    if let Some(r) = map.get(&id) {
+        if let Ok(mut g) = r.stdin.lock() {
+            if let Some(i) = g.as_mut() {
+                use std::io::Write;
+                i.write_all(text.as_bytes()).map_err(err)?;
+                let _ = i.flush();
+            }
         }
     }
     Ok(())
@@ -856,8 +934,12 @@ fn build_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
 }
 
 /* ---------- PHP preview: runs PHP's built-in web server (`php -S`) for a project folder. Needs PHP installed on this computer. ---------- */
+struct PhpRun {
+    child: Child,
+    log: Arc<Mutex<Vec<String>>>,
+}
 #[derive(Default)]
-struct PhpState(Mutex<HashMap<String, Child>>);
+struct PhpState(Mutex<HashMap<String, PhpRun>>);
 
 #[derive(Serialize)]
 struct PhpInfo {
@@ -870,9 +952,22 @@ fn php_bin() -> String {
     std::env::var("VEXTRA_PHP").unwrap_or_else(|_| "php".into())
 }
 
+/// A command that never opens a console window on Windows.
+fn quiet(program: &str) -> Command {
+    #[allow(unused_mut)]
+    let mut c = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        c.creation_flags(0x0800_0000);
+    }
+    c
+}
+
 fn php_version() -> Res<String> {
-    let out = Command::new(php_bin())
+    let out = quiet(&php_bin())
         .arg("-v")
+        .stdin(Stdio::null())
         .output()
         .map_err(|_| "PHP was not found on this computer. Install PHP (php.net/downloads) and make sure `php` is on your PATH, or set the VEXTRA_PHP environment variable to its full path.".to_string())?;
     Ok(String::from_utf8_lossy(&out.stdout).lines().next().unwrap_or("PHP").to_string())
@@ -883,27 +978,84 @@ async fn php_check() -> Res<String> {
     php_version()
 }
 
+/// Starts `php -S` for a folder. `defines` are php.ini settings ("name=value") from the project's PHP configuration; they are passed with -d on top of the normal php.ini.
 #[tauri::command]
-async fn php_start(state: tauri::State<'_, PhpState>, root: String) -> Res<PhpInfo> {
+async fn php_start(state: tauri::State<'_, PhpState>, root: String, defines: Option<Vec<String>>) -> Res<PhpInfo> {
     let version = php_version()?;
+    let mut args: Vec<String> = Vec::new();
+    for d in defines.unwrap_or_default().iter().take(200) {
+        let (k, v) = d.split_once('=').ok_or("a PHP setting must look like name=value")?;
+        if k.is_empty() || k.len() > 80 || !k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.') || v.len() > 2000 || v.chars().any(|c| c.is_control()) {
+            return Err(format!("PHP setting not allowed: {k}"));
+        }
+        args.push("-d".into());
+        args.push(format!("{k}={v}"));
+    }
     let mut map = state.inner().0.lock().map_err(err)?;
     if let Some(mut old) = map.remove(&root) {
-        let _ = old.kill();
-        let _ = old.wait();
+        let _ = old.child.kill();
+        let _ = old.child.wait();
     }
     let port = TcpListener::bind("127.0.0.1:0").map_err(err)?.local_addr().map_err(err)?.port();
-    let child = Command::new(php_bin())
+    let mut child = quiet(&php_bin())
+        .args(&args)
         .args(["-S", &format!("127.0.0.1:{}", port), "-t", &root])
         .current_dir(&root)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(err)?;
-    map.insert(root, child);
+    let log = Arc::new(Mutex::new(Vec::<String>::new()));
+    if let Some(e) = child.stderr.take() {
+        let log = log.clone();
+        std::thread::spawn(move || {
+            use std::io::{BufRead, BufReader};
+            for line in BufReader::new(e).lines().map_while(Result::ok) {
+                if let Ok(mut l) = log.lock() {
+                    if l.len() < 2000 {
+                        l.push(line);
+                    }
+                }
+            }
+        });
+    }
+    map.insert(root.clone(), PhpRun { child, log: log.clone() });
     drop(map);
     std::thread::sleep(Duration::from_millis(450));
+    let mut map = state.inner().0.lock().map_err(err)?;
+    if let Some(r) = map.get_mut(&root) {
+        if let Ok(Some(_)) = r.child.try_wait() {
+            let msg = log.lock().map(|l| l.join("\n")).unwrap_or_default();
+            map.remove(&root);
+            return Err(format!("PHP stopped right after starting. {}", msg.trim()));
+        }
+    }
     Ok(PhpInfo { url: format!("http://127.0.0.1:{}/", port), port, version })
+}
+
+/// Is the PHP server for this folder still running? (The preview tab closes itself when it is not.)
+#[tauri::command]
+async fn php_status(state: tauri::State<'_, PhpState>, root: String) -> Res<bool> {
+    let mut map = state.inner().0.lock().map_err(err)?;
+    let alive = match map.get_mut(&root) {
+        Some(r) => matches!(r.child.try_wait(), Ok(None)),
+        None => false,
+    };
+    if !alive {
+        map.remove(&root);
+    }
+    Ok(alive)
+}
+
+/// New lines the PHP server printed (requests, warnings, errors) since the last call.
+#[tauri::command]
+async fn php_log(state: tauri::State<'_, PhpState>, root: String) -> Res<Vec<String>> {
+    let map = state.inner().0.lock().map_err(err)?;
+    Ok(match map.get(&root) {
+        Some(r) => r.log.lock().map(|mut l| l.drain(..).collect()).unwrap_or_default(),
+        None => vec![],
+    })
 }
 
 #[tauri::command]
@@ -912,18 +1064,171 @@ async fn php_stop(state: tauri::State<'_, PhpState>, root: Option<String>) -> Re
     match root {
         Some(r) => {
             if let Some(mut c) = map.remove(&r) {
-                let _ = c.kill();
-                let _ = c.wait();
+                let _ = c.child.kill();
+                let _ = c.child.wait();
             }
         }
         None => {
             for (_, mut c) in map.drain() {
-                let _ = c.kill();
-                let _ = c.wait();
+                let _ = c.child.kill();
+                let _ = c.child.wait();
             }
         }
     }
     Ok(())
+}
+
+/* ---------- Other databases: Vextra talks to MySQL / MariaDB / PostgreSQL through the command-line client the person already has installed
+   (mysql / mariadb / psql). No driver is built in; the password goes through an environment variable, never the command line. ---------- */
+#[derive(Serialize)]
+struct DbClient {
+    kind: String,
+    path: String,
+    version: String,
+}
+
+fn db_client_ok(path: &str) -> bool {
+    let stem = Path::new(path).file_stem().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+    matches!(stem.as_str(), "mysql" | "mariadb" | "psql")
+}
+
+/// Looks for installed database clients on the PATH and in the usual install folders (XAMPP, WAMP, MariaDB, MySQL, PostgreSQL, Homebrew).
+#[tauri::command]
+async fn db_detect() -> Res<Vec<DbClient>> {
+    let mut cands: Vec<(String, String)> = Vec::new();
+    for (k, n) in [("mysql", "mysql"), ("mysql", "mariadb"), ("postgres", "psql")] {
+        cands.push((k.into(), n.into()));
+    }
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    for d in ["C:/xampp/mysql/bin", "C:/wamp64/bin/mariadb", "C:/laragon/bin/mysql", "/opt/homebrew/bin", "/usr/local/bin", "/opt/lampp/bin", "/Applications/XAMPP/xamppfiles/bin"] {
+        dirs.push(PathBuf::from(d));
+    }
+    for base in ["C:/Program Files/MariaDB", "C:/Program Files/MySQL", "C:/Program Files/PostgreSQL", "/usr/local/mysql"] {
+        if let Ok(rd) = fs::read_dir(base) {
+            for e in rd.flatten() {
+                dirs.push(e.path().join("bin"));
+            }
+        }
+    }
+    for d in dirs {
+        for n in ["mysql", "mariadb", "psql"] {
+            for ext in ["", ".exe"] {
+                let p = d.join(format!("{n}{ext}"));
+                if p.is_file() {
+                    cands.push((if n == "psql" { "postgres".into() } else { "mysql".into() }, p.to_string_lossy().to_string()));
+                }
+            }
+        }
+    }
+    let mut out: Vec<DbClient> = Vec::new();
+    for (kind, path) in cands {
+        if out.iter().any(|c| c.path == path) {
+            continue;
+        }
+        if let Ok(o) = quiet(&path).arg("--version").stdin(Stdio::null()).output() {
+            if o.status.success() {
+                let v = String::from_utf8_lossy(&o.stdout).lines().next().unwrap_or("").trim().to_string();
+                out.push(DbClient { kind, path, version: v });
+            }
+        }
+    }
+    Ok(out)
+}
+
+#[derive(Deserialize)]
+struct DbConn {
+    kind: String,
+    client: Option<String>,
+    host: Option<String>,
+    port: Option<u16>,
+    user: Option<String>,
+    database: Option<String>,
+    password: Option<String>,
+}
+
+fn db_word(v: &Option<String>, def: &str, what: &str) -> Res<String> {
+    let t = v.clone().unwrap_or_default();
+    let t = if t.trim().is_empty() { def.to_string() } else { t.trim().to_string() };
+    if t.len() > 128 || !t.chars().all(|c| c.is_ascii_alphanumeric() || "_.:@-".contains(c)) {
+        return Err(format!("{what} may only contain letters, digits and _ . : @ -"));
+    }
+    Ok(t)
+}
+
+/// Runs SQL (sent on stdin) with the installed client and returns what it printed. MySQL/MariaDB: tab-separated with a header line (\n \t \\ escaped, NULL as NULL); PostgreSQL: CSV (NULL as \N).
+#[tauri::command]
+async fn db_cli(conn: DbConn, sql: String) -> Res<String> {
+    if sql.len() > 8_000_000 {
+        return Err("that SQL is too large".into());
+    }
+    let host = db_word(&conn.host, "127.0.0.1", "The host")?;
+    let user = db_word(&conn.user, if conn.kind == "postgres" { "postgres" } else { "root" }, "The user name")?;
+    let dbname = db_word(&conn.database, "", "The database name")?;
+    let port = conn.port.unwrap_or(if conn.kind == "postgres" { 5432 } else { 3306 });
+    let pw = conn.password.clone().unwrap_or_default();
+    let bin = match conn.client.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
+        Some(c) => {
+            if !db_client_ok(c) {
+                return Err("The client must be mysql, mariadb or psql.".into());
+            }
+            c.to_string()
+        }
+        None => if conn.kind == "postgres" { "psql".into() } else { "mysql".into() },
+    };
+    let mut cmd = quiet(&bin);
+    match conn.kind.as_str() {
+        "mysql" => {
+            cmd.args(["--batch", "--default-character-set=utf8mb4", "--connect-timeout=8", "-h", &host, "-P", &port.to_string(), "-u", &user]);
+            if !dbname.is_empty() {
+                cmd.arg(&dbname);
+            }
+            cmd.env("MYSQL_PWD", &pw);
+        }
+        "postgres" => {
+            cmd.args(["-X", "-q", "--csv", "-P", "null=\\N", "-v", "ON_ERROR_STOP=1", "-h", &host, "-p", &port.to_string(), "-U", &user]);
+            if !dbname.is_empty() {
+                cmd.args(["-d", &dbname]);
+            }
+            cmd.env("PGPASSWORD", &pw).env("PGCONNECT_TIMEOUT", "8");
+        }
+        _ => return Err("unknown database type".into()),
+    }
+    let mut child = cmd
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("could not start {bin}: {e}. Install the {} command-line client or choose its location.", if conn.kind == "postgres" { "PostgreSQL (psql)" } else { "MySQL / MariaDB (mysql)" }))?;
+    let pid = child.id();
+    if let Some(mut i) = child.stdin.take() {
+        use std::io::Write;
+        let data = sql.into_bytes();
+        std::thread::spawn(move || {
+            let _ = i.write_all(&data);
+        });
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(child.wait_with_output());
+    });
+    match rx.recv_timeout(Duration::from_secs(90)) {
+        Ok(Ok(o)) => {
+            if o.stdout.len() > 40_000_000 {
+                return Err("that result is too large – add a LIMIT".into());
+            }
+            if o.status.success() {
+                Ok(String::from_utf8_lossy(&o.stdout).to_string())
+            } else {
+                let e = String::from_utf8_lossy(&o.stderr).trim().to_string();
+                Err(if e.is_empty() { "the database client reported an error".into() } else { e })
+            }
+        }
+        Ok(Err(e)) => Err(err(e)),
+        Err(_) => {
+            kill_tree(pid);
+            Err("the database did not answer within 90 seconds".into())
+        }
+    }
 }
 
 /* ---------- Local preview server: serves a project folder over http://127.0.0.1:<port>/ so previews run with a real origin
@@ -1242,8 +1547,8 @@ pub fn run() {
                 }
                 if let Ok(mut map) = window.app_handle().state::<PhpState>().inner().0.lock() {
                     for (_, mut c) in map.drain() {
-                        let _ = c.kill();
-                        let _ = c.wait();
+                        let _ = c.child.kill();
+                        let _ = c.child.wait();
                     }
                 }
             }
@@ -1261,9 +1566,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             fs_open_folder, fs_open_file, fs_save_as, fs_pick_files, fs_read_dir, fs_read_file, fs_read_base64, fs_write_file,
-            fs_write_base64, fs_create, fs_remove, fs_rename, fs_exists, fs_reveal, fs_list_files, fs_search, ext_list, ext_save,
+            fs_write_base64, fs_create, fs_remove, fs_rename, fs_exists, fs_mtime, fs_reveal, fs_list_files, fs_search, ext_list, ext_save,
             ext_remove, ext_import, ext_open_dir, settings_load, settings_save, secret_get, secret_set, app_info, app_clean,
-            http_request, http_download, run_start, run_poll, run_cancel, open_url, php_check, php_start, php_stop, serve_start, serve_stop, server_start, server_status, server_stop,
+            http_request, http_download, run_start, run_poll, run_cancel, term_start, term_write, php_status, php_log, db_detect, db_cli, open_url, php_check, php_start, php_stop, serve_start, serve_stop, server_start, server_status, server_stop,
             updater_check, updater_install, app_restart, app_launch_files
         ])
         .build(tauri::generate_context!())

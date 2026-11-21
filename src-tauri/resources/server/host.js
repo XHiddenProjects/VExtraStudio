@@ -25,12 +25,12 @@ const der = {
   bits: (b) => der.tlv(0x03, Buffer.from([0]), b), octets: (b) => der.tlv(0x04, b),
 };
 /** Self-signed server certificate for `names` (host names and IP addresses). Returns { cert, key, fingerprint, notAfter } as PEM strings. */
-function selfSigned(names, days = 365) {
+function selfSigned(names, days = 365) { // `days` may be fractional (e.g. 0.5 = 12 h)
   const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
   const serial = crypto.randomBytes(16); serial[0] &= 0x7f; if (!serial[0]) serial[0] = 1;
   const alg = der.seq(der.oid('1.2.840.113549.1.1.11'), Buffer.from([5, 0]));
   const name = der.seq(der.set(der.seq(der.oid('2.5.4.3'), der.utf8('Vextra Studio local server'))));
-  const from = new Date(Date.now() - 3600e3), to = new Date(Date.now() + days * 86400e3);
+  const from = new Date(Date.now() - 300e3), to = new Date(Date.now() + Math.max(days, 0.01) * 86400e3);
   const san = names.map((n) => { const ip = /^\d+\.\d+\.\d+\.\d+$/.test(n) ? Buffer.from(n.split('.').map(Number)) : null; return ip ? der.tlv(0x87, ip) : der.tlv(0x82, Buffer.from(n)); });
   const ext = der.tlv(0xa3, der.seq(
     der.seq(der.oid('2.5.29.19'), Buffer.from([1, 1, 0xff]), der.octets(der.seq())),
@@ -43,6 +43,17 @@ function selfSigned(names, days = 365) {
 }
 
 /* ---------------------------------------------------------------- UPnP (best effort; many routers have it switched off) */
+const PRIVATE_IP = /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|0\.)/;
+/** Finds this computer's public IPv4 address by asking a plain-text "what is my IP" service (the service sees your IP – that is the point). */
+async function detectPublicIp() {
+  for (const u of ['https://api.ipify.org', 'https://ipv4.icanhazip.com', 'https://ifconfig.me/ip']) {
+    try {
+      const t = await new Promise((res, rej) => { const r = https.get(u, { timeout: 4000, headers: { 'user-agent': 'vextra-studio' } }, (x) => { let b = ''; x.on('data', (d) => { b += d; if (b.length > 100) r.destroy(); }); x.on('end', () => res(b.trim())); }); r.on('timeout', () => r.destroy(new Error('timeout'))); r.on('error', rej); });
+      if (/^\d{1,3}(\.\d{1,3}){3}$/.test(t) && !PRIVATE_IP.test(t)) return t;
+    } catch { /* try the next one */ }
+  }
+  return '';
+}
 function lanIp() { for (const l of Object.values(os.networkInterfaces())) for (const a of l || []) if (a.family === 'IPv4' && !a.internal) return a.address; return ''; }
 function httpText(url, opts = {}, body) { return new Promise((resolve, reject) => { const u = new URL(url); const r = http.request({ hostname: u.hostname, port: u.port, path: u.pathname + u.search, method: opts.method || 'GET', headers: opts.headers, timeout: 4000 }, (res) => { let s = ''; res.on('data', (c) => { s += c; if (s.length > 2e5) res.destroy(); }); res.on('end', () => resolve({ status: res.statusCode, body: s })); }); r.on('timeout', () => r.destroy(new Error('timeout'))); r.on('error', reject); if (body) r.write(body); r.end(); }); }
 async function upnpFind() {
@@ -59,7 +70,7 @@ const upnpClose = (g, port) => soap(g, 'DeletePortMapping', `<NewRemoteHost></Ne
 /* ---------------------------------------------------------------- the host */
 module.exports = function createHost({ DATA, PORT, handler }) {
   const CFG = path.join(DATA, 'host.json'), CERT = path.join(DATA, 'certs');
-  let cfg = { mode: 'tunnel', directPort: 8788, https: false, invite: '', hostname: '', token: '', hours: 4 };
+  let cfg = { mode: 'tunnel', directPort: 8788, publicHost: '', https: false, invite: '', hostname: '', token: '', hours: 4 };
   try { Object.assign(cfg, JSON.parse(fs.readFileSync(CFG, 'utf8'))); } catch { /* first run */ }
   const saveCfg = () => { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(CFG, JSON.stringify(cfg), { mode: 0o600 }); };
   const newInvite = () => crypto.randomBytes(5).toString('hex');
@@ -107,6 +118,7 @@ module.exports = function createHost({ DATA, PORT, handler }) {
     if (tunnel) { try { tunnel.kill(); } catch { /* gone */ } tunnel = null; }
     if (direct) { try { direct.close(); direct.closeAllConnections && direct.closeAllConnections(); } catch { /* closed */ } direct = null; }
     if (mapping) { upnpClose(mapping.g, cfg.directPort); mapping = null; }
+    deleteCert(); // the certificate only lives as long as the sharing does
     Object.assign(st, { on: false, mode: '', url: '', ip: '', busy: '', upnp: '', since: 0, until: 0 });
   }
   function startTunnel() {
@@ -124,11 +136,17 @@ module.exports = function createHost({ DATA, PORT, handler }) {
   }
   async function startDirect() {
     const port = cfg.directPort; let opts = null;
-    if (cfg.https) { try { opts = { cert: fs.readFileSync(path.join(CERT, 'server.crt')), key: fs.readFileSync(path.join(CERT, 'server.key')) }; } catch { throw new Error('HTTPS is on but there is no certificate yet – create one first (Settings → Hosting → Certificate).'); } }
+    let ip = ''; let mapErr = '';
+    try { mapping = await upnpOpen(port); ip = mapping.ip; st.upnp = 'Router port opened automatically (UPnP).'; } catch (e) { mapping = null; mapErr = e.message; }
+    if (cfg.publicHost) ip = cfg.publicHost;   // an address you typed in wins
+    else if (!ip || PRIVATE_IP.test(ip)) ip = (await detectPublicIp()) || '';   // the router may report a private address (double NAT / CGNAT): ask the internet instead
+    if (mapErr) st.upnp = mapErr + ` Forward TCP port ${port} to this computer (${lanIp() || 'its LAN address'}) in your router.`;
+    if (!ip) throw new Error('Could not find your public IP address automatically (no internet?). Type it into “Your public address” or check the connection.');
+    if (cfg.https) { const c = makeCertFor(ip); opts = { cert: c.cert, key: c.key }; }
     const srv = opts ? https.createServer(opts, handler) : http.createServer(handler);
-    await new Promise((res, rej) => { srv.once('error', (e) => rej(new Error(e.code === 'EADDRINUSE' ? `Port ${port} is already in use.` : e.message))); srv.listen(port, '0.0.0.0', res); }); direct = srv;
-    let ip = ''; try { mapping = await upnpOpen(port); ip = mapping.ip; st.upnp = 'Router port opened automatically (UPnP).'; } catch (e) { mapping = null; st.upnp = e.message + ` Forward TCP port ${port} to this computer (${lanIp() || 'its LAN address'}) in your router.`; }
-    return { url: `${opts ? 'https' : 'http'}://${ip || '<your public IP>'}:${port}`, ip };
+    try { await new Promise((res, rej) => { srv.once('error', (e) => rej(new Error(e.code === 'EADDRINUSE' ? `Port ${port} is already in use.` : e.message))); srv.listen(port, '0.0.0.0', res); }); } catch (e) { if (mapping) { upnpClose(mapping.g, port); mapping = null; } deleteCert(); throw e; }
+    direct = srv;
+    return { url: `${opts ? 'https' : 'http'}://${ip}:${port}`, ip };
   }
   async function start(mode) {
     if (st.on || st.busy) throw new Error('Already ' + (st.on ? 'public' : 'starting') + '.'); mode = mode === 'direct' ? 'direct' : 'tunnel'; cfg.mode = mode; saveCfg(); st.error = ''; st.busy = mode;
@@ -139,22 +157,30 @@ module.exports = function createHost({ DATA, PORT, handler }) {
     } catch (e) { stopAll(); st.error = e.message; throw e; } finally { st.busy = ''; }
   }
   const certInfo = () => { try { const x = new crypto.X509Certificate(fs.readFileSync(path.join(CERT, 'server.crt'))); return { ready: true, fingerprint: x.fingerprint256, notAfter: Date.parse(x.validTo), names: x.subjectAltName || '' }; } catch { return { ready: false }; } };
+  /** how long a certificate should live: exactly as long as the sharing (the "stop after" setting; 30 days at most when it never stops) */
+  const certDays = () => (cfg.hours > 0 ? cfg.hours / 24 : 30);
+  function makeCertFor(ip) {
+    const names = ['localhost', '127.0.0.1', os.hostname(), lanIp(), ip].filter(Boolean); if (cfg.hostname) names.push(cfg.hostname.replace(/^https?:\/\//, '').replace(/[:/].*$/, ''));
+    const c = selfSigned([...new Set(names)], certDays()); fs.mkdirSync(CERT, { recursive: true }); fs.writeFileSync(path.join(CERT, 'server.crt'), c.cert); fs.writeFileSync(path.join(CERT, 'server.key'), c.key, { mode: 0o600 }); return c;
+  }
+  function deleteCert() { let had = false; for (const f of ['server.crt', 'server.key']) { try { fs.unlinkSync(path.join(CERT, f)); had = true; } catch { /* not there */ } } return had; }
   function makeCert() {
     if (st.on) throw new Error('Make the server private first, then create the certificate.');
-    const names = ['localhost', '127.0.0.1', os.hostname(), lanIp()].filter(Boolean); if (cfg.hostname) names.push(cfg.hostname.replace(/^https?:\/\//, '').replace(/[:/].*$/, ''));
-    const c = selfSigned([...new Set(names)]); fs.mkdirSync(CERT, { recursive: true }); fs.writeFileSync(path.join(CERT, 'server.crt'), c.cert); fs.writeFileSync(path.join(CERT, 'server.key'), c.key, { mode: 0o600 }); return certInfo();
+    makeCertFor(''); return certInfo();
   }
-  function status() { const bin = findCloudflared(); return { ...st, config: { mode: cfg.mode, directPort: cfg.directPort, https: cfg.https, invite: cfg.invite, hostname: cfg.hostname, hasToken: !!cfg.token, hours: cfg.hours }, cloudflared: { found: !!bin, canDownload: !!assetName() }, cert: certInfo(), lan: lanIp() }; }
+  function removeCert() { if (st.on && cfg.https && st.mode === 'direct') throw new Error('The certificate is in use. Make the server private first.'); deleteCert(); return status(); }
+  function status() { const bin = findCloudflared(); return { ...st, config: { mode: cfg.mode, directPort: cfg.directPort, publicHost: cfg.publicHost, https: cfg.https, invite: cfg.invite, hostname: cfg.hostname, hasToken: !!cfg.token, hours: cfg.hours }, cloudflared: { found: !!bin, canDownload: !!assetName() }, cert: certInfo(), lan: lanIp() }; }
   function config(b) {
     if (st.on || st.busy) throw new Error('Make the server private before changing these settings.');
     if (b.mode != null) cfg.mode = b.mode === 'direct' ? 'direct' : 'tunnel';
     if (b.directPort != null) { const n = Math.round(+b.directPort); if (!(n >= 1024 && n <= 65535) || n === PORT) throw new Error('Pick a port between 1024 and 65535 (not ' + PORT + ').'); cfg.directPort = n; }
+    if (b.publicHost != null) { const v = String(b.publicHost).trim(); if (v && !/^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$/i.test(v)) throw new Error('That is not a valid IP address or domain name.'); cfg.publicHost = v.toLowerCase(); }
     if (b.https != null) cfg.https = !!b.https; if (b.hours != null) { const h = Math.round(+b.hours); if (!(h >= 0 && h <= 168)) throw new Error('Stop-after must be 0 (never) to 168 hours.'); cfg.hours = h; }
     if (b.hostname != null) { const h = String(b.hostname).trim().replace(/^https?:\/\//, '').replace(/\/.*$/, ''); if (h && !/^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$/i.test(h)) throw new Error('That is not a valid domain name.'); cfg.hostname = h.toLowerCase(); }
     if (b.token != null) { const t = String(b.token).trim(); if (t && !/^[A-Za-z0-9+/=_-]{20,2000}$/.test(t)) throw new Error('That does not look like a Cloudflare tunnel token.'); cfg.token = t; }
     if (b.newInvite) cfg.invite = newInvite(); saveCfg(); return status();
   }
   process.on('exit', stopAll);
-  return { isAdmin, fromLocal, clientIp, requireInvite, checkInvite, status, config, start, stop: () => { stopAll(); return status(); }, makeCert, downloadCloudflared, selfSigned };
+  return { isAdmin, fromLocal, clientIp, requireInvite, checkInvite, status, config, start, stop: () => { stopAll(); return status(); }, makeCert, removeCert, detectPublicIp, downloadCloudflared, selfSigned };
 };
 module.exports.selfSigned = selfSigned;

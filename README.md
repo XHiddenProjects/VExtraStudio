@@ -39,6 +39,14 @@ Your own projects and games are never deleted. The same clean-up of app data is 
 ## Write a plugin
 Drop a `.js` file in the plugins folder (Plugins panel → Open folder) with a `/** @vx-plugin {...} */` manifest and an optional `/** @vx-docs ... */` block. See `plugins/` for examples and Docs → Plugins → Plugin API.
 
+## What's new in 4.3.x
+- **VXScript editor:** colours, auto-complete while you type, error markers; every block is available as `block TYPE …` / `when block TYPE …`; a full language reference in the docs.
+- **Game settings:** you design the player's settings screen (sound, sensitivity, frame rate and your own sliders/toggles/choices); a *Game settings* block and VXScript statements read and change them.
+- **Hosting:** public address detected automatically; the share certificate expires with the share, is deleted on stop and can be deleted by hand.
+- **PHP:** no console window, status/log/stop, tab closes when the server stops, **PHP settings** with a recommended secure setup.
+- **Databases:** SQLite by default, plus MariaDB/MySQL and PostgreSQL (installed clients); a new database editor that updates itself.
+- **Terminal** panel for npm and other commands (Ctrl+`).
+
 ## What's new in 4.2.x
 - **Host & collaborate (Settings → Host & share).** Private by default. Switch to public to share your server with people outside your device, either through a **ghost domain** (a tunnel address that hides your real IP; the helper download is asked for first) or a **direct port forward** (UPnP). You can create a **self-signed certificate**, hand out **invite codes**, and set an auto-stop timer. Switching back to private stops everything.
 - **Project packs (`.vxpack`).** Double-click one (or File → Open): it is unpacked into its own folder and everything is built: `.vxs` scripts are compiled to blocks, every `.vxgame` is checked, and each game gets a web build in `build/`. Programs and unsafe paths are never written; nothing runs until you press Play.

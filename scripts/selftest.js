@@ -86,6 +86,14 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
   ok(/pauseMenu/.test(R('renderer/js/game/rt-menu.js')) && /rt-menu/.test(R('renderer/js/game/editor/export.js')), 'pause menu runtime is exported with games');
   ok(/icon: 'save'/.test(R('plugins/backup.js')), 'backup add-on uses the save-disk icon');
   ok(/vxscript/.test(R('renderer/index.html')) && /pack\.js/.test(R('renderer/index.html')), 'vxscript and pack scripts loaded');
+  ok(/vxscript/.test(R('renderer/js/editor/vxscript-mode.js')) && /vxscript-mode/.test(R('renderer/index.html')) && /vxs: 'vxscript'/.test(R('renderer/js/editor/code-editor.js')), 'VXScript editor mode (highlight + autocomplete) wired');
+  ok(/CodeEditor/.test(R('renderer/js/game/editor/vxscript-ui.js')), 'VXScript window uses the code editor');
+  ok(/blockSpec/.test(R('renderer/js/game/vxscript.js')) && /when block/.test(R('renderer/js/game/vxscript.js')), 'VXScript supports every block');
+  ok(/vxscript-lang/.test(R('renderer/js/docs/content.js')), 'VXScript language reference present');
+  ok(/deleteCert/.test(R('server/host.js')) && /cert\/delete/.test(R('server/server.js')) && /detectPublicIp/.test(R('server/host.js')), 'host: auto IP and certificate deletion');
+  ok(/creation_flags\(0x0800_0000\)/.test(R('src-tauri/src/lib.rs')) && /php_stop/.test(R('src-tauri/src/lib.rs')), 'PHP server runs without a console window');
+  ok(/phpRecommended/.test(R('renderer/js/web/phpconfig.js')) && /terminal/.test(R('renderer/js/web/terminal.js')) && /dbdrivers/.test(R('renderer/index.html')), 'PHP settings, terminal and database drivers present');
+  ok(/gameSettings/.test(R('renderer/js/game/blocks-flow.js')), 'Game settings block present');
 }
 (async () => {
   for (let i = 0; i < 30; i++) { if ((await call('GET', '/api/health')).status === 200) break; await new Promise((r) => setTimeout(r, 150)); }

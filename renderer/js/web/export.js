@@ -216,13 +216,28 @@ Security checklist: serve over HTTPS, keep the db/ folder private, never commit 
   /* ------------------------------------------------------------ PHP preview (desktop app: runs `php -S`) */
   Web.openPhp = async function (src) {
     if (!S.root) return VX.ui.toast('Open a project folder first.', 'warn');
+    const root = S.root;
     try {
-      const info = await window.native.php.start(S.root);
-      const rel = src && src.path ? VX.path.rel(S.root, src.path) : '';
-      const url = info.url + (/\.php$/i.test(rel) || /\.html?$/i.test(rel) ? rel : ''); VX.bottom && VX.bottom.log('info', `PHP server (${info.version}) running at ${info.url}`, 'php');
+      const defines = Web.phpDefines ? await Web.phpDefines() : [];
+      const info = await window.native.php.start(root, defines);
+      const rel = src && src.path ? VX.path.rel(root, src.path) : '';
+      const url = info.url + (/\.php$/i.test(rel) || /\.html?$/i.test(rel) ? rel : ''); VX.bottom && VX.bottom.log('info', `PHP server (${info.version}) running at ${info.url}${defines.length ? ' · ' + defines.length + ' project settings applied' : ''}`, 'php');
       const frame = h('iframe', { class: 'pv-frame', src: url, style: 'width:100%;height:100%;border:0;background:#fff' });
-      const bar = h('div', { class: 'pv-bar' }, h('button', { class: 'btn sm', title: 'Reload', onclick: () => { frame.src = frame.src; } }, VX.icon('refresh', 14)), h('span', { class: 'tag' }, url), h('span', { class: 'spacer' }), h('button', { class: 'btn sm', onclick: () => window.open(url, '_blank') }, 'Open in browser'), h('button', { class: 'btn sm', onclick: async () => { await window.native.php.stop(S.root); VX.ui.toast('PHP server stopped'); } }, 'Stop server'));
-      return VX.tabs.open({ kind: 'preview', key: 'php:' + S.root, title: 'PHP: ' + (rel || 'site'), icon: 'play', container: h('div', { class: 'pv', style: 'display:flex;flex-direction:column;height:100%' }, bar, frame), refresh() { frame.src = frame.src; }, onClose() { window.native.php.stop(S.root).catch(() => {}); } });
+      const dot = h('span', { class: 'pv-dot on', title: 'PHP server is running' }); const logBox = h('pre', { class: 'pv-log', style: 'display:none' });
+      let tab = null, timer = 0, closed = false; const stopWatching = () => { closed = true; clearInterval(timer); };
+      const stopServer = async () => { stopWatching(); await window.native.php.stop(root).catch(() => {}); if (tab) VX.tabs.close(tab.id, true); VX.ui.toast('PHP server stopped'); };
+      const bar = h('div', { class: 'pv-bar' }, dot, h('button', { class: 'btn sm', title: 'Reload', onclick: () => { frame.src = frame.src; } }, VX.icon('refresh', 14)), h('span', { class: 'tag' }, url), h('span', { class: 'spacer' }),
+        h('button', { class: 'btn sm', title: 'Server messages: requests, warnings and errors', onclick: () => { logBox.style.display = logBox.style.display === 'none' ? 'block' : 'none'; } }, 'Server log'),
+        h('button', { class: 'btn sm', title: 'Edit the PHP settings, or apply the recommended secure setup', onclick: () => Web.openPhpSettings && Web.openPhpSettings(() => { stopWatching(); VX.tabs.close(tab.id, true).then(() => Web.openPhp(src)); }) }, '⚙ PHP settings'),
+        h('button', { class: 'btn sm', onclick: () => window.open(url, '_blank') }, 'Open in browser'), h('button', { class: 'btn sm danger', onclick: stopServer }, 'Stop server'));
+      tab = await VX.tabs.open({ kind: 'preview', key: 'php:' + root, title: 'PHP: ' + (rel || 'site'), icon: 'play', container: h('div', { class: 'pv', style: 'display:flex;flex-direction:column;height:100%' }, bar, frame, logBox), refresh() { frame.src = frame.src; }, onClose() { stopWatching(); window.native.php.stop(root).catch(() => {}); } });
+      /* when the server stops by itself (crash, closed from outside, PHP quit) the tab closes too */
+      timer = setInterval(async () => {
+        if (closed) return; let alive = true; try { alive = await window.native.php.status(root); } catch { /* ignore */ }
+        try { const lines = await window.native.php.log(root); if (lines.length) { logBox.textContent += lines.join('\n') + '\n'; logBox.scrollTop = logBox.scrollHeight; for (const l of lines) if (/(Fatal|Warning|Parse error|Notice|Deprecated)/i.test(l)) VX.bottom && VX.bottom.log(/Fatal|Parse/i.test(l) ? 'error' : 'warn', l, 'php'); } } catch { /* ignore */ }
+        if (!alive) { stopWatching(); dot.className = 'pv-dot'; VX.ui.toast('The PHP server stopped – its tab was closed.', 'warn'); VX.tabs.close(tab.id, true); }
+      }, 1500);
+      return tab;
     } catch (e) { VX.ui.toast(e.message || String(e), 'error'); }
   };
 })();

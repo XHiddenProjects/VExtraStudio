@@ -35,7 +35,7 @@
     I.listen(window, 'keyup', (e) => { const k = keyName(e), code = String(e.code || '').toLowerCase(); I.keys.delete(k); I.keys.delete(code); I.released.add(k); I.released.add(code); I.emit('keyup', { key: k, code }); });
     I.listen(window, 'blur', () => { I.keys.clear(); });
     I.listen(c, 'mousemove', (e) => {
-      if (I.locked) { I.emit('lockedmove', { dx: e.movementX, dy: e.movementY }); }
+      if (I.locked) { const sk = (g.prefs && g.prefs.sens) || 1; I.emit('lockedmove', { dx: e.movementX * sk, dy: e.movementY * sk }); }
       I.updatePointer(e.clientX, e.clientY); I.mouse.inside = true; I.emit('mousemove', { x: I.mouse.x, y: I.mouse.y, sx: I.mouse.sx, sy: I.mouse.sy });
     });
     I.listen(c, 'mouseleave', () => { I.mouse.inside = false; });

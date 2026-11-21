@@ -907,6 +907,21 @@ const one  = await VXDB.get('SELECT * FROM todos WHERE id = ?', [1]);
 ## PHP
 Edit PHP anywhere. In the **desktop app**, **Run PHP** (toolbar on \`.php\` files) starts PHP's built-in server for your project and shows the page. This needs **PHP installed on your computer** (and the \`pdo_sqlite\` extension for databases). Use the **PHP + SQLite site** template for a working example. PHP's built-in server does not read \`.htaccess\`, so it is for development only.
 
+### PHP settings & the recommended secure setup
+**PHP settings** (in the PHP bar, or Command Palette → *PHP: settings & recommended secure setup…*) edits the options your project's PHP server runs with. They are stored in \`.vextra/php.ini\` inside your project and passed to PHP when it starts, **on top of** your system \`php.ini\` (extensions are never changed). The list shows each option with a plain-language explanation.
+
+**Apply recommended secure setup** fills in the values that meet common hardening guidance: \`display_errors=Off\`, \`expose_php=Off\`, \`allow_url_include=Off\`, \`allow_url_fopen=Off\`, \`session.cookie_httponly=On\`, \`session.cookie_samesite=Lax\`, \`session.use_strict_mode=On\`, \`session.use_only_cookies=On\`, \`log_errors=On\` and the dangerous functions (\`exec\`, \`system\`, \`passthru\`, \`shell_exec\`, \`proc_open\`, \`popen\`) in \`disable_functions\`. You review the changes before they are saved. Restart the PHP server to apply.
+
+The PHP window shows a **status dot** (green running, grey stopped), the server **log**, and **Stop server**. The server runs with **no console window**, and when it stops (stopped by you, or it exits) its preview tab **closes automatically**.
+
+## Other databases (MariaDB, MySQL, PostgreSQL)
+The database tab works with **SQLite by default**. Use **Source…** to connect to **MariaDB / MySQL** or **PostgreSQL** instead, **if the client is installed on your computer** (\`mariadb\`/\`mysql\` or \`psql\` – Vextra detects them). Vextra talks to the server through that client; **passwords are passed through an environment variable, never on a command line, and never saved** unless you tick *remember* (the password itself is not stored in the project; only host, port, user and database name are, in \`.vextra/db.json\`).
+
+The same editor works for every source: tables list with filter, sorting, search, paging, **Add / Edit / Duplicate row** (errors are shown in the form), bulk delete, **Structure** view, **new table** dialog, CSV export. The view **updates itself** when the database changes (your PHP code, the terminal or another tool), and only redraws if something actually changed. Live previews (\`VXDB\`) always use the project's SQLite database.
+
+## Terminal
+Open **Terminal** in the bottom panel (**Ctrl+\`**) to run commands in your project folder: \`npm install\`, \`npm run build\`, \`php -v\`, \`git status\` … Output streams live; type into running programs; **Ctrl+C** stops one. \`cd\` works (it cannot leave your computer's permissions, of course). The Command Palette has *Terminal: open* and *Terminal: npm install*. The terminal is available in the desktop app; in the browser it explains what is missing.
+
 ## Local server preview
 In the preview bar, **🌐 Local server** (desktop app) serves the page over a real \`http://127.0.0.1\` address, so relative \`fetch()\`, ES modules and storage behave like a real site. It reloads when you save.
 
@@ -938,23 +953,9 @@ Options: \`node scripts/uninstall.js --mode=clean|full --auto --dry-run --keep-d
 
 You can also clean app data from **Settings → About & maintenance**.`);
 
-  A('vxscript', 'Making games', 'VXScript, packs & Night Shift', `# VXScript, project packs & the Night Shift game
+  A('vxscript', 'Making games', 'Project packs & Night Shift', `# Project packs & the Night Shift game
 
-## VXScript (\`.vxs\`)
-A small language that is **converted to the block graph** (it is not JavaScript). Press **📜** in the game editor to paste or open a script; it becomes normal blocks you can keep editing.
-
-\`\`\`
-behavior "Player controls"
-when key space pressed:
-    jump
-when touching tag:coin:
-    destroy other
-    score += 1
-    if score >= 5:
-        show toast "You win!" kind success
-\`\`\`
-
-Scripts are compiled, never run. Unknown blocks or ports are reported with the line number.
+> VXScript has its own page: **Making games → VXScript language reference**.
 
 ## Project packs (\`.vxpack\`)
 A pack is a ZIP of a project. **Opening one** (double-click, File → Open or the Command Palette) unpacks it into its own folder and builds everything: \`.vxs\` scripts become blocks, every \`.vxgame\` is checked and gets a web build in \`build/\`. Programs (.exe, .sh …) and unsafe paths are never written. Make one with *Pack this folder*.
@@ -963,8 +964,163 @@ A pack is a ZIP of a project. **Opening one** (double-click, File → Open or th
 A 3D found-footage horror game seen through a VHS camcorder (the **VHS Tape** shader block): three levels, four cutscenes, objectives, a flashlight with a battery and a stalker that hunts by sound. It is built **only from blocks**: open it from the game editor's *Examples*, or open \`examples/night-shift/night-shift.vxgame\` from the download, and edit any behaviour in the Logic tab. The folder also has a ready \`.vxpack\` and a web build.
 
 ## Pause menu, frame rate & FPS\nPress **Esc** (or ☰ on a touch screen) in any game: **Resume, Settings, Restart level, Quit**. *Game settings* sets the **frame rate** (automatic or 30–240 FPS), turns the pause menu on or off, and **Debug mode** shows the FPS counter while playing. Players can also change volume, frame rate and the counter in the pause menu; their choice is remembered.\n\n# Hosting & collaborating
-**Settings → Host & share.** Private by default. Public mode offers a **ghost domain** (a tunnel address that hides your real IP; the helper is downloaded only after you agree) or a **direct port forward** (UPnP, which shows your real IP). You can create a self-signed certificate, hand out invite codes and set an auto-stop. Switch back to private to stop everything.
+**Settings → Host & share.** Private by default. Public mode offers a **ghost domain** (a tunnel address that hides your real IP; the helper is downloaded only after you agree) or a **direct port forward** (UPnP, which shows your real IP). For a direct port forward, Vextra **finds your public address by itself** (UPnP, or an address lookup) and shows the full link, e.g. \`https://203.0.113.7:8788\`; if it can't (or you use a domain name), type it under **Your public address** and press Save. The **self-signed certificate** is made for that share, **lives exactly as long as the share** (the same auto-stop time) and is **deleted when sharing stops**; **Delete certificate** removes it earlier (not while it is in use). Hand out invite codes and set an auto-stop as needed. Switch back to private to stop everything.
 
 # Updates & backups
 Your data lives outside the install folder; a safety copy is saved before each update (\`update-backups/\`, last 3). The **Backup** plugin makes your own backups.`);
+
+  /* -------------------------------------------------------------- VXScript language reference (tables are generated from the compiler's own help, so they always match the engine) */
+  const esc = (t) => String(t == null ? '' : t).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  const code = (t) => '```\n' + t + '\n```\n';
+  const vxsRef = () => {
+    const H = (window.VX && VX.vxs && VX.vxs.help) || { triggers: [], statements: [], flow: [], keys: [], anchors: [] };
+    const tbl = (rows) => '| Syntax | What it does |\n|---|---|\n' + rows.map((r) => '| `' + esc(r.usage) + '` | ' + esc(r.desc) + ' |').join('\n') + '\n';
+    const ex = (rows) => rows.filter((r) => r.ex).map((r) => '**' + r.name + '**\n' + code(r.ex)).join('\n');
+    let cat = []; try { cat = VX.vxs.catalog(); } catch (e) { /* not loaded */ }
+    return `# VXScript language reference
+
+VXScript is a small, readable text language for **game logic**. A script is **compiled into the same blocks** you would drag by hand (it is never run as code), so anything you write can be opened in the Logic view, edited visually and exported like any other behaviour. It is the quickest way to write or share logic, to review it in a diff, and to keep it in a \`.vxs\` file next to your game.
+
+Open **📜** in the game editor. The editor has **colour highlighting**, **auto-complete as you type** (**Ctrl+Space** shows every suggestion), and **error markers** in the margin while you write. **Add to this game** turns the script into behaviours.
+
+## 1. A complete example
+${code(`# Platformer controls and a coin counter.
+# Lines that start with "# " are comments.
+behavior "Player"
+
+when start:
+    label hud "Coins: {coins}" at topLeft
+
+when key left held:
+    set velocity x -240
+when key right held:
+    set velocity x 240
+when key space pressed:
+    jump
+    play sound snd_jump volume 0.8
+
+when touching tag:coin enter:
+    destroy other
+    coins += 1
+    play sound snd_coin
+    if coins >= 5:
+        show toast "You found them all!" kind success
+        load level next after 2 seconds
+
+when touching tag:spikes:
+    chance 50%:
+        show toast "Ouch"
+    send hurt
+
+when setting changed difficulty:
+    show toast "Difficulty changed"`)}
+## 2. Lexical rules
+- **One statement per line.** Structure comes from **indentation** (4 spaces; a Tab is accepted). A line that ends with \`:\` opens a block of indented lines.
+- **Comments** start with \`# \` (hash and a space) and run to the end of the line.
+- **Words** are separated by spaces. **Text** goes in double quotes: \`"Hello world"\`. Inside quotes, \`\\"\` is a quote, \`\\n\` a new line, and **\`{name}\`** inserts a variable (\`"Score: {score}"\`).
+- **Numbers** are \`12\`, \`-3.5\`, or a percentage \`30%\`.
+- **Names are case-insensitive for keywords** (\`When\` = \`when\`) but **case-sensitive for variables, objects and tags**.
+- **Targets** after \`when touching\`/\`near\`: \`any\`, \`tag:NAME\` (every object with that tag) or \`name:OBJECT\`. In a rule, \`self\` is the object that owns the behaviour and \`other\` is the one it touched.
+
+## 3. Structure of a script
+${code(`behavior "Name"          # optional: names this group of rules
+when TRIGGER:            # a rule: a trigger and indented actions
+    statement
+    statement
+every 2 seconds:         # timers
+    statement
+after 5 seconds:
+    statement
+always:                  # every frame
+    statement`)}
+\`behavior "Name"\` gives the group a name. **Importing a script with the same name again updates the earlier import** instead of adding a copy. Several behaviours can live in one file (start a new \`behavior\` line).
+
+## 4. Triggers (\`when …:\`)
+${tbl(H.triggers)}
+Valid **KEY** names: ${H.keys.map((k) => '`' + k + '`').join(', ')} (any single letter or digit works too).
+
+${ex(H.triggers)}
+## 5. Statements
+${tbl(H.statements)}
+${ex(H.statements)}
+## 6. Variables and conditions
+Any word you assign to becomes a **game variable**: \`score = 0\`, \`score += 1\`, \`lives -= 1\`, \`speed *= 2\`, \`speed /= 2\`. Variables are numbers or text, are shared by the whole game, saved with checkpoints and shown with \`{name}\` in text.
+
+${tbl(H.flow)}
+${ex(H.flow)}
+\`else:\` must be at the same indentation as its \`if\`/\`chance\`. In an \`if\`, **VARIABLE** may also be \`self.property\` or \`value\` (the signal that arrived in a \`when block\` rule).
+
+## 7. Using any block: \`block\`
+Everything the visual editor can do is available in text, so **no block is out of reach**. ${cat.length ? 'This build has **' + cat.length + '** blocks.' : ''}
+
+### As an action
+${code(`block TYPE setting=value setting="text value" [from INPUT] [out OUTPUT]`)}
+- **TYPE** is the block's id (the table below, or Ctrl+Space after \`block\`).
+- **settings** are \`name=value\`. Quote values with spaces: \`text="Level {level}"\`. Numbers and \`true\`/\`false\` are detected automatically.
+- **from INPUT** picks which input port receives the flow (default: the first); **out OUTPUT** continues from another output port.
+- Unknown types, settings or ports are errors with a suggestion ("Did you mean …?").
+
+### Reacting to a block's outputs
+Blocks with several outputs continue with **\`on PORT:\`** branches:
+End the \`block\` line with \`:\` and indent the \`on\` branches under it:
+${code(`when start:
+    block gameSettings key=difficulty from get:
+        on value:
+            if value == "Hard":
+                show toast "Brave!"
+        on changed:
+            play sound snd_click`)}
+### As a trigger: \`when block\`
+${code(`when block timer interval=3 repeat=false:
+    show toast "Time's up"`)}
+Use a block that produces events (a timer, a sensor, a purchase result …) as the rule's starting point.
+
+## 8. Game settings and the pause menu
+${code(`when key p pressed:
+    open settings            # show the player's settings screen
+    set setting volume 0.5   # volume, sensitivity, fps, showFps, or one of your own
+when key r pressed:
+    reset settings           # back to the defaults
+    close settings
+when setting changed:        # any setting, or: when setting changed difficulty:
+    show toast "Saved"`)}
+The settings screen is **built by you**: *Game settings → Player settings* chooses the built-in options (sound, mouse/touch sensitivity, frame rate, FPS counter, fullscreen) and a **custom settings** list, one per line:
+${code(`brightness | Brightness | slider 0 100 50
+subtitles  | Subtitles  | toggle on
+difficulty | Difficulty | choice Easy,Normal,Hard Normal`)}
+Each custom setting becomes a **game variable** with the same name (use it anywhere as \`{difficulty}\`), is remembered between sessions, and fires \`when setting changed\`. The **Game settings** logic block does the same from the visual editor.
+
+## 9. Errors and warnings
+Compilation stops at the **first error of each rule** and reports the **line number**. Typical messages:
+
+| Message | Meaning |
+|---|---|
+| \`I do not know “word”. Statements: …\` | A misspelled or unsupported statement. The list shows what is allowed. |
+| \`There is no block called “x”. Did you mean “y”?\` | The \`block\` type does not exist. |
+| \`Block “x” has no setting “k”. Settings: …\` | A wrong \`name=value\`. |
+| \`Block “x” has no input / output “p”\` | A wrong \`from\` / \`out\` / \`on\` port. |
+| \`Write block settings as name=value\` | A setting without \`=\`. |
+| \`Missing …\` / \`… must be a number\` | An argument is absent or not numeric. |
+| \`A quote is not closed\` | A \`"\` without its partner. |
+
+Warnings (shown in grey) mark things that will work but look wrong, such as a rule with no actions.
+
+## 10. Grammar summary
+${code(`script     := { behavior | rule }
+behavior   := 'behavior' STRING
+rule       := trigger ':' NEWLINE INDENT { statement } DEDENT
+trigger    := 'when' TRIGGER-ARGS | 'when block' TYPE settings
+            | 'every' NUMBER 'seconds' | 'after' NUMBER 'seconds' | 'always'
+statement  := ACTION args
+            | VAR ('=' | '+=' | '-=' | '*=' | '/=') value
+            | ('if' | 'unless') VAR OP value ':' block [ 'else:' block ]
+            | 'chance' NUMBER '%' ':' block [ 'else:' block ]
+            | 'repeat' NUMBER 'times' ':' block
+            | 'wait' NUMBER 'seconds'
+            | 'block' TYPE settings [ 'from' PORT ] [ 'out' PORT ] [ ':' NEWLINE INDENT { 'on' PORT ':' block } DEDENT ]
+settings   := { NAME '=' (NUMBER | WORD | STRING | 'true' | 'false') }
+OP         := '>' | '<' | '>=' | '<=' | '==' | '!='`)}
+${cat.length ? '## 11. Block types for `block` / `when block`\nThe id, what it does, its settings (with defaults) and its ports:\n\n| Type | Group | Settings | Inputs → Outputs |\n|---|---|---|---|\n' + cat.map((b) => '| `' + b.id + '` | ' + esc(b.cat || '') + ' | ' + esc(b.params.map((q) => q.key + (q.def !== undefined && q.def !== '' ? '=' + q.def : '')).join(', ')) + ' | ' + esc(b.inputs.join(', ') || '–') + ' → ' + esc(b.outputs.join(', ') || '–') + ' |').join('\n') + '\n' : ''}`;
+  };
+  VX.docs.register({ id: 'vxscript-lang', group: 'Making games', title: 'VXScript language reference', get md() { return vxsRef(); } });
 })();

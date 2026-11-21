@@ -2,7 +2,23 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.2.0] — current
+## [4.3.0] — current
+
+### Added
+- **VXScript in the editor:** colour highlighting, auto-complete as you type (statements, triggers, keys, `block` types, settings with defaults, ports), live error markers; the 📜 window now uses the code editor.
+- **Every block in VXScript:** `block TYPE name=value … [from IN] [out OUT]:` with `on PORT:` branches, and `when block TYPE …:`. Unknown types/settings/ports are reported with a suggestion. Quoted values (`text="a b"`) now work in settings.
+- **VXScript language reference** (Docs): lexical rules, triggers, statements, variables, flow, blocks, settings, errors, grammar and a table of all blocks (generated from the compiler).
+- **Game settings:** developer-defined player settings (sound, sensitivity, frame rate, FPS counter, fullscreen + a custom list: slider / toggle / choice), saved per game, exposed as game variables; **Game settings** logic block; VXScript `open/close/reset settings`, `set setting`, `when setting changed`.
+- **Host & share:** the public address is detected automatically (or set by hand); the certificate lasts exactly as long as the share, is deleted when sharing stops, and has a **Delete certificate** button.
+- **PHP:** server runs with no console window; status dot, log, Stop; the tab closes automatically when the server stops; **PHP settings** editor (`.vextra/php.ini`) with a **recommended secure setup**.
+- **Databases:** MariaDB/MySQL and PostgreSQL through installed clients (SQLite stays the default); a rewritten database editor (filter, sort, search, paging, add/edit/duplicate row with in-form errors, bulk delete, structure, new table, CSV export) that **updates automatically**.
+- **Terminal** bottom panel (Ctrl+\`) for npm, php, git and other commands.
+
+### Fixed
+- Add-row sometimes did nothing; the table list now refreshes when tables are created elsewhere.
+- Fixed a refresh loop caused by read-only statements counting as database changes.
+
+## [4.2.0]
 
 ### Added
 - **Host & share** settings: private by default, ghost-domain tunnel, direct port forward (UPnP), self-signed certificates, invite codes, auto-stop (`server/host.js`, `/api/host/*`).
