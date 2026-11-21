@@ -29,7 +29,7 @@
       serve: { start: (root) => inv('serve_start', { root }), stop: (root) => inv('serve_stop', { root: root || null }) },
       server: { start: (port) => inv('server_start', { port: port || null }), status: (port) => inv('server_status', { port: port || null }), stop: () => inv('server_stop') },
       php: { check: () => inv('php_check'), start: (root, defines) => inv('php_start', { root, defines: defines && defines.length ? defines : null }), stop: (root) => inv('php_stop', { root: root || null }), status: (root) => inv('php_status', { root }), log: (root) => inv('php_log', { root }) },
-      term: { start: (cwd, command) => inv('term_start', { cwd, command }), write: (id, text) => inv('term_write', { id, text }) },
+      term: { start: (cwd, command, shell, custom) => inv('term_start', { cwd, command, shell: shell || null, customProgram: custom && custom.program ? custom.program : null, customArgs: custom && Array.isArray(custom.args) ? custom.args : null }), write: (id, text) => inv('term_write', { id, text }), shells: () => inv('term_shells', {}) },
       db: { detect: () => inv('db_detect'), cli: (conn, sql) => inv('db_cli', { conn, sql }) },
       search: (root, query, caseSensitive, useRegex) => inv('fs_search', { root, query, caseSensitive: !!caseSensitive, useRegex: !!useRegex }),
       async importAssets(extensions) {
@@ -99,7 +99,7 @@
     async mtime() { return 0; },
     async reveal() { /* nothing to reveal in a browser */ },
     php: { async check() { throw new Error('Running PHP needs the desktop app (it starts PHP\'s built-in server on your computer). In the browser version you can still edit PHP and export the site.'); }, async start() { return this.check(); }, async stop() {}, async status() { return false; }, async log() { return []; } },
-    term: { async start() { throw new Error('The terminal needs the desktop app.'); }, async write() {} },
+    term: { async start() { throw new Error('The terminal needs the desktop app.'); }, async write() {}, async shells() { return [{ id: 'default', label: 'Default', available: true }]; } },
     db: { async detect() { return []; }, async cli() { throw new Error('MySQL, MariaDB and PostgreSQL need the desktop app (it uses the database client installed on your computer).'); } },
     async listFiles(root) { const r = norm(root); return files().filter((k) => k.startsWith(r + '/')).map((k) => k.slice(r.length + 1)); },
     async search(root, query, cs, rx) {

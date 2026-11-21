@@ -13,8 +13,14 @@ All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://
 - **PHP:** server runs with no console window; status dot, log, Stop; the tab closes automatically when the server stops; **PHP settings** editor (`.vextra/php.ini`) with a **recommended secure setup**.
 - **Databases:** MariaDB/MySQL and PostgreSQL through installed clients (SQLite stays the default); a rewritten database editor (filter, sort, search, paging, add/edit/duplicate row with in-form errors, bulk delete, structure, new table, CSV export) that **updates automatically**.
 - **Terminal** bottom panel (Ctrl+\`) for npm, php, git and other commands.
+- **Edit as VXScript:** right-click a behaviour → its blocks are written as VXScript text; Apply rebuilds them. Lossy cases (loops, merged paths, list settings) are listed first.
+- **Explorer multi-select:** Ctrl/Cmd+click, Shift+click, Ctrl+A, Delete, drag several files, a menu for the selection.
+- **Terminal shell picker:** default, Command Prompt, PowerShell, PowerShell 7, Bash, WSL, Zsh, Fish or a custom program with `{cmd}` arguments.
 
 ### Fixed
+- **AI timeout:** the wait is enforced from the saved lock everywhere (New chat, chat history, Continue, commands) and re-applied when the panel redraws, so a new chat can no longer bypass it.
+- **Certificate:** shows when it was created, how long it is valid and how long is left; flags an expired one; the app warns when the running server is older than the app (the cause of "Unknown hosting action").
+- **Security (CodeQL, incomplete escaping):** backslashes are escaped in PHP settings values (and a value can never add a line), in database LIKE filters and in docs tables.
 - Add-row sometimes did nothing; the table list now refreshes when tables are created elsewhere.
 - Fixed a refresh loop caused by read-only statements counting as database changes.
 

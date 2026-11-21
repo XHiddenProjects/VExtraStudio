@@ -39,7 +39,18 @@
   T.json = mk([[String.raw`"(?:\\.|[^"\\])*"(?=\s*:)`, 'p'], [String.raw`"(?:\\.|[^"\\])*"?`, 's'], [NUM, 'n'], [words('true false null').source, 'l']]);
   T.css = mk([[String.raw`\/\*[\s\S]*?(?:\*\/|$)`, 'c'], [String.raw`"(?:\\.|[^"\\])*"?|'(?:\\.|[^'\\])*'?`, 's'], [String.raw`@[\w-]+`, 'k'], [String.raw`#[0-9a-fA-F]{3,8}\b`, 'n'], [String.raw`-?\d*\.?\d+(?:px|em|rem|%|vh|vw|s|ms|deg|fr)?\b`, 'n'], [String.raw`[\w-]+(?=\s*:(?!\s*[\w-]+\s*\{))`, 'p'], [String.raw`[.#][\w-]+`, 't'], [String.raw`[\w-]+(?=\()`, 'f']]);
   T.html = mk([[String.raw`<!--[\s\S]*?(?:-->|$)`, 'c'], [String.raw`<!doctype[^>]*>`, 'k'], [String.raw`<\/?[A-Za-z][\w:-]*`, 'k'], [String.raw`\/?>`, 'k'], [String.raw`"[^"]*"?|'[^']*'?`, 's'], [String.raw`[\w:@.-]+(?==)`, 'p'], [String.raw`&[#\w]+;`, 'n']]);
-  const ALIAS = { javascript: 'js', jsx: 'js', mjs: 'js', cjs: 'js', ts: 'js', typescript: 'js', tsx: 'js', node: 'js', json: 'json', jsonc: 'json', css: 'css', scss: 'css', less: 'css', html: 'html', htm: 'html', xml: 'html', svg: 'html', vue: 'html', java: 'java', kotlin: 'java', kt: 'java', swift: 'java', scala: 'java', c: 'c', h: 'c', cpp: 'c', 'c++': 'c', cc: 'c', hpp: 'c', cs: 'cs', csharp: 'cs', go: 'go', golang: 'go', rust: 'rust', rs: 'rust', php: 'php', python: 'py', py: 'py', bash: 'sh', sh: 'sh', shell: 'sh', zsh: 'sh', console: 'sh', ruby: 'rb', rb: 'rb', sql: 'sql', sqlite: 'sql', mysql: 'sql', pgsql: 'sql', yaml: 'yml', yml: 'yml', toml: 'yml', ini: 'yml', conf: 'yml', nginx: 'yml', htaccess: 'yml' };
+  /* VXScript (.vxs): the language of the game logic scripts */
+  T.vxs = mk([
+    [String.raw`(?<![\w"])#[^\n]*`, 'c'], [String.raw`"(?:\\.|[^"\\])*"?`, 's'],
+    [String.raw`\b(?:tag|name):[\w-]+`, 'l'], [String.raw`\b[A-Za-z_]\w*(?==)`, 'p'],
+    [String.raw`-?\b\d+(?:\.\d+)?%?`, 'n'],
+    [String.raw`\b(?:behavior|behaviour|when|every|after|always|if|unless|else|chance|repeat|wait|block|on|from|out)\b`, 'k'],
+    [String.raw`\b(?:true|false|self|other|any|next|all|game|scene)\b`, 'l'],
+    [String.raw`\b(?:set|add|stop|jump|push|play|show|destroy|spawn|load|restart|open|close|reset|pause|resume|enable|disable|toggle|send|camera|emit|label|bar|save|rotate|fade|move|say)\b`, 'f'],
+    [String.raw`\b(?:key|click|touching|message|near|visible|setting|start|pressed|held|released|enter|stay|exit|within|leaves|changed|seconds|times|velocity|position|size|rotation|alpha|sound|animation|toast|modal|settings|level|kind|volume|after|over|target|loop)\b`, 't'],
+    [String.raw`\+=|-=|\*=|\/=|==|!=|>=|<=|[<>=]`, 'p'],
+  ]);
+  const ALIAS = { vxs: 'vxs', vxscript: 'vxs', javascript: 'js', jsx: 'js', mjs: 'js', cjs: 'js', ts: 'js', typescript: 'js', tsx: 'js', node: 'js', json: 'json', jsonc: 'json', css: 'css', scss: 'css', less: 'css', html: 'html', htm: 'html', xml: 'html', svg: 'html', vue: 'html', java: 'java', kotlin: 'java', kt: 'java', swift: 'java', scala: 'java', c: 'c', h: 'c', cpp: 'c', 'c++': 'c', cc: 'c', hpp: 'c', cs: 'cs', csharp: 'cs', go: 'go', golang: 'go', rust: 'rust', rs: 'rust', php: 'php', python: 'py', py: 'py', bash: 'sh', sh: 'sh', shell: 'sh', zsh: 'sh', console: 'sh', ruby: 'rb', rb: 'rb', sql: 'sql', sqlite: 'sql', mysql: 'sql', pgsql: 'sql', yaml: 'yml', yml: 'yml', toml: 'yml', ini: 'yml', conf: 'yml', nginx: 'yml', htaccess: 'yml' };
   for (const k of Object.keys(T)) ALIAS[k] = ALIAS[k] || k;
   const norm = (l) => ALIAS[String(l || '').toLowerCase().trim()] || '';
 

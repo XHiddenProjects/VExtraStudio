@@ -38,6 +38,19 @@
   /* ---------- explorer ---------- */
   const expanded = new Set();
   let treeEl = null;
+  /* multi-selection: Ctrl/Cmd+click toggles, Shift+click selects a range, Ctrl+A selects all, Delete removes, Esc clears */
+  const picked = new Set(); let anchor = null;
+  const rowsOf = () => (treeEl ? [...treeEl.querySelectorAll('.tree-row[data-path]')] : []);
+  const mark = () => { for (const r of rowsOf()) r.classList.toggle('picked', picked.has(r.dataset.path)); };
+  const pickRange = (to) => { const rs = rowsOf().map((r) => r.dataset.path); const a = rs.indexOf(anchor), b = rs.indexOf(to); if (a < 0 || b < 0) { picked.clear(); picked.add(to); anchor = to; return; } picked.clear(); for (const q of rs.slice(Math.min(a, b), Math.max(a, b) + 1)) picked.add(q); };
+  /** the picked paths without anything that lives inside another picked folder */
+  const pickedTop = () => { const all = [...picked]; return all.filter((q) => !all.some((o) => o !== q && (q.startsWith(o + '/') || q.startsWith(o + '\\')))); };
+  async function deletePicked() {
+    const list = pickedTop(); if (!list.length) return;
+    if (!(await VX.ui.confirm(`Delete ${list.length} item${list.length === 1 ? '' : 's'}${list.length <= 6 ? ' (' + list.map((q) => VX.path.base(q)).join(', ') + ')' : ''} and everything inside folders? This cannot be undone.`, 'Delete', { danger: true }))) return;
+    let bad = 0; for (const q of list) { try { await VX.tabs.closePath(q); await window.native.remove(q); } catch (er) { bad++; VX.ui.toast(er.message, 'error'); } }
+    picked.clear(); anchor = null; SB.refresh(); if (!bad) VX.ui.toast(`Deleted ${list.length} item${list.length === 1 ? '' : 's'}`, 'ok');
+  }
   async function renderDir(dir, container, depth) {
     let items = []; try { items = await window.native.readDir(dir); } catch (e) { container.append(h('div', { class: 'empty' }, e.message)); return; }
     const hide = new Set(['node_modules', '.git', 'target', '.DS_Store']);
@@ -48,19 +61,41 @@
       const open = expanded.has(it.path);
       const chev = h('span', { class: 'chev' + (open ? ' open' : '') }, it.isDir ? VX.icon('right') : null);
       const row = h('div', { class: 'tree-row ft-' + (cls ? cls.slice(3) : '') + (S.active && VX.tabs.get(S.active)?.path === it.path ? ' active' : ''), style: `padding-left:${8 + depth * 14}px`, 'data-path': it.path, title: it.path,
-        onclick: async () => { if (it.isDir) { open ? expanded.delete(it.path) : expanded.add(it.path); SB.refresh(); } else VX.tabs.open({ path: it.path }); },
-        oncontextmenu: (e) => { e.preventDefault(); e.stopPropagation(); fileMenu(e, it); } }, chev, VX.icon(ic), h('span', { class: 'name' }, it.name));
-      if (cls) row.classList.add(cls);
+        onclick: async (e) => {
+          if (e.ctrlKey || e.metaKey) { picked.has(it.path) ? picked.delete(it.path) : picked.add(it.path); anchor = it.path; mark(); return; }
+          if (e.shiftKey) { pickRange(it.path); mark(); return; }
+          picked.clear(); picked.add(it.path); anchor = it.path; mark();
+          if (it.isDir) { open ? expanded.delete(it.path) : expanded.add(it.path); SB.refresh(); } else VX.tabs.open({ path: it.path }); },
+        oncontextmenu: (e) => { e.preventDefault(); e.stopPropagation(); if (!picked.has(it.path)) { picked.clear(); picked.add(it.path); anchor = it.path; mark(); } if (picked.size > 1) multiMenu(e); else fileMenu(e, it); } }, chev, VX.icon(ic), h('span', { class: 'name' }, it.name));
+      if (cls) row.classList.add(cls); if (picked.has(it.path)) row.classList.add('picked');
       container.append(row);
       if (it.isDir) { VX.dnd.target(row, (d) => moveInto(d, it.path), (d) => d && d.kind === 'file' && d.path !== it.path); }
-      else VX.dnd.draggable(row, () => ({ kind: 'file', path: it.path, name: it.name }), it.name);
+      else VX.dnd.draggable(row, () => ({ kind: 'file', path: it.path, name: it.name, paths: picked.has(it.path) && picked.size > 1 ? [...picked] : null }), picked.has(it.path) && picked.size > 1 ? picked.size + ' files' : it.name);
       if (it.isDir && open) await renderDir(it.path, container, depth + 1);
       } catch (e) { console.warn('explorer row', it.name, e); container.append(h('div', { class: 'tree-row' }, h('span', { class: 'name' }, it.name))); }
     }
     if (!items.length && depth === 0) container.append(h('div', { class: 'empty' }, 'This folder is empty.'));
   }
   async function moveInto(d, dir) {
-    try { const nm = d.name; const src = d.path; const dst = VX.path.join(dir, nm); if (VX.path.dir(src) === dir) return; const txt = await window.native.readBase64(src); await window.native.writeBase64(dst, txt); await window.native.remove(src); VX.tabs.rename(src, dst); SB.refresh(); VX.ui.toast(`Moved ${nm}`, 'ok'); } catch (e) { VX.ui.toast('Move failed: ' + e.message, 'error'); }
+    const list = d.paths && d.paths.length ? d.paths : [d.path]; let ok = 0, skipped = 0;
+    for (const src of list) {
+      try {
+        const nm = VX.path.base(src); const dst = VX.path.join(dir, nm); if (VX.path.dir(src) === dir || src === dir) continue;
+        let isDir = false; try { isDir = (await window.native.readDir(src)).length >= 0; } catch { isDir = false; } if (isDir) { skipped++; continue; } /* folders are not moved by drag and drop */
+        const txt = await window.native.readBase64(src); await window.native.writeBase64(dst, txt); await window.native.remove(src); VX.tabs.rename(src, dst); ok++;
+      } catch (e) { VX.ui.toast('Move failed: ' + e.message, 'error'); }
+    }
+    picked.clear(); SB.refresh(); if (ok) VX.ui.toast(ok === 1 ? `Moved ${VX.path.base(list[0])}` : `Moved ${ok} files`, 'ok'); if (skipped) VX.ui.toast(`${skipped} folder${skipped === 1 ? ' was' : 's were'} not moved (drag files only)`, 'warn');
+  }
+  function multiMenu(e) {
+    const n = picked.size;
+    VX.ui.menu(e.clientX, e.clientY, [
+      { label: `Open ${n} items`, run: async () => { for (const q of [...picked]) { try { const isDir = await window.native.readDir(q).then(() => true, () => false); if (!isDir) await VX.tabs.open({ path: q }); } catch { /* skip */ } } } },
+      { label: `Copy ${n} paths`, run: () => navigator.clipboard && navigator.clipboard.writeText([...picked].join('\n')) },
+      { label: 'Select all', run: () => { for (const r of rowsOf()) picked.add(r.dataset.path); mark(); } },
+      { label: 'Clear selection', run: () => { picked.clear(); mark(); } }, '-',
+      { label: `Delete ${n} items…`, danger: true, run: deletePicked },
+    ]);
   }
   async function fileMenu(e, it) {
     const dir = it.isDir ? it.path : VX.path.dir(it.path);
@@ -82,7 +117,12 @@
     render(c) {
       if (!S.root) { c.append(h('div', { class: 'empty' }, h('p', {}, 'No folder open.'), h('button', { class: 'btn primary', onclick: () => VX.app.openFolder() }, VX.icon('folder', 14), 'Open folder'), h('div', {}, h('button', { class: 'btn', onclick: () => VX.app.newProject() }, VX.icon('plus', 14), 'New project')))); return; }
       c.append(h('div', { class: 'group-title', title: S.root }, VX.path.base(S.root), h('span', { class: 'tag' }, VX.app.settings.mode)));
-      treeEl = h('div', { class: 'tree' }); c.append(treeEl); renderDir(S.root, treeEl, 0);
+      treeEl = h('div', { class: 'tree', tabindex: '0', style: 'outline:none' }); c.append(treeEl); renderDir(S.root, treeEl, 0);
+      treeEl.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); for (const r of rowsOf()) picked.add(r.dataset.path); mark(); }
+        else if (e.key === 'Escape') { picked.clear(); mark(); }
+        else if (e.key === 'Delete' && picked.size) { e.preventDefault(); deletePicked(); }
+      });
       VX.dnd.target(treeEl, (d) => moveInto(d, S.root), (d) => d && d.kind === 'file');
     },
   };

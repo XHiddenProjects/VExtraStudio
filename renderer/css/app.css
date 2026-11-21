@@ -85,7 +85,7 @@ a { color: var(--accent); }
 
 /* ---------- explorer ---------- */
 .tree-row { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; user-select: none; }
-.tree-row:hover { background: var(--hover); } .tree-row.active { background: var(--sel); }
+.tree-row:hover { background: var(--hover); } .tree-row.active { background: var(--sel); } .tree-row.picked { background: color-mix(in srgb, var(--accent) 22%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
 .tree-row .chev { width: 12px; color: var(--muted); display: grid; place-items: center; } .tree-row .chev .ico { width: 11px; height: 11px; transition: transform .1s; } .tree-row .chev.open .ico { transform: rotate(90deg); }
 .tree-row .name { overflow: hidden; text-overflow: ellipsis; flex: 1; } .tree-row .ico { color: var(--muted); } .tree-row.drop-hover { outline: 1px dashed var(--accent); }
 .ft-game .ico { color: #f778ba; } .ft-ui .ico { color: #58a6ff; } .ft-html .ico { color: #f0883e; } .ft-js .ico { color: #f5c451; } .ft-css .ico { color: #58a6ff; } .ft-json .ico { color: #7ee787; } .ft-img .ico { color: #bc8cff; } .ft-dir .ico { color: #8b949e; }
@@ -326,3 +326,5 @@ input[type=checkbox], input[type=radio] { flex: 0 0 auto; width: 18px; height: 1
 .dbt-field { display: flex; flex-direction: column; gap: 3px; } .dbt-field > label { display: flex; gap: 6px; align-items: baseline; font-size: 12.5px; } .dbt-field .nl { flex: none; margin-left: auto; font-size: 12px; display: inline-flex; gap: 3px; align-items: center; }
 .dbt-field input, .dbt-field textarea, .dbt-field select { width: 100%; box-sizing: border-box; } .dbt-field input:disabled, .dbt-field textarea:disabled { opacity: .45; }
 .frow .hint { white-space: pre-line; }
+
+.term-shell{max-width:190px;height:24px;font-size:12px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0 6px}

@@ -103,7 +103,7 @@
         const r = await one(`SHOW FULL COLUMNS FROM ${qi(t)}`); return (r.sets[0] ? r.sets[0].rows : []).map((x) => ({ name: x[0], type: x[1], nullable: x[3] === 'YES', def: x[5], pk: x[4] === 'PRI', auto: /auto_increment/i.test(x[6] || '') || /DEFAULT_GENERATED/i.test(x[6] || '') }));
       },
       async page(t, o) {
-        const cols = await d.columns(t); const names = cols.map((c) => c.name); const w = o.filter ? ' WHERE ' + names.map((c) => `CAST(${qi(c)} AS ${pg ? 'text' : 'CHAR'}) ${pg ? 'ILIKE' : 'LIKE'} ${lit('%' + o.filter.replace(/[%_]/g, '\\$&') + '%')}`).join(' OR ') : '';
+        const cols = await d.columns(t); const names = cols.map((c) => c.name); const w = o.filter ? ' WHERE ' + names.map((c) => `CAST(${qi(c)} AS ${pg ? 'text' : 'CHAR'}) ${pg ? 'ILIKE' : 'LIKE'} ${lit('%' + o.filter.replace(/[\\%_]/g, '\\$&') + '%')}`).join(' OR ') : '';
         const order = o.sort && names.includes(o.sort) ? ` ORDER BY ${qi(o.sort)} ${o.dir === 'desc' ? 'DESC' : 'ASC'}` : (cols.some((c) => c.pk) ? ' ORDER BY ' + cols.filter((c) => c.pk).map((c) => qi(c.name)).join(', ') : '');
         const total = +(((await one(`SELECT COUNT(*) FROM ${qi(t)}${w}`)).sets[0] || { rows: [[0]] }).rows[0][0]); const r = await one(`SELECT * FROM ${qi(t)}${w}${order} LIMIT ${o.limit} OFFSET ${o.offset}`); const s = r.sets[0] || { columns: names, rows: [] };
         const pks = cols.filter((c) => c.pk).map((c) => c.name); const idx = pks.map((k) => s.columns.indexOf(k));

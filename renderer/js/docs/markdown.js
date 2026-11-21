@@ -16,6 +16,13 @@
     t = t.replace(/\u0000(\d+)\u0000/g, (m, i) => '<code>' + esc(codes[+i]) + '</code>');
     return t;
   }
+  /** splits a table row on `|`; `\|` is a literal pipe and `\\` a literal backslash */
+  function splitRow(line) {
+    const t = line.trim().replace(/^\|/, ''); const cells = []; let cur = '';
+    for (let k = 0; k < t.length; k++) { const ch = t[k]; if (ch === '\\' && (t[k + 1] === '|' || t[k + 1] === '\\')) { cur += t[++k]; } else if (ch === '|') { cells.push(cur.trim()); cur = ''; } else cur += ch; }
+    if (cur.trim() !== '' || !cells.length) cells.push(cur.trim());
+    return cells;
+  }
   function render(md, opts = {}) {
     const lines = String(md || '').replace(/\r/g, '').split('\n'); const out = []; let i = 0; const seen = opts.seen || new Set();
     const isTable = (k) => lines[k] && lines[k].includes('|') && lines[k + 1] && /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(lines[k + 1]);
@@ -25,7 +32,7 @@
       const hm = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(l); if (hm) { const n = hm[1].length; let id = slug(hm[2]) || 'section', k = 2; while (seen.has(id)) id = slug(hm[2]) + '-' + k++; seen.add(id); out.push(`<h${n} id="${id}">${inline(hm[2])}</h${n}>`); i++; continue; }
       if (/^\s*([-*_])\s*\1\s*\1[\s\-*_]*$/.test(l)) { out.push('<hr>'); i++; continue; }
       if (/^>\s?/.test(l)) { const buf = []; while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, '')); out.push(`<blockquote>${render(buf.join('\n'), { seen, plain: opts.plain })}</blockquote>`); continue; }
-      if (isTable(i)) { const row = (s) => s.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()); const head = row(lines[i]); i += 2; const body = []; while (i < lines.length && lines[i].includes('|') && lines[i].trim()) body.push(row(lines[i++])); out.push(`<table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`); continue; }
+      if (isTable(i)) { const row = splitRow;const head = row(lines[i]); i += 2; const body = []; while (i < lines.length && lines[i].includes('|') && lines[i].trim()) body.push(row(lines[i++])); out.push(`<table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`); continue; }
       if (/^\s*([-*+]|\d+\.)\s+/.test(l)) {
         const items = []; const ordered = /^\s*\d+\./.test(l);
         while (i < lines.length && (/^\s*([-*+]|\d+\.)\s+/.test(lines[i]) || (/^\s+\S/.test(lines[i]) && items.length))) {

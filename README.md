@@ -40,6 +40,7 @@ Your own projects and games are never deleted. The same clean-up of app data is 
 Drop a `.js` file in the plugins folder (Plugins panel → Open folder) with a `/** @vx-plugin {...} */` manifest and an optional `/** @vx-docs ... */` block. See `plugins/` for examples and Docs → Plugins → Plugin API.
 
 ## What's new in 4.3.x
+- **Also:** *Edit as VXScript* on any behavior, multi-select in the Explorer, a terminal shell picker (cmd / PowerShell / Bash / custom), a stricter AI cool-down.
 - **VXScript editor:** colours, auto-complete while you type, error markers; every block is available as `block TYPE …` / `when block TYPE …`; a full language reference in the docs.
 - **Game settings:** you design the player's settings screen (sound, sensitivity, frame rate and your own sliders/toggles/choices); a *Game settings* block and VXScript statements read and change them.
 - **Hosting:** public address detected automatically; the share certificate expires with the share, is deleted on stop and can be deleted by hand.

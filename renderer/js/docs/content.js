@@ -920,7 +920,7 @@ The database tab works with **SQLite by default**. Use **Source…** to connect 
 The same editor works for every source: tables list with filter, sorting, search, paging, **Add / Edit / Duplicate row** (errors are shown in the form), bulk delete, **Structure** view, **new table** dialog, CSV export. The view **updates itself** when the database changes (your PHP code, the terminal or another tool), and only redraws if something actually changed. Live previews (\`VXDB\`) always use the project's SQLite database.
 
 ## Terminal
-Open **Terminal** in the bottom panel (**Ctrl+\`**) to run commands in your project folder: \`npm install\`, \`npm run build\`, \`php -v\`, \`git status\` … Output streams live; type into running programs; **Ctrl+C** stops one. \`cd\` works (it cannot leave your computer's permissions, of course). The Command Palette has *Terminal: open* and *Terminal: npm install*. The terminal is available in the desktop app; in the browser it explains what is missing.
+Open **Terminal** in the bottom panel (**Ctrl+\`**) to run commands in your project folder: \`npm install\`, \`npm run build\`, \`php -v\`, \`git status\` … Output streams live; type into running programs; **Ctrl+C** stops one. Pick the **shell** in the drop-down at the left of the bar: the default, Command Prompt, Windows PowerShell, PowerShell 7, Bash (Git Bash / WSL), WSL, Zsh, Fish (only the ones found on your computer are offered) or **Custom…** – any program you choose, with its arguments (one per line, \`{cmd}\` marks where your command goes, e.g. \`-c\` then \`{cmd}\`). The choice is remembered. \`cd\` works (it cannot leave your computer's permissions, of course). The Command Palette has *Terminal: open* and *Terminal: npm install*. The terminal is available in the desktop app; in the browser it explains what is missing.
 
 ## Local server preview
 In the preview bar, **🌐 Local server** (desktop app) serves the page over a real \`http://127.0.0.1\` address, so relative \`fetch()\`, ES modules and storage behave like a real site. It reloads when you save.
@@ -955,7 +955,12 @@ You can also clean app data from **Settings → About & maintenance**.`);
 
   A('vxscript', 'Making games', 'Project packs & Night Shift', `# Project packs & the Night Shift game
 
+> Right-click a behaviour in the Logic list → **Edit as VXScript…** shows its blocks as text; change it and press Apply. Anything VXScript cannot say exactly is listed before you apply.
+
 > VXScript has its own page: **Making games → VXScript language reference**.
+
+## Selecting several files
+In the Explorer, **Ctrl/Cmd+click** adds or removes a file, **Shift+click** selects a range, **Ctrl+A** selects everything visible and **Esc** clears. Right-click a selection to open, copy the paths or **delete** all of it at once (the Delete key does the same); drag a selection onto a folder to move the files.
 
 ## Project packs (\`.vxpack\`)
 A pack is a ZIP of a project. **Opening one** (double-click, File → Open or the Command Palette) unpacks it into its own folder and builds everything: \`.vxs\` scripts become blocks, every \`.vxgame\` is checked and gets a web build in \`build/\`. Programs (.exe, .sh …) and unsafe paths are never written. Make one with *Pack this folder*.
@@ -970,8 +975,8 @@ A 3D found-footage horror game seen through a VHS camcorder (the **VHS Tape** sh
 Your data lives outside the install folder; a safety copy is saved before each update (\`update-backups/\`, last 3). The **Backup** plugin makes your own backups.`);
 
   /* -------------------------------------------------------------- VXScript language reference (tables are generated from the compiler's own help, so they always match the engine) */
-  const esc = (t) => String(t == null ? '' : t).replace(/\|/g, '\\|').replace(/\n/g, ' ');
-  const code = (t) => '```\n' + t + '\n```\n';
+  const esc = (t) => String(t == null ? '' : t).replace(/[\\|]/g, '\\$&').replace(/\n/g, ' ');
+  const code = (t, lang) => '```' + (lang || 'vxs') + '\n' + t + '\n```\n';
   const vxsRef = () => {
     const H = (window.VX && VX.vxs && VX.vxs.help) || { triggers: [], statements: [], flow: [], keys: [], anchors: [] };
     const tbl = (rows) => '| Syntax | What it does |\n|---|---|\n' + rows.map((r) => '| `' + esc(r.usage) + '` | ' + esc(r.desc) + ' |').join('\n') + '\n';
@@ -1054,7 +1059,7 @@ ${ex(H.flow)}
 Everything the visual editor can do is available in text, so **no block is out of reach**. ${cat.length ? 'This build has **' + cat.length + '** blocks.' : ''}
 
 ### As an action
-${code(`block TYPE setting=value setting="text value" [from INPUT] [out OUTPUT]`)}
+${code(`block TYPE setting=value setting="text value" [from INPUT] [out OUTPUT]`, 'text')}
 - **TYPE** is the block's id (the table below, or Ctrl+Space after \`block\`).
 - **settings** are \`name=value\`. Quote values with spaces: \`text="Level {level}"\`. Numbers and \`true\`/\`false\` are detected automatically.
 - **from INPUT** picks which input port receives the flow (default: the first); **out OUTPUT** continues from another output port.
@@ -1119,7 +1124,7 @@ statement  := ACTION args
             | 'wait' NUMBER 'seconds'
             | 'block' TYPE settings [ 'from' PORT ] [ 'out' PORT ] [ ':' NEWLINE INDENT { 'on' PORT ':' block } DEDENT ]
 settings   := { NAME '=' (NUMBER | WORD | STRING | 'true' | 'false') }
-OP         := '>' | '<' | '>=' | '<=' | '==' | '!='`)}
+OP         := '>' | '<' | '>=' | '<=' | '==' | '!='`, 'text')}
 ${cat.length ? '## 11. Block types for `block` / `when block`\nThe id, what it does, its settings (with defaults) and its ports:\n\n| Type | Group | Settings | Inputs → Outputs |\n|---|---|---|---|\n' + cat.map((b) => '| `' + b.id + '` | ' + esc(b.cat || '') + ' | ' + esc(b.params.map((q) => q.key + (q.def !== undefined && q.def !== '' ? '=' + q.def : '')).join(', ')) + ' | ' + esc(b.inputs.join(', ') || '–') + ' → ' + esc(b.outputs.join(', ') || '–') + ' |').join('\n') + '\n' : ''}`;
   };
   VX.docs.register({ id: 'vxscript-lang', group: 'Making games', title: 'VXScript language reference', get md() { return vxsRef(); } });

@@ -87,7 +87,7 @@ async function api(req, res, url, ip) {
   /* --- hosting (this computer only) --- */
   if (p.startsWith('/api/host')) {
     if (!HOST_.isAdmin(req)) return fail(res, 403, 'Hosting can only be changed from the Vextra app on the computer that runs this server');
-    if (p === '/api/host' && m === 'GET') return send(res, 200, HOST_.status());
+    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.3.0' });
     if (m !== 'POST') return fail(res, 405, 'Use POST');
     const b = await readJson(req);
     try {

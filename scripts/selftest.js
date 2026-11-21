@@ -94,6 +94,10 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
   ok(/creation_flags\(0x0800_0000\)/.test(R('src-tauri/src/lib.rs')) && /php_stop/.test(R('src-tauri/src/lib.rs')), 'PHP server runs without a console window');
   ok(/phpRecommended/.test(R('renderer/js/web/phpconfig.js')) && /terminal/.test(R('renderer/js/web/terminal.js')) && /dbdrivers/.test(R('renderer/index.html')), 'PHP settings, terminal and database drivers present');
   ok(/gameSettings/.test(R('renderer/js/game/blocks-flow.js')), 'Game settings block present');
+  ok(/decompile/.test(R('renderer/js/game/vxscript.js')) && /Edit as VXScript/.test(R('renderer/js/game/editor/editor.js')), 'Edit as VXScript present');
+  ok(/isLocked/.test(R('plugins/vextra-ai.js')), 'AI cool-down enforced from the saved lock');
+  ok(/pickedTop/.test(R('renderer/js/app/sidebar.js')), 'Explorer multi-select present');
+  ok(/term_shells/.test(R('src-tauri/src/lib.rs')) && /terminalShell/.test(R('renderer/js/web/terminal.js')), 'terminal shell picker present');
 }
 (async () => {
   for (let i = 0; i < 30; i++) { if ((await call('GET', '/api/health')).status === 200) break; await new Promise((r) => setTimeout(r, 150)); }

@@ -835,10 +835,130 @@ fn kill_tree(pid: u32) {
     }
 }
 
-/// Terminal: runs one command line in a folder with the computer's own shell and streams the output (poll with run_poll, stop with run_cancel).
+/// True when `name` is an executable found in a folder on PATH (the .exe/.cmd/.bat forms are tried on Windows).
+fn on_path(name: &str) -> bool {
+    let exts: Vec<String> = if cfg!(windows) {
+        std::env::var("PATHEXT").unwrap_or(".EXE;.CMD;.BAT".into()).split(';').map(|e| e.to_lowercase()).collect()
+    } else {
+        vec![String::new()]
+    };
+    let Some(paths) = std::env::var_os("PATH") else { return false };
+    for dir in std::env::split_paths(&paths) {
+        for e in &exts {
+            if dir.join(format!("{name}{e}")).is_file() {
+                return true;
+            }
+        }
+        if cfg!(windows) && dir.join(name).is_file() {
+            return true;
+        }
+    }
+    false
+}
+
+#[derive(serde::Serialize)]
+struct ShellInfo {
+    id: String,
+    label: String,
+    available: bool,
+}
+
+/// The shells the Terminal panel can offer on this computer (only the ones that were found are marked available).
+#[tauri::command]
+fn term_shells() -> Vec<ShellInfo> {
+    let mut v: Vec<(&str, &str, bool)> = Vec::new();
+    v.push(("default", if cfg!(windows) { "Default (Command Prompt)" } else { "Default (sh)" }, true));
+    if cfg!(windows) {
+        v.push(("cmd", "Command Prompt (cmd)", true));
+        v.push(("powershell", "Windows PowerShell", on_path("powershell")));
+        v.push(("pwsh", "PowerShell 7 (pwsh)", on_path("pwsh")));
+        v.push(("bash", "Bash (Git Bash / WSL)", on_path("bash")));
+        v.push(("wsl", "WSL", on_path("wsl")));
+    } else {
+        v.push(("sh", "sh", on_path("sh")));
+        v.push(("bash", "Bash", on_path("bash")));
+        v.push(("zsh", "Zsh", on_path("zsh")));
+        v.push(("fish", "Fish", on_path("fish")));
+        v.push(("pwsh", "PowerShell (pwsh)", on_path("pwsh")));
+    }
+    v.into_iter().map(|(id, label, available)| ShellInfo { id: id.into(), label: label.into(), available }).collect()
+}
+
+/// Builds the command line for the chosen shell. `custom` = (program, argument list with {cmd} where the command goes).
+fn shell_command(shell: &str, custom: Option<(String, Vec<String>)>, command: &str) -> Res<Command> {
+    #[allow(unused_mut)]
+    let mut c: Command;
+    match shell {
+        "" | "default" | "cmd" | "sh" => {
+            #[cfg(windows)]
+            {
+                if shell == "sh" {
+                    c = Command::new("sh");
+                    c.arg("-c").arg(command);
+                } else {
+                    use std::os::windows::process::CommandExt;
+                    c = Command::new("cmd");
+                    c.args(["/D", "/S", "/C"]).raw_arg(format!("\"{}\"", command));
+                }
+            }
+            #[cfg(not(windows))]
+            {
+                if shell == "cmd" {
+                    return Err("Command Prompt only exists on Windows".into());
+                }
+                c = Command::new("sh");
+                c.arg("-c").arg(command);
+            }
+        }
+        "powershell" | "pwsh" => {
+            c = Command::new(if shell == "powershell" { "powershell" } else { "pwsh" });
+            c.args(["-NoLogo", "-NoProfile", "-Command"]).arg(command);
+        }
+        "bash" | "zsh" | "fish" => {
+            c = Command::new(shell);
+            c.arg("-c").arg(command);
+        }
+        "wsl" => {
+            c = Command::new("wsl");
+            c.args(["--", "sh", "-c"]).arg(command);
+        }
+        "custom" => {
+            let (prog, args) = custom.ok_or("choose the program for your custom terminal first")?;
+            let prog = prog.trim().to_string();
+            if prog.is_empty() || prog.len() > 500 || prog.contains('\0') || prog.contains('\n') {
+                return Err("the custom terminal program is not valid".into());
+            }
+            if args.len() > 12 || args.iter().any(|a| a.len() > 500 || a.contains('\0')) {
+                return Err("the custom terminal arguments are not valid".into());
+            }
+            c = Command::new(&prog);
+            let mut used = false;
+            for a in &args {
+                if a.contains("{cmd}") {
+                    used = true;
+                    c.arg(a.replace("{cmd}", command));
+                } else {
+                    c.arg(a);
+                }
+            }
+            if !used {
+                c.arg(command);
+            }
+        }
+        other => return Err(format!("unknown terminal: {other}")),
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        c.creation_flags(0x0800_0000);
+    }
+    Ok(c)
+}
+
+/// Terminal: runs one command line in a folder with the shell the person picked (default: the computer's own shell) and streams the output (poll with run_poll, stop with run_cancel).
 /// It is a normal user shell – like any terminal – so it is only started by the Terminal panel after the person confirmed it, never by plugins or previews.
 #[tauri::command]
-async fn term_start(state: tauri::State<'_, RunState>, cwd: String, command: String) -> Res<u32> {
+async fn term_start(state: tauri::State<'_, RunState>, cwd: String, command: String, shell: Option<String>, custom_program: Option<String>, custom_args: Option<Vec<String>>) -> Res<u32> {
     let dir = PathBuf::from(&cwd);
     if !dir.is_dir() {
         return Err("that folder does not exist".into());
@@ -846,20 +966,8 @@ async fn term_start(state: tauri::State<'_, RunState>, cwd: String, command: Str
     if command.trim().is_empty() || command.len() > 8000 || command.contains('\0') {
         return Err("that command is empty or too long".into());
     }
-    #[cfg(windows)]
-    let mut cmd = {
-        use std::os::windows::process::CommandExt;
-        let mut c = Command::new("cmd");
-        c.args(["/D", "/S", "/C"]).raw_arg(format!("\"{}\"", command));
-        c.creation_flags(0x0800_0000);
-        c
-    };
-    #[cfg(not(windows))]
-    let mut cmd = {
-        let mut c = Command::new("sh");
-        c.arg("-c").arg(&command);
-        c
-    };
+    let custom = custom_program.map(|p| (p, custom_args.unwrap_or_default()));
+    let mut cmd = shell_command(shell.as_deref().unwrap_or("default"), custom, &command)?;
     cmd.current_dir(&dir).env("NO_COLOR", "1").env("FORCE_COLOR", "0").env("TERM", "dumb").stderr(Stdio::piped()).stdout(Stdio::piped());
     launch(state.inner(), cmd, "the shell", true)
 }
@@ -1568,7 +1676,7 @@ pub fn run() {
             fs_open_folder, fs_open_file, fs_save_as, fs_pick_files, fs_read_dir, fs_read_file, fs_read_base64, fs_write_file,
             fs_write_base64, fs_create, fs_remove, fs_rename, fs_exists, fs_mtime, fs_reveal, fs_list_files, fs_search, ext_list, ext_save,
             ext_remove, ext_import, ext_open_dir, settings_load, settings_save, secret_get, secret_set, app_info, app_clean,
-            http_request, http_download, run_start, run_poll, run_cancel, term_start, term_write, php_status, php_log, db_detect, db_cli, open_url, php_check, php_start, php_stop, serve_start, serve_stop, server_start, server_status, server_stop,
+            http_request, http_download, run_start, run_poll, run_cancel, term_start, term_write, term_shells, php_status, php_log, db_detect, db_cli, open_url, php_check, php_start, php_stop, serve_start, serve_stop, server_start, server_status, server_stop,
             updater_check, updater_install, app_restart, app_launch_files
         ])
         .build(tauri::generate_context!())

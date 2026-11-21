@@ -156,7 +156,7 @@ module.exports = function createHost({ DATA, PORT, handler }) {
       if (cfg.hours > 0) { stopTimer = setTimeout(() => stopAll(), cfg.hours * 3600e3); stopTimer.unref && stopTimer.unref(); }
     } catch (e) { stopAll(); st.error = e.message; throw e; } finally { st.busy = ''; }
   }
-  const certInfo = () => { try { const x = new crypto.X509Certificate(fs.readFileSync(path.join(CERT, 'server.crt'))); return { ready: true, fingerprint: x.fingerprint256, notAfter: Date.parse(x.validTo), names: x.subjectAltName || '' }; } catch { return { ready: false }; } };
+  const certInfo = () => { try { const x = new crypto.X509Certificate(fs.readFileSync(path.join(CERT, 'server.crt'))); return { ready: true, fingerprint: x.fingerprint256, notBefore: Date.parse(x.validFrom) + 300e3, notAfter: Date.parse(x.validTo), names: x.subjectAltName || '' }; } catch { return { ready: false }; } };
   /** how long a certificate should live: exactly as long as the sharing (the "stop after" setting; 30 days at most when it never stops) */
   const certDays = () => (cfg.hours > 0 ? cfg.hours / 24 : 30);
   function makeCertFor(ip) {

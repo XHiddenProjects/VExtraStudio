@@ -44,7 +44,8 @@
   Web.phpIniParse = (text) => { const m = {}; String(text).split(/\r?\n/).forEach((l, i) => { const x = /^\s*([A-Za-z0-9_.]+)\s*=\s*("[^"]*"|'[^']*'|[^;]*?)\s*(?:;.*)?$/.exec(l); if (x && !/^\s*[;#]/.test(l)) m[x[1]] = { value: x[2], line: i }; }); return m; };
   /** set (or add) one directive, keeping every other line as it is */
   Web.phpIniSet = (text, key, value) => {
-    const lines = String(text).split(/\r?\n/); const val = /[\s;=]/.test(value) && !/^["']/.test(value) ? '"' + value.replace(/"/g, '\\"') + '"' : value; const cur = Web.phpIniParse(text)[key];
+    value = String(value == null ? '' : value).replace(/[\r\n\u2028\u2029]+/g, ' '); /* a value is one line: it can never add another directive */
+    const lines = String(text).split(/\r?\n/); const val = /[\s;=]/.test(value) && !/^["']/.test(value) ? '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"' : value; const cur = Web.phpIniParse(text)[key];
     if (cur) lines[cur.line] = `${key} = ${val}`; else { while (lines.length && lines[lines.length - 1] === '') lines.pop(); lines.push(`${key} = ${val}`); }
     return lines.join('\n') + '\n';
   };

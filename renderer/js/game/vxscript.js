@@ -341,6 +341,52 @@
       return { id, label: d.label || id, cat: d.cat || '', desc: d.desc || '', params: (d.params || []).map((q) => ({ key: q.key, label: q.label || q.key, type: q.type, def: q.def, options: q.options })), inputs: ports.inputs.map((i) => i.id), outputs: ports.outputs.map((o) => o.id), trigger: !(d.inputs && d.inputs.length) && !!(ports.outputs && ports.outputs.length) }; });
   }
 
-  const api = { compile, addTo, catalog, help: HELP, triggers: Object.keys(TRIG), statements: Object.keys(ST) };
+
+  /* ---------------------------------------------------------------- blocks → VXScript (the right-click “Edit as VXScript”) */
+  /** Writes a block behaviour as VXScript using the generic `block` syntax, so nothing is out of reach. Returns { text, lossy: [reasons] }. Positions of blocks are not kept. */
+  function decompile(beh) {
+    const reg = root.VXRT && root.VXRT.blocks; const g = (beh && beh.graph) || { nodes: [], wires: [] }; const lossy = [];
+    const nodes = new Map((g.nodes || []).map((n) => [n.id, n])); const outW = new Map(), inCount = new Map();
+    for (const w of g.wires || []) { if (!nodes.has(w.from) || !nodes.has(w.to)) continue; (outW.get(w.from) || outW.set(w.from, []).get(w.from)).push(w); inCount.set(w.to, (inCount.get(w.to) || 0) + 1); }
+    const q = (v) => '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n') + '"';
+    const ports = (n) => { const d = reg && reg[n.type]; if (!d) return { inputs: [{ id: 'in' }], outputs: [{ id: 'out' }] }; try { return root.VXRT.ports(d, Object.assign(root.VXRT.paramDefaults(d), n.params || {})); } catch { return { inputs: [{ id: 'in' }], outputs: [{ id: 'out' }] }; } };
+    const defIn = (n) => (ports(n).inputs[0] || { id: 'in' }).id, defOut = (n) => (ports(n).outputs[0] || { id: 'out' }).id;
+    const settings = (n) => {
+      const d = reg && reg[n.type]; const keys = d ? new Set((d.params || []).map((x) => x.key)) : null; const dflt = d ? root.VXRT.paramDefaults(d) : {}; const parts = [];
+      for (const [k, v] of Object.entries(n.params || {})) {
+        if (!/^[A-Za-z_]\w*$/.test(k) || (keys && !keys.has(k))) { lossy.push(`“${n.type}.${k}” is not a setting VXScript can write`); continue; }
+        if (v === undefined || v === null || JSON.stringify(v) === JSON.stringify(dflt[k])) { if (v === null) lossy.push(`“${n.type}.${k}” is empty`); continue; }
+        if (typeof v === 'number' && isFinite(v)) parts.push(k + '=' + v); else if (typeof v === 'boolean') parts.push(k + '=' + v); else if (typeof v === 'string') parts.push(k + '=' + q(v));
+        else lossy.push(`“${n.type}.${k}” holds a list or object that VXScript cannot write`);
+      }
+      return parts.join(' ');
+    };
+    const out = []; const line = (ind, t) => out.push(' '.repeat(ind) + t);
+    const clause = (n, via) => { let t = 'block ' + n.type; const st = settings(n); if (st) t += ' ' + st; if (via && via !== defIn(n)) t += ' from ' + via; return t; };
+    /** writes the chain that starts at node `id` (entered through input `via`) */
+    function emit(id, via, ind, path) {
+      const n = nodes.get(id); if (!n) return;
+      if (path.has(id)) { line(ind, `# loops back to “${n.type}” (a loop cannot be written in VXScript)`); lossy.push('a loop back to “' + n.type + '”'); return; }
+      const next = new Set(path); next.add(id); const ws = outW.get(id) || [];
+      if ((inCount.get(id) || 0) > 1) lossy.push(`“${n.type}” receives several paths; each path is written out separately (the copies run separately)`);
+      if (ws.length === 0) { line(ind, clause(n, via)); return; }
+      if (ws.length === 1) { const w = ws[0]; line(ind, clause(n, via) + (w.out !== defOut(n) ? ' out ' + w.out : '')); emit(w.to, w.in, ind, next); return; }
+      line(ind, clause(n, via) + ':');
+      for (const w of ws) { line(ind + 4, `on ${w.out}:`); emit(w.to, w.in, ind + 8, next); }
+    }
+    const lines = ['behavior ' + q((beh && beh.name) || 'Behavior'), ''];
+    const roots = (g.nodes || []).filter((n) => !inCount.get(n.id));
+    const sorted = roots.slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    for (const n of sorted) {
+      const ws = outW.get(n.id) || []; const at = out.length; let head = 'when block ' + n.type; const st = settings(n); if (st) head += ' ' + st;
+      if (ws.length <= 1) { const w = ws[0]; if (w && w.out !== defOut(n)) head += ' out ' + w.out; out.push(head + ':'); if (w) emit(w.to, w.in, 4, new Set([n.id])); }
+      else { out.push(head + ':'); for (const w of ws) { line(4, `on ${w.out}:`); emit(w.to, w.in, 8, new Set([n.id])); } }
+      out.push('');
+    }
+    if (!sorted.length) lines.push('# This behaviour has no blocks yet.');
+    const text = lines.concat(out).join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
+    return { text, lossy: [...new Set(lossy)] };
+  }
+  const api = { compile, addTo, decompile, catalog, help: HELP, triggers: Object.keys(TRIG), statements: Object.keys(ST) };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else { root.VX = root.VX || {}; root.VX.vxs = api; }
 })(typeof window !== 'undefined' ? window : globalThis);
