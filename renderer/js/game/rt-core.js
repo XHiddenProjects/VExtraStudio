@@ -179,7 +179,7 @@
       container.style.cssText += ';position:relative;overflow:hidden;background:' + this.settings.bg + ';user-select:none;-webkit-user-select:none;touch-action:none';
       this.stageEl = document.createElement('div'); this.stageEl.style.cssText = 'position:absolute;inset:0;display:grid;place-items:center'; container.append(this.stageEl);
       this.guiEl = document.createElement('div'); this.guiEl.className = 'vx-gui'; this.guiEl.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;font-family:system-ui,sans-serif'; container.append(this.guiEl);
-      VXRT.initInput(this); VXRT.initRender(this); if (VXRT.initMenu) VXRT.initMenu(this);
+      VXRT.initInput(this); VXRT.initRender(this); if (VXRT.initMenu) VXRT.initMenu(this); if (VXRT.initAntiCheat) VXRT.initAntiCheat(this);
       this.resize(); this._ro = new ResizeObserver(() => this.resize()); this._ro.observe(container);
       this.running = true; this.loadScene(this.opts.startScene ?? this.data.settings?.startScene ?? 0, { first: true });
       this._last = performance.now(); const loop = (t) => { if (!this.running) return; this._raf = requestAnimationFrame(loop); const cap = this.fpsCap; if (cap && this._tickAt && t - this._tickAt < 1000 / cap - 2) return; this._tickAt = t; this.tick(t); }; this._raf = requestAnimationFrame(loop);

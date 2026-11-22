@@ -1,0 +1,26 @@
+/* Website builder (.vxsite) */
+.sb { position: absolute; inset: 0; display: grid; grid-template-columns: 270px minmax(0, 1fr) 290px; background: var(--bg); color: var(--text); outline: none; }
+.sb-left, .sb-right { background: var(--panel); border-right: 1px solid var(--border); overflow: auto; display: flex; flex-direction: column; min-height: 0; }
+.sb-right { border-right: 0; border-left: 1px solid var(--border); padding: 12px; gap: 8px; }
+.sb-right h3 { margin: 0 0 4px; }
+.sb-mid { overflow: auto; background: var(--canvas, var(--bg2)); padding: 18px; }
+.sb-canvas { margin: 0 auto; background: #fff; color: #111; box-shadow: var(--shadow); border-radius: 6px; min-height: 80%; width: 100%; max-width: 1100px; overflow: hidden; }
+.sb-canvas[data-device=phone] { max-width: 390px; }
+.sb-tabs { display: flex; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--panel); z-index: 2; }
+.sb-tabs button { flex: 1; padding: 9px 4px; border: 0; background: none; color: var(--muted); border-bottom: 2px solid transparent; }
+.sb-tabs button.on { color: var(--text); border-color: var(--accent); }
+.sb-lbody { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.sb-lbody h4 { margin: 10px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.sb-hint { color: var(--muted); font-size: 12.5px; margin: 0; } .sb-warn { background: color-mix(in srgb, var(--warn) 18%, transparent); border-radius: 6px; padding: 7px 9px; font-size: 12.5px; }
+.sb-pal { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sb-pi { display: flex; align-items: center; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg3); cursor: grab; text-align: left; font-size: 12.5px; }
+.sb-pi:hover { border-color: var(--accent); } .sb-pi .ic { width: 22px; text-align: center; font-weight: 700; color: var(--accent); }
+.sb-f { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; } .sb-f span { color: var(--muted); } .sb-f small { color: var(--muted); }
+.sb-f input[type=text], .sb-f input[type=number], .sb-f textarea, .sb-f select, .sb-field input[type=text], .sb-field select, .sb-field textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: inherit; }
+.sb-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .sb-pick { display: flex; flex-direction: column; gap: 4px; }
+.sb-chk { display: flex; gap: 6px; align-items: center; font-size: 12.5px; }
+.sb-pg { display: flex; gap: 2px; align-items: center; border: 1px solid var(--border); border-radius: 7px; } .sb-pg.on { border-color: var(--accent); background: var(--sel); }
+.sb-pgn { flex: 1; text-align: left; background: none; border: 0; padding: 7px 9px; color: var(--text); }
+.sb-cn { text-align: left; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: none; color: var(--text); } .sb-cn.on { border-color: var(--accent); background: var(--sel); }
+.sb-field { border: 1px solid var(--border); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 1000px) { .sb { grid-template-columns: 220px minmax(0, 1fr); } .sb-right { display: none; } }

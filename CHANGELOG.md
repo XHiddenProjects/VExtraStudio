@@ -2,7 +2,29 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.3.1] — current
+## [4.4.0] — current
+
+### Added
+- **Website builder (`.vxsite`):** build a website with drag-and-drop blocks – Heading, Paragraph, Button, Image, Hero, Columns (drop blocks inside), Card, Spacer, Divider, **Form**, **List from database**, **Sign-up**, **Login**, **Who is logged in**. Pages, menu, theme (colours, font, corners, width), phone / desktop view, undo / redo, keyboard moves, a *Checks* list and a preview.
+- **Database without code:** design collections and fields (text, long text, email, number, choice list, tick box; required / private), connect them to forms and lists, choose who may add entries (anyone or members) and whether visitors may read them.
+- **Members and security:** sign-up / login, members-only pages (enforced by the server), salted scrypt password hashes, lock-out, HttpOnly + SameSite=Strict sessions, server-side validation of every field, cross-site request protection, rate limits, a hidden spam trap, strict Content-Security-Policy and other headers, an admin area (`/admin`) with CSV download, a PBKDF2 admin password.
+- **Host it later:** *Export & host* writes a folder or ZIP – pages, a dependency-free Node.js server, `config.json`, Dockerfile, start scripts and a `HOSTING.md` written for your site (Docker, VPS, HTTPS with Caddy). Images are saved as files.
+- **Anti-cheat for games (🛡 in the game toolbar):** the game's admin chooses the checks (speed / time, variable limits, outside edits, automated input, dev tools, edited game file), what happens for each (record, warn, pause, undo, restart, kick, ban), strikes and escalation, and the messages players see. **Admins are never affected** – the editor's Play is exempt and an admin passphrase exempts you in the exported game. Optional reports and bans on the Vextra server (admin-only reading). Documented honestly as best-effort client-side protection.
+- **Read aloud with word highlighting:** Alt+R reads the selection or page in the app and docs (voice, speed, pitch, highlight colour in Settings → Accessibility); a **Read aloud** game block, a player setting in the pause menu, and a *Listen* button in built websites.
+- **Two-step sign-in QR code:** setting up an authenticator now shows a QR code to scan (the setup key stays available as text). The QR generator is built in – nothing is sent anywhere.
+- **Publish & collaborate reach other people:** publishing a game or sharing a project offers to open the local server to the internet – **port forward** (UPnP) or the ghost tunnel – (or remember a choice in Settings). The published link and the game's online features use the public address, and the share dialog shows the address and server invite code for collaborators.
+- **Docs:** a short clip for *Game settings*; new pages *Website builder*, *Anti-cheat* and *Read aloud*.
+
+### Changed
+- **VXScript language reference** moved to the **Scripting** documentation group.
+- **"Cannot reach the server … connection refused":** when the local server is not running, publishing, sharing and sign-in start the bundled server and retry by themselves (Settings → *Start the server when needed*).
+- **After an update:** the app replaces a still-running older server automatically; the *Hosting & collaboration* notice shows "Updating the local server…", re-checks until the new version answers, and only asks for manual action if the old server was started by hand.
+- **Hosting & collaboration:** the "server is outdated" message now refreshes itself after an update (it re-checks every few seconds, restarts the old server when allowed and shows the new version when ready); *Check now* remains.
+
+### Security
+- The exported website server and the anti-cheat server routes are covered by the self-test (validation, cross-site requests, path traversal, members-only pages, admin login, hidden e-mail fields). See `SECURITY.md` → v4.4.0 notes.
+
+## [4.3.1]
 
 ### Added
 - **Edit as VXScript:** right-click a behaviour → its blocks are written as VXScript text; Apply rebuilds them. Lossy cases (loops, merged paths, list settings) are listed first.

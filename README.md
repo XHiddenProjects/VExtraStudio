@@ -39,6 +39,12 @@ Your own projects and games are never deleted. The same clean-up of app data is 
 ## Write a plugin
 Drop a `.js` file in the plugins folder (Plugins panel → Open folder) with a `/** @vx-plugin {...} */` manifest and an optional `/** @vx-docs ... */` block. See `plugins/` for examples and Docs → Plugins → Plugin API.
 
+## What's new in 4.4.0
+- **Website builder (no code):** drag blocks, design a database (forms, lists, members), set security, then *Export & host* – a folder with a dependency-free Node.js server and a hosting guide. See the *Website builder* docs page.
+- **Anti-cheat for games:** admins choose the checks and what happens to a player; admins are never affected.
+- **Read aloud (Alt+R):** text-to-speech with word highlighting in the app, docs, games and built sites.
+- Game settings docs clip; the *outdated server* notice refreshes itself after an update.
+
 ## What's new in 4.3.x
 - **4.3.1:** *Edit as VXScript* on any behavior, multi-select in the Explorer, a terminal shell picker (cmd / PowerShell / Bash / custom), a stricter AI cool-down, certificate fixes, security fixes, and an installer/update fix (the bundled server no longer stays running and locks its file).
 - **VXScript editor:** colours, auto-complete while you type, error markers; every block is available as `block TYPE …` / `when block TYPE …`; a full language reference in the docs.

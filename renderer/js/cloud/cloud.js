@@ -16,6 +16,26 @@
       if (!window.__TAURI__) throw new Error('Starting the server from here needs the desktop app. In a browser run: npm run server');
       const r = await window.native.server.start(C.localPort()); C._autoTried = true; await C.init(); if (!quiet) VX.ui.toast(r.mode === 'external' ? 'A server was already running – connected' : 'Local server started', 'ok'); return r;
     },
+    /** Starts the bundled local server when something needs it and it is not running (on by default; Settings → Local server). */
+    async ensureLocal() {
+      if (!window.__TAURI__ || !C.isLocal() || VX.app.settings.autoServerOnDemand === false) return false;
+      if (C._ensuring) return C._ensuring;
+      C._ensuring = (async () => { try { await window.native.server.start(C.localPort()); C.status = 'online'; return true; } catch { return false; } finally { setTimeout(() => { C._ensuring = null; }, 4000); } })();
+      return C._ensuring;
+    },
+    /** The version the server on this address reports (null = unreachable, '' = too old to say). */
+    async serverVersion() { try { const r = await window.native.http({ method: 'GET', url: C.base() + '/api/health' }); return (JSON.parse(r.body) || {}).version || ''; } catch { return null; } },
+    /** true when `a` is an older version than `b` (1.2.3 style; an empty version counts as older). */
+    olderThan(a, b) { const n = (x) => String(x || '0').split('.').map((p) => parseInt(p, 10) || 0); const x = n(a), y = n(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); } return false; },
+    /** Replaces a local server that is older than this app (it is stopped and the bundled one starts). Returns true when the running server is now current. */
+    async refreshServer() {
+      if (!window.__TAURI__ || !C.isLocal()) return false;
+      let v = await C.serverVersion(); if (v !== null && !C.olderThan(v, VX.app.version)) return true;
+      try { await window.native.server.stop(); } catch { /* not ours */ }
+      try { await window.native.server.start(C.localPort()); } catch { return false; }
+      for (let i = 0; i < 10; i++) { v = await C.serverVersion(); if (v !== null && !C.olderThan(v, VX.app.version)) break; await new Promise((r) => setTimeout(r, 400)); }
+      await C.init(); return v !== null && !C.olderThan(v, VX.app.version);
+    },
     async stopLocalServer() { await window.native.server.stop(); await C.init(); },
     configure() { C.token = null; C.user = null; C.init(); },
     async init() {
@@ -25,10 +45,17 @@
       else { try { await C.request('GET', '/api/health', null, false); C.status = 'online'; } catch { C.status = 'offline'; } }
       if (C.status === 'offline' && VX.app.settings.autoServer && C.isLocal() && !C._autoTried) { C._autoTried = true; try { await C.startLocalServer(true); return; } catch { /* the Cloud panel shows the Start button and the reason */ } }
       VX.emit('cloud'); C.loadLink();
+      /* after an update the old server may still be running – replace it by itself (once per start; Settings shows the result) */
+      if (C.status === 'online' && !C._refreshTried && window.__TAURI__ && C.isLocal()) { C._refreshTried = true; C.serverVersion().then((v) => { if (v !== null && C.olderThan(v, VX.app.version)) C.refreshServer(); }); }
     },
     async request(method, path, body, auth = true) {
       const headers = { 'Content-Type': 'application/json' }; if (auth && C.token) headers.Authorization = 'Bearer ' + C.token;
-      let r; try { r = await window.native.http({ method, url: C.base() + path, headers, body: body === undefined || body === null ? undefined : JSON.stringify(body) }); } catch (e) { const er = new Error(`Cannot reach the server at ${C.base()}. Is it running? (${e.message || e})`); er.offline = true; throw er; }
+      const send = () => window.native.http({ method, url: C.base() + path, headers, body: body === undefined || body === null ? undefined : JSON.stringify(body) });
+      let r; try { r = await send(); } catch (e) {
+        /* the local server is not running (after an update, a restart or a crash): start the bundled one and try again, so publishing and sharing just work */
+        let again = false; if (!path.startsWith('/api/health') && (await C.ensureLocal())) { try { r = await send(); again = true; } catch { /* fall through to the message below */ } }
+        if (!again) { const er = new Error(`Cannot reach the server at ${C.base()}. Is it running? ${C.isLocal() ? (window.__TAURI__ ? 'Vextra tried to start it but could not – see Settings → Cloud, sharing & publishing.' : 'Start it with: npm run server') : ''} (${e.message || e})`.replace(/\s+\(/, ' (')); er.offline = true; throw er; }
+      }
       let j = {}; try { j = r.body ? JSON.parse(r.body) : {}; } catch { j = { error: r.body }; }
       if (r.status >= 400) { const er = new Error(j.error || 'Server error ' + r.status); er.status = r.status; throw er; } return j;
     },

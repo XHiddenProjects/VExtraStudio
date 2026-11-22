@@ -10,6 +10,16 @@
     inputs: ['in'], outputs: ['out'], params: [P.area('text', 'Text', 'Hello {value}!')],
     onInput(n, port, v, g) { g.send(n, 'out', U.tpl(n.p.text, Object.assign({}, g.vars, g.sceneVars, { value: str(v) }))); } });
 
+  B({ id: 'readAloud', cat: 'text', label: 'Read Aloud', desc: 'Speaks text with the device voice and highlights each word on screen (accessibility). Uses the text field, or the incoming text if the field is empty; {name} inserts a variable. The player can switch it off in the pause menu (Game settings → read-text-aloud). Sends "done" when finished.',
+    inputs: ['in', 'stop'], outputs: ['out', 'done'], params: [P.area('text', 'Text', ''), P.num('rate', 'Speed (0.5–2)', 1), P.bool('caption', 'Show the text as a caption', true)],
+    init(n, g) { n.cleanups.push(() => { if (window.VXTTS) window.VXTTS.stop(); }); },
+    onInput(n, port, v, g) {
+      if (port === 'stop') { if (window.VXTTS) window.VXTTS.stop(); return; }
+      const t = U.tpl(n.p.text || '{value}', Object.assign({}, g.vars, g.sceneVars, { value: str(v) })); g.send(n, 'out', t);
+      const T = window.VXTTS; if (!T || !T.supported() || (g.prefs && g.prefs.narrate === 0)) { g.send(n, 'done', t); return; }
+      T.speakText(t, { rate: (+n.p.rate || 1) * ((g.prefs && g.prefs.narrateRate) || 1), caption: n.p.caption !== false, onEnd: () => g.send(n, 'done', t) });
+    } });
+
   const CASE = { upper: (s) => s.toUpperCase(), lower: (s) => s.toLowerCase(), title: (s) => s.toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase()), sentence: (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(), camel: (s) => s.toLowerCase().replace(/[^a-z0-9]+(.)/g, (_, c) => c.toUpperCase()), snake: (s) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'), kebab: (s) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'), reverse: (s) => [...s].reverse().join('') };
   B({ id: 'textCase', cat: 'text', label: 'Text Case', desc: 'Changes capitalisation: UPPER, lower, Title Case, Sentence case, camelCase, snake_case, kebab-case, or reverses the text.',
     inputs: ['in'], outputs: ['out'], params: [P.sel('mode', 'Convert to', Object.keys(CASE))], onInput(n, port, v, g) { g.send(n, 'out', CASE[n.p.mode](str(v))); } });

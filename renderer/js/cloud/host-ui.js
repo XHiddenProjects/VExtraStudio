@@ -21,6 +21,7 @@
     const sec = h('div', { class: 'settings-sec' }, h('h3', {}, 'Hosting & collaboration'));
     let s = null, tick = 0;
     const load = async () => { try { s = await call('GET', ''); } catch (e) { s = { offline: e.message }; } draw(); };
+    const refreshNow = async () => { if (H._busy) return; H._busy = true; H._tries = (H._tries || 0) + 1; try { await VX.cloud.refreshServer(); } catch { /* shown below */ } H._busy = false; await load(); };
     const act = (fn) => async (ev) => { const b = ev && ev.currentTarget; if (b) b.disabled = true; try { s = await fn(); } catch (e) { err(e); try { s = await call('GET', ''); } catch { /* offline */ } } draw(); };
     const txt = (v, ph, w = 200, type = 'text') => h('input', { value: v || '', placeholder: ph || '', type, style: `width:${w}px` });
     function draw() {
@@ -28,7 +29,14 @@
       if (!s) { sec.append(h('div', { class: 'srow' }, 'Loading …')); return; }
       if (s.offline) { sec.append(srow('Local server is not running', 'Hosting is controlled by the Vextra server on this computer. Start it under “Cloud, sharing & publishing” above, then reopen this page.', h('button', { class: 'btn sm', onclick: load }, 'Check again'))); return; }
       const c = s.config;
-      if (s.version !== (VX.app.version) && !s.offline) sec.append(h('div', { class: 'form-error' }, `The running Vextra server is ${s.version ? 'version ' + s.version : 'an older version'}, the app is ${VX.app.version}. Restart the server (Settings → Local server) so every hosting feature works.`));
+      if (!s.offline && VX.cloud.olderThan(s.version, VX.app.version)) {
+        /* the server that is running is older than the app (an update just happened): replace it automatically and re-check until the new one answers */
+        const can = !!window.__TAURI__ && VX.cloud.isLocal(); const tries = (H._tries = H._tries || 0);
+        sec.append(h('div', { class: tries >= 4 || !can ? 'form-error' : 'card', style: 'margin:8px 0' }, tries >= 4 || !can
+          ? [`The running Vextra server is ${s.version ? 'version ' + s.version : 'an older version'}, the app is ${VX.app.version}. `, can ? 'It could not be replaced automatically (it may have been started by hand: close that window or end the “vextra-server” / node process, then press ' : 'Restart it (', h('b', {}, can ? 'Update server now' : 'Settings → Local server'), ').', can ? h('button', { class: 'btn sm', style: 'margin-left:8px', onclick: () => { H._tries = 0; refreshNow(); } }, 'Update server now') : null]
+          : [`Updating the local server to ${VX.app.version}… (it was ${s.version || 'an older version'}) `, h('button', { class: 'btn sm', onclick: () => refreshNow() }, 'Check now')]));
+        if (can && tries < 4 && !H._busy) setTimeout(refreshNow, tries ? 3000 : 200);
+      } else H._tries = 0;
       if (s.on) {
         const left = h('span', {}, ''); const upd = () => { left.textContent = s.until ? ` · stops automatically at ${when(s.until)}` : ' · stays public until you stop it'; }; upd();
         sec.append(h('div', { class: 'card', style: 'border:1px solid var(--accent);margin:8px 0' }, h('h4', {}, h('span', { class: 'tag ok' }, 'PUBLIC'), ' ', s.mode === 'tunnel' ? 'Ghost address' : 'Direct port forward'), h('div', { class: 'url-box' }, h('input', { readonly: true, value: s.url, style: 'width:100%' }), h('button', { class: 'btn sm', onclick: () => copy(s.url) }, 'Copy')),
@@ -64,5 +72,29 @@
       sec.append(h('div', { class: 'srow' }, h('div', { class: 'l' }, h('b', {}, h('button', { class: 'btn primary', onclick: act(async () => { await call('POST', '/start', { mode }); return call('GET', ''); }) }, '🌐 Go public')), h('span', {}, 'Nothing is shared until you press this. After a restart of Vextra the server is private again.'))));
     }
     load(); return sec;
+  };
+
+  /** Publishing a game or sharing a project is only useful when other people can reach the server. If the server is on this computer and still private,
+   *  offer to open it to the internet (port forward through the router, or the ghost tunnel). Returns the status (s.on / s.url) or null. */
+  H.ensureShared = async function () {
+    const C = VX.cloud; if (!C.isLocal()) return null;
+    let s; try { s = await call('GET', ''); } catch { return null; }
+    if (s.on) return s;
+    let pref = VX.app.settings.shareOnPublish || 'ask'; if (pref === 'never') return null;
+    let mode = pref === 'direct' || pref === 'tunnel' ? pref : null;
+    if (!mode) {
+      mode = await new Promise((resolve) => {
+        const remember = h('input', { type: 'checkbox' }); let done = false; let m;
+        const pick = (v) => () => { if (done) return; done = true; if (v && remember.checked) VX.app.set('shareOnPublish', v); else if (!v && remember.checked) VX.app.set('shareOnPublish', 'never'); m.close(); resolve(v); };
+        const b = (label, v, cls) => h('button', { class: 'btn ' + (cls || ''), onclick: pick(v) }, label);
+        m = VX.ui.modal({ title: 'Let other people reach it?', size: 'small', onClose: () => { if (!done) { done = true; resolve(null); } },
+          body: h('div', {}, h('p', { style: 'margin-top:0' }, 'Your server runs on this computer, so a published game or a shared project can only be opened by you right now.'), h('p', {}, h('b', {}, 'Port forward: '), 'asks your router to open a port (UPnP). Your IP address becomes visible to visitors.'), h('p', {}, h('b', {}, 'Ghost tunnel: '), 'a private https:// address; no router settings and your IP stays hidden (downloads a small helper the first time).'), h('label', { style: 'display:flex;gap:8px;align-items:center;font-size:12px;margin-top:8px' }, remember, 'Remember my choice (Settings → Cloud, sharing & publishing)')),
+          actions: [b('Keep private', null), b('Ghost tunnel', 'tunnel'), b('Port forward', 'direct', 'primary')] });
+      });
+      if (!mode) return null;
+    }
+    const note = VX.ui.toast(mode === 'direct' ? 'Asking your router to open a port…' : 'Starting the ghost tunnel…');
+    try { s = await call('POST', '/start', { mode }); note.remove(); VX.ui.toast('Reachable at ' + s.url, 'ok'); return s; }
+    catch (e) { note.remove(); VX.ui.modal({ title: 'Could not open the server to the internet', size: 'small', body: h('div', {}, h('p', { style: 'margin-top:0' }, e.message), h('p', { style: 'color:var(--muted);font-size:12px' }, mode === 'direct' ? 'Many routers have UPnP switched off. Forward the port by hand in your router, or try the ghost tunnel in Settings → Hosting & collaboration. Nothing is shared until it works – your link will only open on this computer.' : 'Check your internet connection and try again from Settings → Hosting & collaboration.')) }); return null; }
   };
 })();

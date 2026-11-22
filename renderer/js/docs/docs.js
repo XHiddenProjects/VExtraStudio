@@ -66,7 +66,7 @@
   const link = (p) => h('a', { class: 'docs-link' + (view.cur === p.id ? ' on' : ''), style: p.sub ? 'padding-left:22px' : '', onclick: () => { view.cur = p.id; showPage(); drawNav(view.search.value); } }, p.title);
   function showPage(anchor) {
     const p = build().find((x) => x.id === view.cur) || build().find((x) => x.id === 'welcome'); const main = view.main; if (!p) return;
-    main.textContent = ''; const body = h('div', { class: 'md', html: VX.markdown.render(safeMd(p)) }); main.append(body);
+    main.textContent = ''; const body = h('div', { class: 'md', html: VX.markdown.render(safeMd(p)) }); if (VX.ttsUI && VX.ttsUI.supported()) main.append(h('div', { style: 'text-align:right;padding:6px 12px 0' }, VX.ttsUI.button(() => body))); main.append(body);
     body.querySelectorAll('a[data-doc]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); go(a.dataset.doc); drawNav(view.search.value); }));
     if (VX.wireCopy && !body._copyWired) { VX.wireCopy(body); body._copyWired = true; }
     if (anchor) { const el = body.querySelector('#' + CSS.escape(anchor)); el && el.scrollIntoView(); } else main.scrollTop = 0;

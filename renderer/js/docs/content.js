@@ -225,6 +225,8 @@ Many blocks have a **Target**: \`self\` (default), \`other\` (the last object co
 
   A('scripting', 'Scripting', 'Scripting API', `# Scripting API
 
+> Looking for **VXScript** (the readable text form of behaviours and blocks)? See [VXScript language reference](doc:vxscript-lang) in this group.
+
 These functions are available in **Code** mode, in an object's *script* field, and in the *Custom Behavior* block.
 
 ## Building blocks in code
@@ -957,7 +959,7 @@ You can also clean app data from **Settings → About & maintenance**.`);
 
 > Right-click a behaviour in the Logic list → **Edit as VXScript…** shows its blocks as text; change it and press Apply. Anything VXScript cannot say exactly is listed before you apply.
 
-> VXScript has its own page: **Making games → VXScript language reference**.
+> VXScript has its own page: **Scripting → VXScript language reference**.
 
 ## Selecting several files
 In the Explorer, **Ctrl/Cmd+click** adds or removes a file, **Shift+click** selects a range, **Ctrl+A** selects everything visible and **Esc** clears. Right-click a selection to open, copy the paths or **delete** all of it at once (the Delete key does the same); drag a selection onto a folder to move the files.
@@ -968,7 +970,7 @@ A pack is a ZIP of a project. **Opening one** (double-click, File → Open or th
 ## Night Shift: Tape 07
 A 3D found-footage horror game seen through a VHS camcorder (the **VHS Tape** shader block): three levels, four cutscenes, objectives, a flashlight with a battery and a stalker that hunts by sound. It is built **only from blocks**: open it from the game editor's *Examples*, or open \`examples/night-shift/night-shift.vxgame\` from the download, and edit any behaviour in the Logic tab. The folder also has a ready \`.vxpack\` and a web build.
 
-## Pause menu, frame rate & FPS\nPress **Esc** (or ☰ on a touch screen) in any game: **Resume, Settings, Restart level, Quit**. *Game settings* sets the **frame rate** (automatic or 30–240 FPS), turns the pause menu on or off, and **Debug mode** shows the FPS counter while playing. Players can also change volume, frame rate and the counter in the pause menu; their choice is remembered.\n\n# Hosting & collaborating
+## Pause menu, frame rate & FPS\n![video: Game settings – the dialog, then the player's pause menu and Settings screen](docs/clips/game-settings.webm)\n\n*Demo – Game settings in the editor, and what players see.*\n\nPress **Esc** (or ☰ on a touch screen) in any game: **Resume, Settings, Restart level, Quit**. *Game settings* sets the **frame rate** (automatic or 30–240 FPS), turns the pause menu on or off, and **Debug mode** shows the FPS counter while playing. Players can also change volume, frame rate and the counter in the pause menu; their choice is remembered.\n\n# Hosting & collaborating
 **Settings → Host & share.** Private by default. Public mode offers a **ghost domain** (a tunnel address that hides your real IP; the helper is downloaded only after you agree) or a **direct port forward** (UPnP, which shows your real IP). For a direct port forward, Vextra **finds your public address by itself** (UPnP, or an address lookup) and shows the full link, e.g. \`https://203.0.113.7:8788\`; if it can't (or you use a domain name), type it under **Your public address** and press Save. The **self-signed certificate** is made for that share, **lives exactly as long as the share** (the same auto-stop time) and is **deleted when sharing stops**; **Delete certificate** removes it earlier (not while it is in use). Hand out invite codes and set an auto-stop as needed. Switch back to private to stop everything.
 
 # Updates & backups
@@ -1081,6 +1083,10 @@ ${code(`when block timer interval=3 repeat=false:
 Use a block that produces events (a timer, a sensor, a purchase result …) as the rule's starting point.
 
 ## 8. Game settings and the pause menu
+![video: Game settings – the dialog, then the player's pause menu and Settings screen](docs/clips/game-settings.webm)
+
+*Demo – Game settings in the editor, and what players see.*
+
 ${code(`when key p pressed:
     open settings            # show the player's settings screen
     set setting volume 0.5   # volume, sensitivity, fps, showFps, or one of your own
@@ -1127,5 +1133,5 @@ settings   := { NAME '=' (NUMBER | WORD | STRING | 'true' | 'false') }
 OP         := '>' | '<' | '>=' | '<=' | '==' | '!='`, 'text')}
 ${cat.length ? '## 11. Block types for `block` / `when block`\nThe id, what it does, its settings (with defaults) and its ports:\n\n| Type | Group | Settings | Inputs → Outputs |\n|---|---|---|---|\n' + cat.map((b) => '| `' + b.id + '` | ' + esc(b.cat || '') + ' | ' + esc(b.params.map((q) => q.key + (q.def !== undefined && q.def !== '' ? '=' + q.def : '')).join(', ')) + ' | ' + esc(b.inputs.join(', ') || '–') + ' → ' + esc(b.outputs.join(', ') || '–') + ' |').join('\n') + '\n' : ''}`;
   };
-  VX.docs.register({ id: 'vxscript-lang', group: 'Making games', title: 'VXScript language reference', get md() { return vxsRef(); } });
+  VX.docs.register({ id: 'vxscript-lang', group: 'Scripting', title: 'VXScript language reference', get md() { return vxsRef(); } });
 })();

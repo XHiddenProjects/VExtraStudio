@@ -127,7 +127,7 @@
     },
     settings: { async load() { return lsSettings; }, async save(data) { lsSettings = data; localStorage.setItem('vx-settings', JSON.stringify(data)); } },
     secret: { async get(k) { return localStorage.getItem('vx-secret-' + k); }, async set(k, v) { v == null ? localStorage.removeItem('vx-secret-' + k) : localStorage.setItem('vx-secret-' + k, v); } },
-    async info() { return { name: 'Vextra Studio', version: '4.3.1', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
+    async info() { return { name: 'Vextra Studio', version: '4.4.0', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
     launchFiles: async () => [], onOpenFile: () => {},
     updater: { check: async () => ({ enabled: false, available: false, reason: 'The browser version updates itself – reload the page.' }), install: async () => { throw new Error('Updates are for the desktop app.'); }, restart: async () => location.reload(), onProgress: async () => () => {} },
     async clean(what) { const removed = []; const all = what.includes('all'); if (all || what.includes('settings')) { localStorage.removeItem('vx-settings'); removed.push('settings'); } for (const k of ['plugins', 'themes']) if (all || what.includes(k)) { localStorage.removeItem('vx-ext-' + k); removed.push(k); } if (all || what.includes('secrets')) { Object.keys(localStorage).filter((k) => k.startsWith('vx-secret-')).forEach((k) => localStorage.removeItem(k)); removed.push('secrets'); } return removed; },

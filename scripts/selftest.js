@@ -124,6 +124,60 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
     ok(((await call('GET', '/api/saves/g1/slot1', null, T)).json || {}).data.lvl === 3, 'cloud save read');
     ok((await call('GET', '/explore')).status === 200, 'explore page');
   } catch (e) { ok(false, 'server test crashed: ' + e.message); }
+  /* ---- anti-cheat server routes (reports public, reading/banning admin-only) ---- */
+  try {
+    const ac = (m, p2, b, adm) => new Promise((res) => { const d = b ? JSON.stringify(b) : null; const r = http.request({ host: '127.0.0.1', port, path: '/api/anticheat' + p2, method: m, headers: Object.assign({ 'Content-Type': 'application/json' }, adm ? { 'X-Vextra-Admin': '1' } : {}) }, (x) => { let t = ''; x.on('data', (c) => (t += c)); x.on('end', () => { let j; try { j = JSON.parse(t); } catch { /* */ } res({ status: x.statusCode, json: j }); }); }); r.on('error', () => res({ status: 0 })); if (d) r.write(d); r.end(); });
+    ok((await ac('POST', '/report', { game: 'g1', player: 'p1', check: 'speed', detail: 'x', strikes: 1, action: 'warn' })).status === 200, 'anti-cheat: a player report is accepted');
+    ok((await ac('GET', '/events?game=g1')).status >= 400, 'anti-cheat: reports cannot be read without the admin header');
+    ok(((await ac('GET', '/events?game=g1', null, true)).json || {}).events.length === 1, 'anti-cheat: admin reads the report');
+    await ac('POST', '/ban', { game: 'g1', player: 'p1', minutes: 5 }, true); ok(((await ac('GET', '/ban?game=g1&player=p1')).json || {}).banned === true, 'anti-cheat: banned player is told');
+    await ac('POST', '/unban', { game: 'g1', player: 'p1' }, true); ok(((await ac('GET', '/ban?game=g1&player=p1')).json || {}).banned === false, 'anti-cheat: unban works');
+  } catch (e) { ok(false, 'anti-cheat test crashed: ' + e.message); }
+  /* ---- website builder: generate a site and run its exported server ---- */
+  {
+    const S = require(path.join(ROOT, 'renderer/js/web/sitegen.js')); const site = S.blank('Selftest');
+    ok(S.safeUrl('javascript:alert(1)') === '#' && S.safeUrl('data:text/html,x') === '#' && S.safeUrl('/a.html') === '/a.html' && S.safeUrl('https://x.y') === 'https://x.y', 'site builder: unsafe link schemes are refused');
+    const evil = S.newBlock('heading'); evil.p.text = '<img src=x onerror=alert(1)>'; site.pages[0].blocks.push(evil); const btn = S.newBlock('button'); btn.p.href = 'javascript:alert(1)'; btn.p.label = '"><script>'; site.pages[0].blocks.push(btn);
+    site.collections.push({ name: 'reviews', label: 'Reviews', public: true, submit: 'members', fields: [{ key: 'who', label: 'Name', type: 'text', required: true, maxLength: 10 }, { key: 'mail', label: 'Mail', type: 'email' }] });
+    site.pages.push({ id: 'm1', title: 'Members', slug: 'members', access: 'members', inNav: true, blocks: [S.newBlock('heading')] });
+    const files = await S.generate(site, { serverSource: fs.readFileSync(path.join(ROOT, 'renderer/js/web/site-server.tpl.js'), 'utf8'), adminPasswordHash: await S.hashAdminPassword('selftest-admin-pw') });
+    const home = files.find((f) => f.path === 'public/index.html').data;
+    ok(!/<img src=x/.test(home) && !/javascript:/.test(home) && !/"><script>/.test(home), 'site builder: block text is escaped, javascript: links removed');
+    ok(!/<script>(?!<)/i.test(home.replace(/<script src="[^"]+"><\/script>/g, '')), 'site builder: pages have no inline scripts (strict CSP)');
+    ok(files.some((f) => f.path === 'public/login.html') && files.some((f) => f.path === 'HOSTING.md') && files.some((f) => f.path === 'Dockerfile'), 'site builder: login page, HOSTING.md and Dockerfile are generated');
+    ok(S.check(site).every((c) => c.level !== 'error'), 'site builder: a fresh site has no errors');
+    const bad = S.blank('x'); bad.pages[1].blocks[1].p.collection = 'nope'; ok(S.check(bad).some((c) => c.level === 'error'), 'site builder: a form without a collection is reported');
+    ok(S.normalize('{"pages":[{"title":"A","blocks":[{"type":"evil"},{"type":"heading"}]}]}').pages[0].blocks.length === 1, 'site builder: unknown blocks in a .vxsite are dropped');
+    const sd = fs.mkdtempSync(path.join(os.tmpdir(), 'vx-site-')); for (const f of files) { const q = path.join(sd, f.path); fs.mkdirSync(path.dirname(q), { recursive: true }); fs.writeFileSync(q, f.data); }
+    const sp = 19000 + Math.floor(Math.random() * 900); const ss = cp.spawn(process.execPath, ['server.js'], { cwd: sd, env: Object.assign({}, process.env, { PORT: String(sp), DATA_DIR: path.join(sd, 'data') }), stdio: 'ignore' });
+    const rq = (m, p2, b, hd) => new Promise((res) => { const d = b ? JSON.stringify(b) : null; const r = http.request({ host: '127.0.0.1', port: sp, path: p2, method: m, headers: Object.assign({}, b ? { 'Content-Type': 'application/json' } : {}, hd) }, (x) => { let t = ''; x.on('data', (c) => (t += c)); x.on('end', () => { let j; try { j = JSON.parse(t); } catch { /* */ } res({ status: x.statusCode, json: j, text: t, headers: x.headers }); }); }); r.on('error', () => res({ status: 0 })); if (d) r.write(d); r.end(); });
+    try {
+      for (let i = 0; i < 30; i++) { if ((await rq('GET', '/')).status === 200) break; await new Promise((r) => setTimeout(r, 150)); }
+      const hp = await rq('GET', '/'); ok(hp.status === 200 && /default-src 'self'/.test(hp.headers['content-security-policy'] || '') && hp.headers['x-frame-options'] === 'DENY', 'site server: pages are served with CSP and X-Frame-Options');
+      ok((await rq('GET', '/server.js')).status === 404 && (await rq('GET', '/site.json')).status === 404 && (await rq('GET', '/%2e%2e/server.js')).status === 404, 'site server: server files and path traversal are not reachable');
+      ok((await rq('POST', '/api/forms/messages', { name: 'A', email: 'bad', message: 'x' })).status === 422, 'site server: invalid form data is rejected on the server');
+      ok((await rq('POST', '/api/forms/messages', { name: 'A', email: 'a@b.co', message: 'hello' })).status === 200, 'site server: a valid form entry is stored');
+      ok((await rq('POST', '/api/forms/messages', { name: 'A', email: 'a@b.co', message: 'x' }, { Origin: 'http://evil.example' })).status === 403, 'site server: cross-site posts are refused');
+      ok((await rq('POST', '/api/forms/reviews', { who: 'A' })).status === 401, 'site server: members-only collection needs a login');
+      const m = await rq('GET', '/members.html'); ok(m.status === 302 && /login\.html/.test(m.headers.location || ''), 'site server: members-only page redirects visitors to the login page');
+      ok((await rq('POST', '/api/signup', { email: 'u@x.co', password: 'short' })).status === 422, 'site server: short password refused');
+      const su = await rq('POST', '/api/signup', { email: 'u@x.co', password: 'a-long-password' }); const ck = String(su.headers['set-cookie'] || ''); ok(su.status === 200 && /HttpOnly/.test(ck) && /SameSite=Strict/.test(ck), 'site server: sign-up sets an HttpOnly SameSite=Strict session');
+      const cookie = ck.split(';')[0]; ok((await rq('GET', '/members.html', null, { Cookie: cookie })).status === 200, 'site server: a member can open the members-only page');
+      ok((await rq('POST', '/api/forms/reviews', { who: 'Mia', mail: 'u@x.co' }, { Cookie: cookie })).status === 200, 'site server: a member can submit');
+      const pubList = await rq('GET', '/api/data/reviews'); ok(pubList.status === 200 && pubList.json.rows.length === 1 && !('mail' in pubList.json.rows[0].data), 'site server: public list never includes email fields');
+      ok((await rq('GET', '/api/data/messages')).status === 404, 'site server: private collections are not readable');
+      ok((await rq('GET', '/admin/api/summary')).status === 401, 'site server: admin area needs the admin password');
+      ok((await rq('POST', '/admin/api/login', { password: 'wrong' })).status === 401, 'site server: wrong admin password refused');
+      const al = await rq('POST', '/admin/api/login', { password: 'selftest-admin-pw' }); const ack = String(al.headers['set-cookie'] || '').split(';')[0]; ok(al.status === 200, 'site server: admin password (PBKDF2 hash) accepted');
+      const sm = await rq('GET', '/admin/api/summary', null, { Cookie: ack }); ok(sm.status === 200 && sm.json.collections.find((c) => c.name === 'messages').count === 1 && sm.json.users.length === 1 && !('hash' in sm.json.users[0]), 'site server: admin sees entries and members (no password hashes)');
+    } catch (e) { ok(false, 'site builder server test crashed: ' + e.message); }
+    ss.kill(); await new Promise((r) => setTimeout(r, 300)); try { fs.rmSync(sd, { recursive: true, force: true, maxRetries: 5 }); } catch { /* temp dir */ }
+  }
+  const R2 = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  { const qr = require(path.join(ROOT, 'renderer/js/core/qr.js')); const m = qr.matrix('otpauth://totp/Vextra:alice?secret=JBSWY3DPEHPK3PXP&issuer=Vextra'); const fin = (r, c) => [0, 1, 2, 3, 4, 5, 6].every((i) => m[r][c + i] === 1 && m[r + 6][c + i] === 1 && m[r + i][c] === 1 && m[r + i][c + 6] === 1) && m[r + 3][c + 3] === 1 && m[r + 1][c + 1] === 0;
+    ok(m.length >= 21 && fin(0, 0) && fin(0, m.length - 7) && fin(m.length - 7, 0) && /<svg/.test(qr.svg('hi')), 'QR code: finder patterns and SVG output'); let long = false; try { qr.matrix('x'.repeat(400)); } catch { long = true; } ok(long, 'QR code: too-long text is refused'); }
+  { const vm = require('vm'); const c = { window: {}, TextEncoder, console }; c.window = c; vm.createContext(c); vm.runInContext(fs.readFileSync(path.join(ROOT, 'renderer/js/game/rt-anticheat.js'), 'utf8'), c); const cr = require('crypto'); ok(['abc', '', 'vx-admin|g|' + 'x'.repeat(100)].every((t) => c.VXRT.sha256(t) === cr.createHash('sha256').update(t).digest('hex')), 'anti-cheat: SHA-256 matches Node'); }
+  ok(/site-builder/.test(R2('renderer/js/docs/content-site.js')) && /anti-cheat/.test(R2('renderer/js/docs/content-site.js')) && /game-settings\.webm/.test(R2('renderer/js/docs/content.js')) && fs.existsSync(path.join(ROOT, 'renderer/docs/clips/game-settings.webm')), 'docs: website builder, anti-cheat, read-aloud pages and the Game settings clip are present');
   srv.kill(); await new Promise((r) => setTimeout(r, 400)); try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 }); } catch { /* temp dir */ }
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
 })();

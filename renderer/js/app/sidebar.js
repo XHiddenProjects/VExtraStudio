@@ -177,7 +177,7 @@
       if (t && t.kind === 'game' && t.ctl) { t.ctl.renderPalette(c); return; }
       c.append(h('div', { class: 'empty left', style: 'padding:8px 6px;font-size:12px' }, 'Start something new. Open a UI design to get a component palette you can drag onto the canvas, or a game to drag in objects.'));
       heading('New');
-      const items = [['New UI design', 'blocks', () => VX.app.newUI()], ['New 2D game', 'game', () => VX.app.newGame('2d')], ['New 3D game', 'cube', () => VX.app.newGame('3d')], ['New web project', 'globe', () => VX.app.newProject()], ['New file…', 'file', () => SB.newFile()]];
+      const items = [['New UI design', 'blocks', () => VX.app.newUI()], ['New 2D game', 'game', () => VX.app.newGame('2d')], ['New 3D game', 'cube', () => VX.app.newGame('3d')], ['New website (blocks)', 'globe', () => VX.app.newSite()], ['New web project', 'globe', () => VX.app.newProject()], ['New file…', 'file', () => SB.newFile()]];
       for (const [l, ic, fn] of items) c.append(h('button', { class: 'btn block', style: 'margin:4px 0;justify-content:flex-start', onclick: fn }, VX.icon(ic, 15), l));
     },
   };

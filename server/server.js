@@ -30,6 +30,7 @@ store.sessions = load('sessions', {});    // sha256(token) -> {user, created, ua
 store.projects = load('projects', {});    // id -> {id, name, owner, members:{user:role}, invite, rev, created, files:{path:{rev, by, at, size, deleted}}}
 store.published = load('published', {});  // user/slug -> {user, slug, kind, title, updated, files:int}
 store.boards = load('boards', {});        // gameId -> board -> [{name, score, user, at}]
+store.anticheat = load('anticheat', { events: [], bans: {} }); // events: [{game, player, check, detail, strikes, action, at, ip}], bans: 'game|player' -> {until, at}
 store.saves = load('saves', {});          // user/gameId/slot -> {data, at}
 const flushers = {}; const dirty = (n) => { clearTimeout(flushers[n]); flushers[n] = setTimeout(() => save(n), 150); };
 process.on('SIGINT', () => { for (const n of Object.keys(store)) save(n); process.exit(0); });
@@ -82,12 +83,12 @@ const presence = {}; // pid -> user -> {file, at}
 /* ------------------------------------------------------------------ routes */
 async function api(req, res, url, ip) {
   const m = req.method, p = url.pathname, seg = p.split('/').filter(Boolean); // ['api', ...]
-  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.3.1', time: Date.now(), register: ALLOW_REGISTER, invite: HOST_.requireInvite(req) });
+  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.4.0', time: Date.now(), register: ALLOW_REGISTER, invite: HOST_.requireInvite(req) });
 
   /* --- hosting (this computer only) --- */
   if (p.startsWith('/api/host')) {
     if (!HOST_.isAdmin(req)) return fail(res, 403, 'Hosting can only be changed from the Vextra app on the computer that runs this server');
-    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.3.1' });
+    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.4.0' });
     if (m !== 'POST') return fail(res, 405, 'Use POST');
     const b = await readJson(req);
     try {
@@ -228,6 +229,23 @@ async function api(req, res, url, ip) {
     if (m === 'GET') { const top = [...arr].sort((a, b) => b.score - a.score).slice(0, Math.min(100, +url.searchParams.get('limit') || 10)); return send(res, 200, { list: top.map(({ name, score, at }) => ({ name, score, at })) }); }
     if (m === 'POST') { if (limited(ip, 'score', 60, 60e3)) return fail(res, 429, 'Slow down'); const b = await readJson(req); const score = Number(b.score); if (!Number.isFinite(score)) return fail(res, 400, 'Score must be a number'); const u = authUser(req); const name = String((u ? u.display || u.username : b.name) || 'Player').slice(0, 24).replace(/[<>]/g, ''); arr.push({ name, score, user: u && u.username, at: Date.now() }); arr.sort((a, b2) => b2.score - a.score); if (arr.length > 500) arr.length = 500; dirty('boards'); return send(res, 200, { rank: arr.findIndex((e) => e.score === score && e.name === name) + 1 }); }
   }
+  /* --- anti-cheat: players send reports and ask if they are banned (public, rate-limited); reading reports and banning is admin-only (this computer's app) --- */
+  if (seg[1] === 'anticheat') {
+    const AC = store.anticheat, ban = (g, pl) => AC.bans[g + '|' + pl];
+    if (seg[2] === 'report' && m === 'POST') {
+      if (limited(ip, 'acreport', 30, 60e3)) return fail(res, 429, 'Slow down'); const b = await readJson(req); const str = (v, n) => String(v ?? '').slice(0, n);
+      AC.events.push({ game: str(b.game, 80), player: str(b.player, 60), check: str(b.check, 20), detail: str(b.detail, 200), strikes: Math.min(999, +b.strikes || 0), action: str(b.action, 12), at: Date.now(), ip: HOST_.clientIp(req) });
+      if (AC.events.length > 5000) AC.events.splice(0, AC.events.length - 5000);
+      if (b.action === 'ban') AC.bans[str(b.game, 80) + '|' + str(b.player, 60)] = { until: 0, at: Date.now() }; dirty('anticheat'); return send(res, 200, { ok: true });
+    }
+    if (seg[2] === 'ban' && m === 'GET') { const bn = ban(String(url.searchParams.get('game') || '').slice(0, 80), String(url.searchParams.get('player') || '').slice(0, 60)); const on = !!bn && (!bn.until || bn.until > Date.now()); return send(res, 200, { banned: on, until: on ? bn.until || 0 : 0 }); }
+    if (!HOST_.isAdmin(req)) return fail(res, 403, 'Anti-cheat reports can only be managed from the Vextra app on the computer that runs this server');
+    if (seg[2] === 'events' && m === 'GET') { const g = url.searchParams.get('game'); return send(res, 200, { events: AC.events.filter((e) => !g || e.game === g).slice(-300).reverse(), bans: Object.entries(AC.bans).filter(([k]) => !g || k.startsWith(g + '|')).map(([k, v]) => ({ game: k.split('|')[0], player: k.split('|').slice(1).join('|'), until: v.until, at: v.at })) }); }
+    if (seg[2] === 'ban' && m === 'POST') { const b = await readJson(req); const minutes = Math.max(0, +b.minutes || 0); AC.bans[String(b.game).slice(0, 80) + '|' + String(b.player).slice(0, 60)] = { until: minutes ? Date.now() + minutes * 60000 : 0, at: Date.now() }; dirty('anticheat'); return send(res, 200, { ok: true }); }
+    if (seg[2] === 'unban' && m === 'POST') { const b = await readJson(req); delete AC.bans[String(b.game).slice(0, 80) + '|' + String(b.player).slice(0, 60)]; dirty('anticheat'); return send(res, 200, { ok: true }); }
+    if (seg[2] === 'clear' && m === 'POST') { const b = await readJson(req); AC.events = AC.events.filter((e) => b.game && e.game !== b.game); dirty('anticheat'); return send(res, 200, { ok: true }); }
+    return fail(res, 404, 'Not found');
+  }
   if (seg[1] === 'saves' && seg[2] && seg[3]) {
     const u = need(req, res); if (!u) return; const key = `${u.username}/${seg[2].slice(0, 80)}/${seg[3].slice(0, 40)}`;
     if (m === 'GET') return send(res, 200, store.saves[key] || { data: null });
@@ -238,7 +256,7 @@ async function api(req, res, url, ip) {
   if (p === '/api/explore' && m === 'GET') return send(res, 200, { sites: Object.values(store.published).sort((a, b) => b.updated - a.updated).slice(0, 100).map((x) => ({ user: x.user, slug: x.slug, title: x.title, kind: x.kind, updated: x.updated, url: siteUrl(req, x.user, x.slug) })) });
   return fail(res, 404, 'Not found');
 }
-function siteUrl(req, user, slug) { const base = PUBLIC_URL || `http://${req.headers.host}`; return `${base}/p/${user}/${slug}/`; }
+function siteUrl(req, user, slug) { const hs = HOST_.status(); const base = PUBLIC_URL || (hs.on && hs.url ? String(hs.url).replace(/\/$/, '') : '') || `http://${req.headers.host}`; return `${base}/p/${user}/${slug}/`; }
 
 /* ------------------------------------------------------------------ public hosting */
 function serveSite(req, res, url) {

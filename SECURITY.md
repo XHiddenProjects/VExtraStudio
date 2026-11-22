@@ -4,15 +4,16 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 4.3.x   | ✅ security fixes (current) |
-| 4.2.x   | ✅ security fixes (upgrade to 4.3.x) |
-| 4.1.x   | ✅ security fixes (upgrade to 4.3.x) |
-| 4.0.x   | ✅ security fixes (upgrade to 4.3.x) |
-| 3.12.x  | ⚠️ please upgrade to 4.3.x |
-| 3.11.x  | ⚠️ please upgrade to 4.3.x |
+| 4.4.x   | ✅ security fixes (current) |
+| 4.3.x   | ✅ security fixes (upgrade to 4.4.x) |
+| 4.2.x   | ✅ security fixes (upgrade to 4.4.x) |
+| 4.1.x   | ✅ security fixes (upgrade to 4.4.x) |
+| 4.0.x   | ⚠️ please upgrade to 4.4.x |
+| 3.12.x  | ⚠️ please upgrade to 4.4.x |
+| 3.11.x  | ⚠️ please upgrade to 4.4.x |
 | 3.10.x and older | ❌ please upgrade |
 
-Current version: **4.3.1** (see `VERSION`). This policy was last reviewed for 4.3.1.
+Current version: **4.4.0** (see `VERSION`). This policy was last reviewed for 4.4.0.
 
 ## Reporting a vulnerability
 
@@ -49,6 +50,16 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 ## v3.0.0 additions (still apply in 3.1.0)
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
+
+## v4.4.0 notes
+- **Sites made with the website builder** run on a small server that ships inside the exported folder. It stores passwords only as salted **scrypt** hashes, uses random session tokens (stored hashed; `HttpOnly`, `SameSite=Strict`, `Secure` on HTTPS), validates every form field on the server, refuses cross-site posts (Origin / Sec-Fetch-Site), limits request size and rate, locks out repeated wrong logins, hides e-mail and private fields from public lists, sends a strict Content-Security-Policy (no inline scripts), `X-Frame-Options: DENY`, `nosniff` and HSTS on HTTPS, serves only `public/` (no dot-files, path traversal blocked) and protects `/admin` with a rate-limited password (PBKDF2-SHA256, 210 000 rounds, or a random one printed at first start). CSV downloads neutralise spreadsheet formulas.
+- **The builder never writes raw HTML from the page author:** all text is escaped, links accept only http(s), mailto, tel and relative addresses, image sources cannot be `javascript:` URLs, and there is no raw-HTML block.
+- **Not covered:** e-mail sending, payments, password-reset mails and multi-server scaling. Run it behind HTTPS (see the generated `HOSTING.md`) and back up the `data` folder. A single process keeps its data in one JSON file.
+- **Anti-cheat** runs in the player's browser, so a determined cheater can still defeat it; it is documented as best-effort deterrence and reporting, and scores that matter should also be checked on a server. The admin passphrase is stored only as a SHA-256 proof inside the exported game; keep it long. Anti-cheat report routes on the Vextra server accept reports from anyone (size- and rate-limited) but are readable and bannable only from the app on the computer running the server (loopback + `X-Vextra-Admin`).
+- **Port forward / tunnel on publish:** the app only opens the server to the internet after you choose to (or set it to remember). While public, sign-up needs the server invite code and admin routes answer only this computer (unchanged); the ghost tunnel keeps your IP hidden, a port forward does not – the dialog says so.
+- **QR code for two-step sign-in** is generated locally in the app; the secret never leaves the app and the server.
+- **Read aloud** uses the device's own speech voices; no text leaves the device.
+- The server-outdated notice now re-checks automatically and only restarts the local server when the app is allowed to.
 
 ## v4.3.1 notes
 - **Bundled server lifetime:** the desktop app passes its process id to the server it starts; the server exits when that process is gone. Leftover servers are ended only by the exact file name `vextra-server` (never by port or other names) and only when their reported version differs from the app's, before an update, or by the installer.

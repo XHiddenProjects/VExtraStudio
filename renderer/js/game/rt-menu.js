@@ -15,7 +15,7 @@
     }
     return out;
   };
-  const BUILTIN = ['volume', 'sensitivity', 'fps', 'showFps'];
+  const BUILTIN = ['volume', 'sensitivity', 'fps', 'showFps', 'narrate', 'narrateRate'];
   const FPS_LIST = [[0, 'Automatic'], [30, '30 FPS'], [45, '45 FPS'], [60, '60 FPS'], [90, '90 FPS'], [120, '120 FPS'], [144, '144 FPS'], [240, '240 FPS']];
   const store = (id) => ({
     get() { try { return JSON.parse(localStorage.getItem('vx-menu-' + id) || '{}') || {}; } catch { return {}; } },
@@ -29,8 +29,8 @@
     g.fpsCap = pref.fps !== undefined ? pref.fps : (g.settings.fps | 0);
     if (pref.volume !== undefined) g.audio.setVolume(pref.volume);
     g.showFps = pref.showFps !== undefined ? !!pref.showFps : !!g.settings.debug;
-    g.prefs = { sens: pref.sens !== undefined ? pref.sens : 1 };
-    const ui = Object.assign({ volume: true, sensitivity: true, fps: true, showFps: true, fullscreen: true }, g.settings.playerUI || {});
+    g.prefs = { sens: pref.sens !== undefined ? pref.sens : 1, narrate: pref.narrate !== undefined ? pref.narrate : 1, narrateRate: pref.narrateRate || 1 };
+    const ui = Object.assign({ volume: true, sensitivity: true, fps: true, showFps: true, fullscreen: true, narrate: false }, g.settings.playerUI || {});
     const custom = V.parseCustomSettings(g.settings.playerCustom); const cval = Object.assign({}, pref.custom || {});
     const cur = (c) => (cval[c.key] !== undefined ? cval[c.key] : c.def);
     const applyVars = () => { for (const c of custom) g.vars[c.key] = cur(c); };
@@ -43,7 +43,7 @@
     layer.addEventListener('pointerdown', (e) => e.stopPropagation()); layer.addEventListener('mousedown', (e) => e.stopPropagation()); layer.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
     const box = el('div', 'width:min(340px,86%);max-height:90%;overflow:auto;padding:22px 22px 14px;border-radius:16px;background:rgba(18,20,28,.96);border:1px solid rgba(255,255,255,.18);color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.6)');
     layer.append(box); root.append(layer); M.layer = layer;
-    const save = () => st.set({ fps: g.fpsCap, volume: g.audio.volume, showFps: g.showFps, sens: g.prefs.sens, custom: cval });
+    const save = () => st.set({ narrate: g.prefs.narrate, narrateRate: g.prefs.narrateRate, fps: g.fpsCap, volume: g.audio.volume, showFps: g.showFps, sens: g.prefs.sens, custom: cval });
     const btn = (label, fn) => { const b = el('button', BTN, label); b.onclick = fn; return b; };
     const row = (label, ctl) => { const r = el('label', 'display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;font-size:14px;color:#dfe3ee'); r.append(el('span', '', label), ctl); return r; };
 
@@ -59,6 +59,7 @@
         if (ui.sensitivity) box.append(row('Mouse sensitivity', slider(0.2, 3, 0.05, g.prefs.sens, (v) => M.set('sensitivity', v))));
         if (ui.fps) { const fps = el('select', 'padding:6px;border-radius:6px;background:#242836;color:#fff;border:1px solid rgba(255,255,255,.2)'); for (const [v, l] of FPS_LIST) { const o = el('option', '', l); o.value = v; fps.append(o); } fps.value = String(g.fpsCap || 0); fps.onchange = () => M.set('fps', parseInt(fps.value, 10) || 0); box.append(row('Frame rate', fps)); }
         if (ui.showFps) { const sf = el('input'); sf.type = 'checkbox'; sf.checked = !!g.showFps; sf.onchange = () => M.set('showFps', sf.checked ? 1 : 0); box.append(row('Show FPS', sf)); }
+        if (ui.narrate && window.VXTTS && window.VXTTS.supported()) { const nv = el('input'); nv.type = 'checkbox'; nv.checked = !!g.prefs.narrate; nv.onchange = () => M.set('narrate', nv.checked ? 1 : 0); box.append(row('Read text aloud', nv)); box.append(row('Reading speed', slider(0.5, 2, 0.1, g.prefs.narrateRate, (v) => M.set('narrateRate', v)))); }
         for (const c of custom) {
           let ctl; if (c.type === 'slider') ctl = slider(c.min, c.max, c.step, cur(c), (v) => M.set(c.key, v)); else if (c.type === 'toggle') { ctl = el('input'); ctl.type = 'checkbox'; ctl.checked = !!+cur(c); ctl.onchange = () => M.set(c.key, ctl.checked ? 1 : 0); } else { ctl = el('select', 'padding:6px;border-radius:6px;background:#242836;color:#fff;border:1px solid rgba(255,255,255,.2)'); for (const o of c.options) { const op = el('option', '', o); op.value = o; ctl.append(op); } ctl.value = String(cur(c)); ctl.onchange = () => M.set(c.key, ctl.value); }
           box.append(row(c.label, ctl));
@@ -75,17 +76,19 @@
     };
     /* ---- the settings API (used by the settings panel and by the Game Settings block) */
     const known = (k) => BUILTIN.includes(k) || custom.some((c) => c.key === k);
-    M.get = (k) => (k === 'volume' ? g.audio.volume : k === 'sensitivity' ? g.prefs.sens : k === 'fps' ? g.fpsCap || 0 : k === 'showFps' ? (g.showFps ? 1 : 0) : (() => { const c = custom.find((x) => x.key === k); return c ? cur(c) : undefined; })());
+    M.get = (k) => (k === 'volume' ? g.audio.volume : k === 'sensitivity' ? g.prefs.sens : k === 'fps' ? g.fpsCap || 0 : k === 'showFps' ? (g.showFps ? 1 : 0) : k === 'narrate' ? g.prefs.narrate : k === 'narrateRate' ? g.prefs.narrateRate : (() => { const c = custom.find((x) => x.key === k); return c ? cur(c) : undefined; })());
     M.set = (k, v) => {
       if (!known(k)) return false; const n = +v;
       if (k === 'volume') { const x = Math.min(1, Math.max(0, n > 1 ? n / 100 : n)); g.audio.muted = false; g.audio.setVolume(x); v = x; }
       else if (k === 'sensitivity') { g.prefs.sens = Math.min(5, Math.max(0.05, n || 1)); v = g.prefs.sens; }
       else if (k === 'fps') { g.fpsCap = Math.max(0, Math.min(1000, Math.round(n) || 0)); v = g.fpsCap; }
       else if (k === 'showFps') { g.showFps = !!n && v !== 'false'; v = g.showFps ? 1 : 0; }
+      else if (k === 'narrate') { g.prefs.narrate = (!!n && v !== 'false') ? 1 : 0; v = g.prefs.narrate; if (!v && window.VXTTS) window.VXTTS.stop(); }
+      else if (k === 'narrateRate') { g.prefs.narrateRate = Math.min(2, Math.max(0.5, n || 1)); v = g.prefs.narrateRate; }
       else { const c = custom.find((x) => x.key === k); if (c.type === 'slider') v = Math.min(c.max, Math.max(c.min, Number.isFinite(n) ? n : c.def)); else if (c.type === 'toggle') v = (/^(true|on|yes)$/i.test(String(v)) || n) ? 1 : 0; else v = c.options.includes(String(v)) ? String(v) : c.def; cval[k] = v; g.vars[k] = v; }
       save(); fire(k, v); return true;
     };
-    M.reset = () => { g.audio.setVolume(1); g.prefs.sens = 1; g.fpsCap = g.settings.fps | 0; g.showFps = !!g.settings.debug; for (const c of custom) { cval[c.key] = c.def; g.vars[c.key] = c.def; } save(); for (const k of BUILTIN) fire(k, M.get(k)); for (const c of custom) fire(c.key, c.def); };
+    M.reset = () => { g.audio.setVolume(1); g.prefs.sens = 1; g.prefs.narrate = 1; g.prefs.narrateRate = 1; g.fpsCap = g.settings.fps | 0; g.showFps = !!g.settings.debug; for (const c of custom) { cval[c.key] = c.def; g.vars[c.key] = c.def; } save(); for (const k of BUILTIN) fire(k, M.get(k)); for (const c of custom) fire(c.key, c.def); };
     M.onSetting = (fn) => { listeners.setting.add(fn); return () => listeners.setting.delete(fn); };
     M.onClose = (fn) => { listeners.close.add(fn); return () => listeners.close.delete(fn); };
     M.openSettings = () => { if (M.open) { M.view = 'settings'; M.fromBlock = true; draw(); return; } M.openMenu(); M.view = 'settings'; M.fromBlock = true; draw(); };
