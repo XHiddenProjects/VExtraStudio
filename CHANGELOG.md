@@ -2,7 +2,13 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.4.0] — current
+## [4.4.1] — current
+
+### Fixed
+- **Website builder preview:** clicking a page link (for example *Contact*) in the preview loaded the whole Vextra app inside the preview frame and showed "Vextra failed to start". The preview now keeps every link inside the frame, shows the linked page of your site, and ignores form submits.
+- **"Vextra failed to start: Origin header is not a valid URL":** right after the window opens the webview can briefly report an opaque origin and Tauri refuses the first native call. Native calls are now retried for a few seconds on that exact error instead of stopping the start-up.
+
+## [4.4.0]
 
 ### Added
 - **Website builder (`.vxsite`):** build a website with drag-and-drop blocks – Heading, Paragraph, Button, Image, Hero, Columns (drop blocks inside), Card, Spacer, Divider, **Form**, **List from database**, **Sign-up**, **Login**, **Who is logged in**. Pages, menu, theme (colours, font, corners, width), phone / desktop view, undo / redo, keyboard moves, a *Checks* list and a preview.

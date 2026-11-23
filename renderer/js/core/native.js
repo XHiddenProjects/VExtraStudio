@@ -8,7 +8,15 @@
   const textToB64 = (t) => { const u = new TextEncoder().encode(t); let s = ''; u.forEach((b) => (s += String.fromCharCode(b))); return btoa(s); };
 
   if (T) {
-    const inv = async (cmd, args) => { try { return await T.core.invoke(cmd, args); } catch (e) { throw e instanceof Error ? e : new Error(String(e)); } };
+    /* Right after the window opens the webview can still report an opaque origin (about:blank / "null"), and Tauri then refuses the call with
+       "Origin header is not a valid URL". It is a start-up race, so such a call is simply retried for a few seconds. */
+    const badOrigin = (e) => /Origin header is not a valid URL/i.test(String(e && e.message ? e.message : e));
+    const inv = async (cmd, args) => {
+      for (let n = 0; ; n++) {
+        try { return await T.core.invoke(cmd, args); }
+        catch (e) { if (badOrigin(e) && n < 40) { await new Promise((r) => setTimeout(r, 50 + n * 25)); continue; } throw e instanceof Error ? e : new Error(String(e)); }
+      }
+    };
     window.native = {
       isDesktop: true,
       openFolder: () => inv('fs_open_folder'),
@@ -127,7 +135,7 @@
     },
     settings: { async load() { return lsSettings; }, async save(data) { lsSettings = data; localStorage.setItem('vx-settings', JSON.stringify(data)); } },
     secret: { async get(k) { return localStorage.getItem('vx-secret-' + k); }, async set(k, v) { v == null ? localStorage.removeItem('vx-secret-' + k) : localStorage.setItem('vx-secret-' + k, v); } },
-    async info() { return { name: 'Vextra Studio', version: '4.4.0', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
+    async info() { return { name: 'Vextra Studio', version: '4.4.1', platform: 'browser', arch: 'wasm', userDir: '(browser storage)' }; },
     launchFiles: async () => [], onOpenFile: () => {},
     updater: { check: async () => ({ enabled: false, available: false, reason: 'The browser version updates itself – reload the page.' }), install: async () => { throw new Error('Updates are for the desktop app.'); }, restart: async () => location.reload(), onProgress: async () => () => {} },
     async clean(what) { const removed = []; const all = what.includes('all'); if (all || what.includes('settings')) { localStorage.removeItem('vx-settings'); removed.push('settings'); } for (const k of ['plugins', 'themes']) if (all || what.includes(k)) { localStorage.removeItem('vx-ext-' + k); removed.push(k); } if (all || what.includes('secrets')) { Object.keys(localStorage).filter((k) => k.startsWith('vx-secret-')).forEach((k) => localStorage.removeItem(k)); removed.push('secrets'); } return removed; },

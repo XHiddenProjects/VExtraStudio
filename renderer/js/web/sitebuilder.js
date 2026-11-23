@@ -169,9 +169,24 @@
     function renderAll() { renderLeft(); renderCanvas(); renderRight(); }
 
     /* ---------- preview, checks, export ---------- */
-    function previewHtml(p) {
+    /* The preview runs in a sandboxed iframe. Links to other pages of the site are caught there and sent to the editor, which shows that page;
+       no link may ever navigate the frame (it would load the Vextra app inside it). Replacement FUNCTIONS are used because the site script contains "$" sequences. */
+    function previewHtml(p, token) {
       const full = S.pageHtml(site, p, { site, tts: false });
-      return full.replace('<link rel="stylesheet" href="/styles.css">', '<style>' + S.css(site) + '</style>').replace('<script src="/site.js"></script>', '<script>window.__VX_PREVIEW=true;document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a");if(a&&/^\\//.test(a.getAttribute("href")||"")){e.preventDefault()}});' + S.SITE_JS.replace(/<\/script/gi, '<\\/script') + '</script>');
+      const guard = 'window.__VX_PREVIEW=true;document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a)return;var h=a.getAttribute("href")||"";if(h.charAt(0)==="#")return;e.preventDefault();if(h.charAt(0)==="/"&&h.charAt(1)!=="/")parent.postMessage({vxToken:' + JSON.stringify(token || '') + ',href:h},"*")},true);document.addEventListener("submit",function(e){e.preventDefault()},true);';
+      return full.replace('<link rel="stylesheet" href="/styles.css">', () => '<style>' + S.css(site) + '</style>').replace('<script src="/site.js"></script>', () => '<script>' + guard + S.SITE_JS.replace(/<\/script/gi, '<\\/script') + '</script>');
+    }
+    function openPreview(start) {
+      const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      const frame = h('iframe', { class: 'preview-frame', sandbox: 'allow-scripts allow-forms allow-modals allow-popups' });
+      const show = (pg) => { frame.srcdoc = VX.ui.guardHash(previewHtml(pg, token)); };
+      const onMsg = (e) => {
+        if (e.source !== frame.contentWindow || !e.data || e.data.vxToken !== token) return;
+        const m = /^\/(?:([a-z0-9-]+)\.html)?(?:[?#].*)?$/i.exec(String(e.data.href || '')); if (!m) return;
+        const slug = (m[1] || 'home').toLowerCase(), pg = site.pages.find((x) => x.slug === slug); if (pg) show(pg); else VX.ui.toast('The preview has no page called “' + slug + '”.', 'warn');
+      };
+      window.addEventListener('message', onMsg); show(start);
+      VX.ui.modal({ title: 'Preview', body: frame, wide: true, className: 'flush', onClose: () => window.removeEventListener('message', onMsg) });
     }
     async function loadText(path) { try { const r = await fetch(path); return r.ok ? await r.text() : ''; } catch { return ''; } }
     function extractAssets(s) {
@@ -204,7 +219,7 @@
       onShow() { renderAll(); },
       toolbar() {
         const b = (label, fn, cls, title) => h('button', { class: 'btn ' + (cls || ''), onclick: fn, title: title || '' }, label);
-        return [b('↶ Undo', doUndo), b('↷ Redo', doRedo), h('span', { class: 'spacer' }), (() => { const bt = b(device === 'desktop' ? '🖥 Desktop' : '📱 Phone', () => { device = device === 'desktop' ? 'phone' : 'desktop'; canvasHost.dataset.device = device; bt.textContent = device === 'desktop' ? '🖥 Desktop' : '📱 Phone'; }, '', 'Switch the page width'); return bt; })(), b('✔ Checks', showChecks), b('📖 Docs', () => opts.openDocs && opts.openDocs('site-builder')), b('👁 Preview', () => VX.ui.preview(previewHtml(page()), 'Preview – ' + page().title)), b('⬇ Export & host', exportDialog, 'primary', 'Create the site folder with its server')];
+        return [b('↶ Undo', doUndo), b('↷ Redo', doRedo), h('span', { class: 'spacer' }), (() => { const bt = b(device === 'desktop' ? '🖥 Desktop' : '📱 Phone', () => { device = device === 'desktop' ? 'phone' : 'desktop'; canvasHost.dataset.device = device; bt.textContent = device === 'desktop' ? '🖥 Desktop' : '📱 Phone'; }, '', 'Switch the page width'); return bt; })(), b('✔ Checks', showChecks), b('📖 Docs', () => opts.openDocs && opts.openDocs('site-builder')), b('👁 Preview', () => openPreview(page())), b('⬇ Export & host', exportDialog, 'primary', 'Create the site folder with its server')];
       },
       dispose() { clearTimeout(snapTimer); },
     };

@@ -13,7 +13,7 @@
 | 3.11.x  | ⚠️ please upgrade to 4.4.x |
 | 3.10.x and older | ❌ please upgrade |
 
-Current version: **4.4.0** (see `VERSION`). This policy was last reviewed for 4.4.0.
+Current version: **4.4.1** (see `VERSION`). This policy was last reviewed for 4.4.1.
 
 ## Reporting a vulnerability
 
@@ -50,6 +50,9 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 ## v3.0.0 additions (still apply in 3.1.0)
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
+
+## v4.4.1 notes
+- Start-up fix only: native calls are retried for a few seconds when the webview briefly reports an opaque origin. Only that one error is retried; every other error, the capability set and the IPC origin checks are unchanged.
 
 ## v4.4.0 notes
 - **Sites made with the website builder** run on a small server that ships inside the exported folder. It stores passwords only as salted **scrypt** hashes, uses random session tokens (stored hashed; `HttpOnly`, `SameSite=Strict`, `Secure` on HTTPS), validates every form field on the server, refuses cross-site posts (Origin / Sec-Fetch-Site), limits request size and rate, locks out repeated wrong logins, hides e-mail and private fields from public lists, sends a strict Content-Security-Policy (no inline scripts), `X-Frame-Options: DENY`, `nosniff` and HSTS on HTTPS, serves only `public/` (no dot-files, path traversal blocked) and protects `/admin` with a rate-limited password (PBKDF2-SHA256, 210 000 rounds, or a random one printed at first start). CSV downloads neutralise spreadsheet formulas.
