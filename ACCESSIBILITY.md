@@ -17,7 +17,7 @@ Vextra Studio should be usable by as many people as possible – both the **edit
 - *Skip to the editor* link and visible keyboard focus (optional extra-thick outline in Settings → Accessibility).
 - **High Contrast Dark / Light** themes and **Interface zoom** (70–200%).
 - **Reduce motion** (system or forced) – animations stop and games skip Camera shake.
-- Keyboard alternatives: in the block graph `[` / `]` step through blocks, arrow keys move them (Shift = bigger steps), Enter opens a bundle; in the UI designer arrows nudge (Shift = 10 px).
+- Keyboard alternatives: in the block graph `[` / `]` step through blocks, arrow keys move them (Shift = bigger steps), Enter opens a bundle.
 - **Languages:** ten interface languages including right-to-left Arabic.
 
 - **UI layout editor:** every HUD item and touch control can be focused and moved with the arrow keys (Shift = 10 px, Delete resets), and is announced.

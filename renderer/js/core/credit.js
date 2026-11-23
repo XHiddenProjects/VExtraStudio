@@ -1,5 +1,5 @@
 /* Vextra Studio credit: the "made with" line and copyright that exported websites and games carry.
-   Games show it on their loading page (see game/editor/loader.js); websites and UI designs get a footer.
+   Games show it on their loading page (see game/editor/loader.js); websites get a footer.
    The text is fixed; colours, alignment and which pages carry it are customizable. */
 (function () {
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

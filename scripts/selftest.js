@@ -31,17 +31,8 @@ const call = (method, p, body, token) => new Promise((res) => { const d = body ?
     ok((g.match(/tk-/g) || []).length >= 6, 'markdown: unlabelled, titled and indented fences are highlighted');
     ok((g.match(/class="task"/g) || []).length === 2, 'markdown: nested task items are rendered as tasks'); }
   ok(ctx.VX.archive.crc32(new TextEncoder().encode('123456789')) === 0xcbf43926, 'crc32 check value');
-  { ctx.VX.esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); load('js/designer/components.js');
-    const out = ctx.VX.components.uiToHTML({ width: 1000, height: 600, bg: '#101010', items: [
-      { id: 'a', type: 'navbar', x: 0, y: 0, w: 1000, h: 56, rot: 0, props: { brand: 'B', links: 'Home|#home, About|#about', bg: '#111', color: '#fff' } },
-      { id: 'b', type: 'heading', x: 10, y: 80, w: 200, h: 40, rot: 0, page: 'about', anchor: 'top', mobile: 'hide', props: { text: 'x', size: 20, color: '#fff', weight: 700, align: 'left' } },
-      { id: 'c', type: 'heading', x: 10, y: 90, w: 200, h: 40, rot: 0, hidden: true, props: { text: 'SECRET', size: 20, color: '#fff', weight: 700, align: 'left' } }] }, 't');
-    ok(/name="viewport"/.test(out) && /class="fit"/.test(out) && /\.stack \.it/.test(out), 'vxui export: responsive viewport, scaling stage and phone stacking');
-    ok(/href="#about"/.test(out) && /data-p="about"/.test(out) && /id="top"/.test(out) && /data-m="hide"/.test(out), 'vxui export: #links, pages, anchors and phone options');
-    ok(!/SECRET/.test(out), 'vxui export: hidden layers are not exported');
-    { const o2 = ctx.VX.components.uiToHTML({ width: 800, height: 500, bg: '#fff', pages: ['home', 'about', 'x</script><b>'], items: [{ id: 'q', type: 'heading', x: 0, y: 0, w: 100, h: 30, rot: 0, page: 'home', props: { text: 'h', size: 20, color: '#000', weight: 700, align: 'left' } }] }, 't');
-      ok(/P=\["home","about"/.test(o2) && !/<\/script><b>/.test(o2.split('<script>')[1] || ''), 'vxui export: page list comes from the design and is escaped inside the script'); }
-    ok(!/javascript:/i.test(ctx.VX.components.uiToHTML({ width: 100, height: 100, bg: '#000', items: [{ id: 'z', type: 'link', x: 0, y: 0, w: 50, h: 20, rot: 0, props: { text: 'x', href: '#', color: '#fff', size: 12 } }] }, 't')), 'vxui export: no javascript: links'); }
+  ctx.VX.esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  ok(!fs.existsSync(path.join(ROOT, 'renderer/js/designer')) && !/designer\/|vxui/i.test(fs.readFileSync(path.join(ROOT, 'renderer/index.html'), 'utf8')), 'UI designer (vxui) removed – the website builder replaces it');
   ctx.__done = false;
   (async () => { const es = [{ path: 'a/b.txt', data: 'hello '.repeat(200) }, { path: '.htaccess', data: 'x' }]; const z = await ctx.VX.archive.zip(es), t = await ctx.VX.archive.tarGz(es);
     const tmp = path.join(require('os').tmpdir(), 'vx-arch-' + process.pid); fs.mkdirSync(tmp, { recursive: true }); fs.writeFileSync(path.join(tmp, 'a.zip'), z); fs.writeFileSync(path.join(tmp, 'a.tgz'), t);
@@ -140,6 +131,14 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
     const evil = S.newBlock('heading'); evil.p.text = '<img src=x onerror=alert(1)>'; site.pages[0].blocks.push(evil); const btn = S.newBlock('button'); btn.p.href = 'javascript:alert(1)'; btn.p.label = '"><script>'; site.pages[0].blocks.push(btn);
     site.collections.push({ name: 'reviews', label: 'Reviews', public: true, submit: 'members', fields: [{ key: 'who', label: 'Name', type: 'text', required: true, maxLength: 10 }, { key: 'mail', label: 'Mail', type: 'email' }] });
     site.pages.push({ id: 'm1', title: 'Members', slug: 'members', access: 'members', inNav: true, blocks: [S.newBlock('heading')] });
+    site.collections.push({ name: 'events', label: 'Events', public: true, submit: 'anyone', fields: [{ key: 'kind', label: 'Kind', type: 'radio', options: ['talk', 'party'], required: true }, { key: 'topic', label: 'Topic', type: 'text', required: true, showIf: { field: 'kind', equals: 'talk' } }, { key: 'day', label: 'Day', type: 'date' }, { key: 'site', label: 'Site', type: 'url' }, { key: 'phone', label: 'Phone', type: 'tel' }, { key: 'stars', label: 'Stars', type: 'rating' }] });
+    { const adv = []; const mkb = (t, p, st) => { const b = S.newBlock(t); Object.assign(b.p, p); if (st) b.s = st; adv.push(b); return b; };
+      mkb('richtext', { md: '# Hi <b>x</b>\n\n[bad](javascript:alert(1)) [ok](https://ok.example) **bold** `<i>`' }, { anchor: 'Top Part', vis: 'members', anim: 'fade', bg: 'red;} body{display:none', pt: 20 });
+      mkb('video', { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }); mkb('video', { url: 'javascript:alert(1).mp4' }); mkb('map', { lat: 48.85, lon: 2.35, zoom: 12 });
+      mkb('gallery', { items: 'https://x.example/a.png | "><script>alert(1)</script>\njavascript:alert(1) | bad' }); mkb('alert', { title: '<script>x</script>', text: 'hi' }); mkb('stats', {}); mkb('pricing', {}); mkb('features', { items: '<b>|<i>|<u>' }); mkb('testimonials', {}); mkb('table', {}); mkb('countdown', { to: '2030-01-01T10:00' }); mkb('countdown', { to: '"><x>' }); mkb('code', { text: '<script>alert(1)</script>' }); mkb('buttons', { items: 'Go | javascript:alert(1)' });
+      const tb = mkb('tabs', {}); tb.cols[0] = [Object.assign(S.newBlock('heading'), {})]; const ac = mkb('accordion', {}); ac.cols[1] = [S.newBlock('text')]; const se = mkb('section', { image: 'javascript:alert(1)' }); se.cols[0] = [S.newBlock('button')];
+      mkb('list', { collection: 'events', search: true, sort: 'day', per: 5, layout: 'table' }); mkb('form', { collection: 'events', steps: 2 });
+      site.pages[0].blocks.push(...adv); }
     const files = await S.generate(site, { serverSource: fs.readFileSync(path.join(ROOT, 'renderer/js/web/site-server.tpl.js'), 'utf8'), adminPasswordHash: await S.hashAdminPassword('selftest-admin-pw') });
     const home = files.find((f) => f.path === 'public/index.html').data;
     ok(!/<img src=x/.test(home) && !/javascript:/.test(home) && !/"><script>/.test(home), 'site builder: block text is escaped, javascript: links removed');
@@ -170,6 +169,18 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
       ok((await rq('POST', '/admin/api/login', { password: 'wrong' })).status === 401, 'site server: wrong admin password refused');
       const al = await rq('POST', '/admin/api/login', { password: 'selftest-admin-pw' }); const ack = String(al.headers['set-cookie'] || '').split(';')[0]; ok(al.status === 200, 'site server: admin password (PBKDF2 hash) accepted');
       const sm = await rq('GET', '/admin/api/summary', null, { Cookie: ack }); ok(sm.status === 200 && sm.json.collections.find((c) => c.name === 'messages').count === 1 && sm.json.users.length === 1 && !('hash' in sm.json.users[0]), 'site server: admin sees entries and members (no password hashes)');
+      { const h2 = (await rq('GET', '/')); const H = h2.text || '';
+        ok(!/javascript:/i.test(H) && !/<script>alert|<b>x<\/b>|<i>|"><x>/.test(H.replace(/<script src="[^"]+"><\/script>/g, '')) && !/body\{display:none/.test(H), 'advanced blocks: hostile text, links, colours and addresses are neutralised');
+        ok(/id="top-part"/.test(H) && /data-vis="members"/.test(H) && /vx-an-fade/.test(H), 'advanced blocks: style options (anchor, who sees it, animation) are applied safely');
+        ok(/youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(H) && !/youtube\.com\/watch/.test(H) && /openstreetmap\.org\/export\/embed/.test(H), 'advanced blocks: video and map embeds are built from a fixed allow-list');
+        ok(/frame-src https:\/\/www\.youtube-nocookie\.com https:\/\/www\.openstreetmap\.org;/.test(hp.headers['content-security-policy'] || ''), 'site server: CSP allows frames only for the embeds the site really uses');
+        ok(/data-vx-tabs/.test(H) && /<details class="vx-det"/.test(H) && /class="vx-step"/.test(H) && /data-showif="kind\|talk"/.test(H) && /data-per="5"/.test(H), 'advanced blocks: tabs, accordion, multi-step form, conditional field and paged list render'); }
+      ok((await rq('POST', '/api/forms/events', { kind: 'party', day: '2030-02-30x' })).status === 422, 'site server: a bad date is rejected');
+      ok((await rq('POST', '/api/forms/events', { kind: 'party', site: 'javascript:alert(1)' })).status === 422, 'site server: only http(s) web addresses are accepted');
+      ok((await rq('POST', '/api/forms/events', { kind: 'party', stars: 9 })).status === 422 && (await rq('POST', '/api/forms/events', { kind: 'party', phone: 'abc' })).status === 422, 'site server: rating and phone are validated');
+      ok((await rq('POST', '/api/forms/events', { kind: 'talk' })).status === 422, 'site server: a conditional field is required while its condition holds');
+      ok((await rq('POST', '/api/forms/events', { kind: 'party', topic: 'ignored', day: '2030-02-01', phone: '+1 555 0100', stars: 4 })).status === 200, 'site server: a conditional field is ignored when its condition is not met');
+      { const ev = await rq('GET', '/api/data/events'); ok(ev.json.rows.length === 1 && ev.json.rows[0].data.topic === '' && !('phone' in ev.json.rows[0].data), 'site server: ignored values are not stored and phone numbers are not public'); }
     } catch (e) { ok(false, 'site builder server test crashed: ' + e.message); }
     ss.kill(); await new Promise((r) => setTimeout(r, 300)); try { fs.rmSync(sd, { recursive: true, force: true, maxRetries: 5 }); } catch { /* temp dir */ }
   }

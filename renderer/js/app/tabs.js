@@ -3,7 +3,7 @@
   const { h, $ } = VX;
   const S = VX.app.S;
   let code = null; // shared Ace wrapper
-  const hosts = () => ({ editor: $('#editor-host'), designer: $('#designer-host'), game: $('#game-host'), view: $('#view-host') });
+  const hosts = () => ({ editor: $('#editor-host'), builder: $('#builder-host'), game: $('#game-host'), view: $('#view-host') });
   const showHost = (name) => { const hs = hosts(); for (const [k, el] of Object.entries(hs)) el.classList.toggle('on', k === name); };
   const T = (VX.tabs = { kinds: {}, problems: new Map() });
 
@@ -48,20 +48,10 @@
     },
   };
 
-  T.kinds.ui = {
-    icon: 'blocks',
-    async load(t) { if (t.ctl) return; const text = t.text ?? (await window.native.readFile(t.path)); delete t.text; t.ctl = VX.Designer.fromText(text, { onChange: () => T.markDirty(t), preview: (d) => VX.ui.preview(d.toHTML(t.title), 'Preview – ' + t.title), exportCode: (d) => T.exportUI(d, t) }); t.dirty = !!t.startDirty; },
-    show(t) { showHost('designer'); const host = $('#designer-host'); if (t.ctl.root.parentNode !== host) { host.textContent = ''; host.append(t.ctl.root); } t.ctl.fit && t.ctl.fit(); },
-    text: (t) => t.ctl.serialize(),
-    toolbar: (t) => t.ctl.toolbar(),
-    dispose() {},
-  };
-  T.exportUI = async (d, t) => { const name = (VX.path.stem(t.title) || 'design') + '.html'; const html = d.toHTML(t.title); const base = S.root; if (base) { const p = VX.path.join(base, name); await window.native.writeFile(p, html); VX.ui.toast('Exported ' + name, 'ok'); VX.emit('fsChange'); T.open({ path: p }); } else { VX.download(name, html, 'text/html'); } };
-
   T.kinds.site = {
     icon: 'globe',
     async load(t) { if (t.ctl) return; const text = t.text ?? (await window.native.readFile(t.path)); delete t.text; t.ctl = VX.siteBuilder.create(text, { name: VX.path.stem(t.title), onChange: () => T.markDirty(t), openDocs: (id) => VX.docs.open(id) }); t.dirty = !!t.startDirty; },
-    show(t) { showHost('designer'); const host = $('#designer-host'); if (t.ctl.root.parentNode !== host) { host.textContent = ''; host.append(t.ctl.root); } t.ctl.onShow && t.ctl.onShow(); },
+    show(t) { showHost('builder'); const host = $('#builder-host'); if (t.ctl.root.parentNode !== host) { host.textContent = ''; host.append(t.ctl.root); } t.ctl.onShow && t.ctl.onShow(); },
     text: (t) => t.ctl.serialize(),
     toolbar: (t) => t.ctl.toolbar(),
     dispose(t) { t.ctl && t.ctl.dispose && t.ctl.dispose(); },
@@ -145,7 +135,7 @@
       let text = T.kinds[t.kind].text(t);
       if (t.kind === 'code' && VX.app.settings.formatOnSave && code.format()) text = T.kinds.code.text(t);
       if (!t.path || as) {
-        const def = t.title.includes('.') ? t.title : t.title + (t.kind === 'ui' ? '.vxui' : t.kind === 'site' ? '.vxsite' : t.kind === 'game' ? '.vxgame' : '.txt');
+        const def = t.title.includes('.') ? t.title : t.title + (t.kind === 'site' ? '.vxsite' : t.kind === 'game' ? '.vxgame' : '.txt');
         const p = S.root && !as ? VX.path.join(S.root, def) : await window.native.saveAs(def, text);
         if (!p) return false;
         if (S.root && !as && (await window.native.exists(p))) { if (!(await VX.ui.confirm(`${def} already exists. Overwrite it?`, 'Overwrite', { danger: true }))) { const q = await window.native.saveAs(def, text); if (!q) return false; t.path = q; } else t.path = p; } else t.path = p;

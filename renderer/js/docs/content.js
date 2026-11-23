@@ -9,7 +9,7 @@ Vextra is a workspace for **making websites** and **making games** — in 2D or 
 ## What can I do?
 
 - **Build a website** – open a folder, edit HTML/CSS/JS with live preview in phone, tablet and desktop frames. → [Websites](doc:web)
-- **Design a screen visually** – drag components onto a canvas and export clean HTML. → [UI designer](doc:ui)
+- **Build a website with blocks** – drag blocks onto a page, add a database, forms and members, then export or host it. → [Website builder](doc:site-builder)
 - **Make a game** – create objects, draw your own sprites, compose sounds, build 3D models, then wire up behaviour with blocks. → [Game editor](doc:game)
 - **See the logic both ways** – every behaviour can be viewed as blocks, as code, or side by side. → [Blocks & code](doc:logic)
 - **Share it** – publish to a public link, invite collaborators, keep leaderboards and cloud saves. → [Publishing](doc:publish)
@@ -22,7 +22,7 @@ Vextra is a workspace for **making websites** and **making games** — in 2D or 
 3. Switch to the **Logic** view and click the *Player* object — you will see its behaviour as blocks. Press **Code** to see the same thing as a script.
 4. Drag a new object from the **Create** panel onto the scene.
 
-> Everything is saved in plain files you own: \`.vxgame\` for games, \`.vxui\` for designs.`);
+> Everything is saved in plain files you own: \`.vxgame\` for games, \`.vxsite\` for websites.`);
 
   A('shortcuts', 'Start here', 'Keyboard shortcuts', `# Keyboard shortcuts
 
@@ -51,15 +51,7 @@ Vextra is a workspace for **making websites** and **making games** — in 2D or 
 | Focus selection | F |
 | Pan viewport | Middle mouse or Space + drag |
 | Zoom | Mouse wheel |
-
-## UI designer
-
-| Action | Shortcut |
-|---|---|
-| Nudge | Arrow keys (Shift = 10 px) |
-| Copy / Paste / Duplicate | Ctrl+C / Ctrl+V / Ctrl+D |
-| Select several | Shift + click, or drag a box |
-| Zoom | Ctrl + wheel |`);
+`);
 
   A('web', 'Websites', 'Building websites', `# Building websites
 
@@ -89,56 +81,6 @@ Markdown (\`.md\`) and SVG files preview too.
 ## Publishing a site
 
 Use **Publish** (cloud panel) to put the whole folder online at a public link. → [Share & publish](doc:publish)`);
-
-  A('ui', 'UI designer', 'UI designer', `# UI designer
-
-Create a \`.vxui\` file (**New UI design**) to open the visual designer.
-
-## Adding components
-
-The **Create** panel lists **40+ components** in groups — Layout, Navigation, Text, Controls, Forms, Media, Data and Feedback. Either:
-
-- **drag** a component onto the canvas and drop it where you want it, or
-- **click** it to add it to the middle of the canvas.
-
-Plugins can add more components. → [Plugin API](doc:plugin-api)
-
-## Working with the canvas
-
-- Click to select, **Shift+click** to add to the selection, drag on empty space for a **selection box**.
-- Drag to move, drag the white handles to resize. Hold **Alt** to bypass snapping.
-- The right panel edits size, position, rotation and the component's own settings.
-- **Align and distribute** several items, reorder layers, lock or hide layers.
-- **Undo / Redo**, copy / paste / duplicate, zoom with Ctrl+wheel, **Fit**.
-
-## Responsive on every device
-
-Exported pages and previews adjust to the screen by themselves (**Canvas → Responsive layout**):
-
-- **Auto** (default) scales the whole design to the width of the screen, and on phones (narrower than **Stack below**, 640 px by default) reflows it into **one column in reading order**.
-- **Scale to the screen only** never stacks; **Fixed size** keeps the design at its exact pixel size.
-- For each item, **On phones** chooses *Stack*, *Stack, full width* or *Hide on phones*.
-
-## Building a site (pages, sections, devices)
-
-The designer works like a website builder:
-- **Pages** are the tabs above the canvas. **+ Page** adds one (the first time, your existing content becomes *home*; navbar and footer stay on every page). Double-click a tab to rename it, right-click or 🗑 to delete it. New items go on the page you are editing.
-- **＋ Section** drops a ready-made block under your content: Hero, Features, Pricing, Testimonials, Call to action, Contact form or Footer.
-- **🖥 ▭ 📱** switch between editing and a live **tablet / phone preview** of the exported page (you can click its links to try the pages).
-- Click an element for its **toolbar**: duplicate, forward, backward, *on this page / on every page* (🌐 / 📌) and delete.
-- **Site title** (nothing selected) is the browser-tab title.
-
-## Links, anchors and pages (like a website builder)
-
-- Give an item an **Anchor name** (Properties → Responsive & links), then link to it with \`#name\` from a Link, Button, Navbar, Tabs or Footer. Navbar, Tabs and Footer lists take \`Label|#name\`.
-- Give items a **Show on page** name to build a multi-page site in one design: \`#about\` shows the items of the page *about* (items with no page show on every page). The first page you use is the home page.
-- A \`#\` link **never leaves the site or reloads the app**: the page scrolls or switches, and the address bar keeps the \`#name\` (also in previews).
-
-## Export
-
-**Export HTML** writes a standalone page next to your design, and **Preview** opens it in a window. Use the exported HTML as a starting point in a website project. Hidden layers are not exported.
-
-> If dragging ever seems to do nothing: Vextra uses its own pointer-based drag and drop (not the browser's), so it works in the desktop app. Make sure you have a design tab open — the Create panel switches to that design's components.`);
 
   A('game', 'Making games', 'Game editor overview', `# Game editor overview
 
@@ -444,7 +386,6 @@ A plugin is a single \`.js\` file that receives a \`vx\` object. Plugins can:
 | Commands in the palette | \`vx.commands.register\` |
 | Toolbar buttons, status bar items | \`vx.toolbar.add\`, \`vx.statusBar.add\` |
 | Side panels | \`vx.panels.register\` |
-| UI-designer components | \`vx.designer.registerComponent('ui', …)\` |
 | Themes | \`vx.themes.register\` |
 | **Game object types** (2D & 3D) | \`vx.game.registerObjectType\` |
 | **Logic blocks** | \`vx.game.registerBlock\` |
@@ -500,17 +441,6 @@ vx.panels.register({ id: 'p', title: 'My panel', icon: 'plugin', render(containe
 ## UI helpers
 
 \`vx.ui\`: \`toast(msg, kind)\`, \`prompt(msg, default)\`, \`confirm(msg, okLabel)\`, \`form({title, fields})\`, \`modal({title, html, wide})\`, \`preview(html, title)\`.
-
-## Designer components
-
-\`\`\`js
-vx.designer.registerComponent('ui', {
-  type: 'badge', label: 'Badge', icon: '🏷', category: 'My components', w: 90, h: 30,
-  props: { text: 'NEW', bg: '#e5534b' },
-  schema: [{ key: 'text', label: 'Text', type: 'text' }, { key: 'bg', label: 'Colour', type: 'color' }],
-  html: (item) => \`<div style="background:\${item.props.bg};color:#fff;border-radius:99px;display:grid;place-items:center;width:100%;height:100%">\${item.props.text}</div>\`,
-});
-\`\`\`
 
 ## Themes
 
@@ -654,7 +584,7 @@ Open a game and press **⏳ Loading page** in the toolbar to customize it:
 
 The bar fills as the runtime starts and every sprite picture is decoded; the game starts when it is full. In Play the minimum time is skipped so testing stays quick.
 
-**Websites and UI designs:** Export website adds a footer “Made with Vextra Studio · © <year> XHiddenProjects” to every page (or only the home page); pick its alignment and style in the export dialog. Exported UI designs carry the same footer.`);
+**Websites:** Export website adds a footer “Made with Vextra Studio · © <year> XHiddenProjects” to every page (or only the home page); pick its alignment and style in the export dialog.`);
 
   A('touch-controls', 'Games', 'Phones & tablets (touch controls)', `# Phones & tablets\n\nMobile support is part of the **game engine**: three blocks in the **GUI** group, placed in the **UI layer** like a Label or Bar.\n\n- **Joystick** – a stick that presses the keys you choose (default W A S D / arrows). Settings: size, knob size, colours, opacity, dead zone, invert Y, base / knob **sprites**, anchor + offset, *Always show* (otherwise only on touch screens).\n- **Touch Button** – a round / rounded / square button that presses a key (space, shift, M …). Label, colours, size, sprite, anchor.\n- **Touch Look** – look around in first-person games. Mode **Drag** (swipe the screen), **Stick** (a second stick – easiest with an emulator or one finger) or **Both**; area (whole screen / right / left half) and sensitivity (default 3.5). It feeds the *Locked Mouse* → *Camera (look)* chain, so no extra wiring.\n\n**Place and move them:** Game toolbar → **Edit UI layout**. They appear as Joystick / Touch button items; drag them, or focus one and use the **arrow keys** (Shift = 10 px, Delete = back to the block's own position).\n\n**Ready-made:** every example game already has them. Games with no touch blocks still get a simple automatic overlay as a fallback.\n\n**Game settings → On-screen touch controls:** Automatic (touch screens only), Always (try it on a computer) or Never. Exported websites and Store Export apps (Android / iOS) use the same blocks.`);
   A('language-access', 'Getting started', 'Languages & accessibility', `# Languages & accessibility
@@ -670,7 +600,7 @@ The keys are the English texts. Choose the language in Settings afterwards.
 
 ## Accessibility
 - **Screen readers:** landmarks, dialogs (focus moves in, Tab stays inside, Esc closes, focus goes back), names for icon buttons, and a live announcer for toasts, tab changes and selections.
-- **Keyboard:** *Skip to the editor* link, visible focus outline (optional extra-thick), Enter / Space on tabs and tiles. In the **block graph**: \`[\` and \`]\` step through the blocks, **arrow keys** move the selected blocks (Shift = bigger steps), Enter opens a bundle. In the **UI designer**: arrows nudge the selection (Shift = 10 px).
+- **Keyboard:** *Skip to the editor* link, visible focus outline (optional extra-thick), Enter / Space on tabs and tiles. In the **block graph**: \`[\` and \`]\` step through the blocks, **arrow keys** move the selected blocks (Shift = bigger steps), Enter opens a bundle.
 - **Reduce motion:** Settings → Accessibility (System / Always / Never). Animations stop and the Camera *shake* is skipped in games – also in exported games when the player's system asks for reduced motion.
 - **High contrast:** themes *High Contrast Dark* and *High Contrast Light*, plus **Interface zoom** (70–200%).
 

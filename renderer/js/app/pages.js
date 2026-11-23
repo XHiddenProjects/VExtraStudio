@@ -26,9 +26,7 @@
     m = VX.ui.modal({ title: 'New project', wide: false, body, actions: [h('button', { class: 'btn', onclick: () => m.close() }, 'Cancel'), h('button', { class: 'btn primary', onclick: go }, 'Create project')] });
     name.focus(); name.select();
   };
-  app.newUIExample = async function () { const t = await VX.tabs.open({ kind: 'ui', key: VX.uid('ui'), title: 'example.vxui', text: VX.Designer.example().serialize(), startDirty: true }); t && VX.sidebar.show('create'); };
   app.newSite = async function (name) { const t = await VX.tabs.open({ kind: 'site', key: VX.uid('site'), title: (name || 'my-website') + '.vxsite', text: JSON.stringify(VXSite.blank(name || 'My website'), null, 2), startDirty: true }); return t; };
-  app.newUI = async function () { const t = await VX.tabs.open({ kind: 'ui', key: VX.uid('ui'), title: 'untitled.vxui', text: VX.Designer.blank().serialize(), startDirty: true }); t && VX.sidebar.show('create'); };
   app.newGame = async function (dim, example) {
     const proj = VX.GameProject.blank({ name: (example ? 'Demo ' : 'My ') + (dim === '3d' ? '3D game' : '2D game'), dim, sample: !!example });
     const t = await VX.tabs.open({ kind: 'game', key: VX.uid('game'), title: 'untitled.vxgame', text: JSON.stringify(proj, null, 2), startDirty: true }); t && VX.sidebar.show('create');
@@ -47,7 +45,7 @@
       h('p', { class: 'lead' }, 'Build websites and make games — 2D or 3D — in one workspace. Design visually, wire up block logic or write code, then share a link with the world.'),
       h('div', { class: 'tiles' },
         tile('game', 'New 2D game', 'Sprites, physics, block coding', () => app.newGame('2d')), tile('cube', 'New 3D game', 'Primitives, voxels, shaders, cameras', () => app.newGame('3d')),
-        tile('blocks', 'UI designer', 'Drag components onto a canvas', () => app.newUI()), tile('globe', 'Website builder', 'Drag blocks, add a database, host later', () => app.newSite()), tile('globe', 'Web project', 'Templates, live preview, devices', () => app.newProject()),
+        tile('globe', 'Website builder', 'Drag blocks, add a database, host later', () => app.newSite()), tile('globe', 'Web project', 'Templates, live preview, devices', () => app.newProject()),
         tile('folder', 'Open folder', 'Work on an existing project', () => app.openFolder()), tile('docs', 'Documentation', 'Guides, block reference, plugins', () => VX.docs.open()),
         tile('library', 'Library', 'Install templates & games, or add your own from a link', () => VX.sidebar.show('library')), tile('cloud', acct ? 'Signed in as ' + acct.username : 'Account', acct ? 'Share, collaborate & publish' : 'Create an account to publish & collaborate', () => VX.sidebar.show('cloud')), tile('plugin', 'Plugins', 'Extend the editor, add blocks & objects', () => VX.sidebar.show('plugins'))),
       recent.length ? h('div', {}, h('h2', {}, 'Recent ', h('button', { class: 'btn', style: 'font-size:11px;margin-left:8px', title: 'Remove every item from the recent list (files on disk are not touched)', onclick: () => { app.clearRecent(); redraw(); } }, 'Clear all')), h('div', { class: 'recent' }, recent.map((r) => h('div', { class: 'tree-row', onclick: () => (r.kind === 'folder' ? app.openRoot(r.path) : VX.tabs.open({ path: r.path })) }, VX.icon(r.kind === 'folder' ? 'folder' : 'file'), h('span', { class: 'name' }, r.name), h('small', { style: 'color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis' }, r.path), h('button', { class: 'icon-btn', title: 'Remove from recent', 'aria-label': 'Remove from recent', style: 'margin-left:auto', onclick: (ev) => { ev.stopPropagation(); app.removeRecent(r.path); redraw(); } }, '✕'))))) : null,

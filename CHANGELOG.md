@@ -13,16 +13,21 @@ All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://
 - **Read aloud with word highlighting:** Alt+R reads the selection or page in the app and docs (voice, speed, pitch, highlight colour in Settings → Accessibility); a **Read aloud** game block, a player setting in the pause menu, and a *Listen* button in built websites.
 - **Two-step sign-in QR code:** setting up an authenticator now shows a QR code to scan (the setup key stays available as text). The QR generator is built in – nothing is sent anywhere.
 - **Publish & collaborate reach other people:** publishing a game or sharing a project offers to open the local server to the internet – **port forward** (UPnP) or the ghost tunnel – (or remember a choice in Settings). The published link and the game's online features use the public address, and the share dialog shows the address and server invite code for collaborators.
+- **More advanced website blocks:** 16 new blocks – Section, Tabs, Accordion (both hold other blocks), Feature grid, Pricing plans, Testimonials, Image gallery with lightbox, Video (YouTube / Vimeo / file), Map (OpenStreetMap), Numbers (count-up), Countdown, Notice, Rich text (safe Markdown), Code with Copy button, Table and Button group. Existing blocks gained options (hero second button / overlay / height, column widths, image shape & link, button size / new tab, divider styles).
+- **Style & behaviour for every block:** spacing, colours, border, radius, shadow, max width, hide on phones / computers, scroll animations (respecting reduced motion), link names, and show-to-members / show-to-guests.
+- **Smarter forms and lists:** multi-step forms, placeholder and help text, conditional fields, new field types (pick-one, date, web address, phone, rating), redirect after sending; lists with search, sorting, paging and a plain-list layout.
+- **Ready-made sections** (hero, features, pricing, testimonials, FAQ, contact, gallery, call to action), **page templates** (landing, about, pricing, contact, FAQ), dark / light / automatic colour mode, heading font, button shape, sticky menu and a social preview picture per page.
 - **Docs:** a short clip for *Game settings*; new pages *Website builder*, *Anti-cheat* and *Read aloud*.
 
 ### Changed
+- **UI designer (`.vxui`) removed** – the website builder replaces it. The Welcome tile, Create item, palette command, *UI design* project template, designer plugin API (`vx.designer.registerComponent('ui', …)`) and the designer docs are gone; *Designer & Game Extras* is now **Game Extras** (game objects only). Existing `.vxui` files are not deleted – they open as plain JSON text.
 - **VXScript language reference** moved to the **Scripting** documentation group.
 - **"Cannot reach the server … connection refused":** when the local server is not running, publishing, sharing and sign-in start the bundled server and retry by themselves (Settings → *Start the server when needed*).
 - **After an update:** the app replaces a still-running older server automatically; the *Hosting & collaboration* notice shows "Updating the local server…", re-checks until the new version answers, and only asks for manual action if the old server was started by hand.
 - **Hosting & collaboration:** the "server is outdated" message now refreshes itself after an update (it re-checks every few seconds, restarts the old server when allowed and shows the new version when ready); *Check now* remains.
 
 ### Security
-- The exported website server and the anti-cheat server routes are covered by the self-test (validation, cross-site requests, path traversal, members-only pages, admin login, hidden e-mail fields). See `SECURITY.md` → v4.4.0 notes.
+- The exported website server and the anti-cheat server routes are covered by the self-test (validation, cross-site requests, path traversal, members-only pages, admin login, hidden e-mail fields, new field types, conditional fields, embed allow-list). See `SECURITY.md` → v4.4.0 notes.
 
 ## [4.3.1]
 

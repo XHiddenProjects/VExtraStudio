@@ -3,7 +3,7 @@
 A desktop workspace (Tauri v2 + plain JavaScript) for **web development** and **2D / 3D game making**.
 
 - **Code editor** (Ace) with live web preview and device frames
-- **UI designer** – drag components onto a canvas, export HTML
+- **Website builder** – drag blocks (tabs, accordion, pricing, gallery, video, forms, lists…) onto a page, add a database and members, export a ready-to-host site
 - **Game editor** – 2D and 3D scenes, 100 visual logic blocks (Triggers, Logic & Math, Components, Properties, Text & Lists, GUI, Game Flow, Mobile Device, Behavior Bundles), a script view of the same logic, and your own assets: pixel-art sprites, a sound synthesizer with step sequencer, voxel / shape / OBJ models
 - **Play, device simulator, export to a single HTML file**
 - **Plugins** with in-app documentation (Docs → Plugins), themes

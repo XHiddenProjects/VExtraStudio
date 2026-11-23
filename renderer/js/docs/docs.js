@@ -3,7 +3,7 @@
   const { h, $ } = VX;
   const D = (VX.docs = { pages: [], statics: [] });
   D.register = (p) => { D.statics = D.statics.filter((x) => x.id !== p.id); D.statics.push(p); };
-  const GROUPS = ['Start here', 'Websites', 'UI designer', 'Making games', 'Block reference', 'Scripting', 'Plugins', 'Share & publish', 'Reference'];
+  const GROUPS = ['Start here', 'Websites', 'Making games', 'Block reference', 'Scripting', 'Plugins', 'Share & publish', 'Reference'];
 
   const paramLine = (p) => { const opts = p.options ? ' – ' + p.options.map((o) => '`' + (Array.isArray(o) ? o[0] : o) + '`').join(', ') : ''; return `| ${p.label} | ${p.type === 'select' ? 'choice' : p.type} | ${p.def === undefined || p.def === '' ? '–' : '`' + String(p.def).slice(0, 30) + '`'} |${opts ? ' ' + opts.slice(3).slice(0, 220) : ''} |`; };
   /** the short demo video for a block (clips are made by tools/block-demos/build.js) */

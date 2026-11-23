@@ -144,29 +144,6 @@ body.dnd-active, body.dnd-active * { cursor: grabbing !important; user-select: n
 .pv-stage { flex: 1; background: var(--canvas); background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 18px 18px; display: grid; place-items: center; overflow: auto; padding: 14px; min-height: 0; }
 .pv-frame { border: 0; background: #fff; box-shadow: 0 10px 40px var(--shadow); border-radius: 4px; } .pv-frame.dev { border: 10px solid #0a0c10; border-radius: 28px; }
 
-/* ---------- designer (UI) ---------- */
-.dz { display: grid; grid-template-columns: 1fr 280px; height: 100%; }
-.dz-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
-.dz-main > .dz-canvas { flex: 1; min-height: 0; } .dz-main .hidden { display: none !important; }
-.dz-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
-.dz-pages { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; } .dz-pagehint { font-size: 12px; color: var(--muted); padding: 0 6px; }
-.dz-pagetab { border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 999px; padding: 3px 12px; font-size: 12.5px; cursor: pointer; }
-.dz-pagetab:hover { background: var(--hover, rgba(127,127,127,.15)); } .dz-pagetab.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-.dz-bar .spacer { flex: 1; } .dz-sec { max-width: 150px; } .dz-devs { display: flex; gap: 2px; }
-.dz-device { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px; background: var(--canvas); }
-.dz-devframe { height: 100%; min-height: 560px; max-width: 100%; border: 10px solid #0b0d12; border-radius: 22px; background: #fff; box-shadow: 0 10px 40px var(--shadow); } .dz-devnote { font-size: 12px; color: var(--muted); }
-.dz-float { position: absolute; display: flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); box-shadow: 0 4px 16px var(--shadow); pointer-events: auto; white-space: nowrap; }
-.dz-float button { border: 0; background: transparent; color: var(--text); cursor: pointer; border-radius: 6px; padding: 3px 7px; font-size: 13px; } .dz-float button:hover { background: var(--hover, rgba(127,127,127,.2)); }
-.dz-help { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 6px 0 10px; }
-.dz-canvas { position: relative; overflow: auto; background: var(--canvas); background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 18px 18px; outline: none; }
-.dz-stagewrap { padding: 40px; display: inline-block; min-width: 100%; min-height: 100%; position: relative; }
-.dz-stage { position: relative; transform-origin: 0 0; box-shadow: 0 10px 40px var(--shadow); overflow: hidden; }
-.dz-overlay { position: absolute; left: 40px; top: 40px; pointer-events: none; transform-origin: 0 0; }
-.dz-band { position: absolute; border: 1px solid var(--accent); background: var(--sel); pointer-events: none; z-index: 10; }
-.dz-item { position: absolute; cursor: move; } .dz-item.locked { cursor: default; } .dz-item.selected { outline: 1.5px solid var(--accent); outline-offset: 1px; }
-.dz-handle { position: absolute; background: #fff; border: 2px solid var(--accent); border-radius: 3px; z-index: 10000; } .dz-multi { position: absolute; border: 1px solid var(--accent); background: var(--sel); pointer-events: none; }
-.dz-side { border-left: 1px solid var(--border); background: var(--panel); overflow: auto; padding: 6px 12px 20px; }
-.dz-side .geom { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .dz-side .geom .field { grid-template-columns: 22px 1fr; margin: 0; }
 .layer { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; cursor: pointer; } .layer:hover { background: var(--hover); } .layer.sel { background: var(--sel); } .layer .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .layer .mini { border: 0; background: transparent; color: var(--muted); padding: 0 3px; } .layer .mini:hover { color: var(--text); }
 .zoomlabel { min-width: 42px; text-align: center; color: var(--muted); font-size: 12px; }
 .code-pane { height: 100%; }

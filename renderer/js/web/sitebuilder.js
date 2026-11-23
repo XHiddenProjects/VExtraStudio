@@ -3,7 +3,7 @@
 (function () {
   const { h } = VX; const S = VXSite;
   const clone = (o) => JSON.parse(JSON.stringify(o));
-  const GROUPS = ['Text', 'Media', 'Layout', 'Data', 'Members'];
+  const GROUPS = ['Text', 'Media', 'Layout', 'Interactive', 'Content', 'Data', 'Members'];
 
   function create(text, opts) {
     opts = opts || {}; let site = S.normalize(text || S.blank(opts.name)); let pageId = site.pages[0].id, sel = null, tab = 'blocks', device = 'desktop', dataIdx = 0;
@@ -32,7 +32,7 @@
 
     /* ---------- canvas ---------- */
     const wrapBlock = (b, html) => {
-      let inner = html; if (b.type === 'columns') { let n = 0; inner = html.replace(/<div class="vx-col">/g, () => `<div class="vx-col" data-drop="${b.id}:${n++}">`); }
+      let inner = html; if (S.BLOCKS[b.type].cols) { let n = 0; inner = html.replace(/<div class="vx-col">/g, () => `<div class="vx-col" data-drop="${b.id}:${n++}">`); }
       return `<div class="sbb${sel === b.id ? ' sel' : ''}" data-id="${b.id}" draggable="true"><span class="sbtag">${S.esc(S.BLOCKS[b.type].label)}</span>${inner}</div>`;
     };
     function renderCanvas() {
@@ -84,7 +84,8 @@
       for (const f of d.f) {
         let el; const set = live((v) => { b.p[f.k] = v; });
         if (f.t === 'text') { el = txt(b.p[f.k], set); if (f.pick === 'image') el = h('div', { class: 'sb-pick' }, el, h('button', { class: 'btn', onclick: () => pickImage((u) => { b.p[f.k] = u; changed(); renderAll(); }) }, 'Choose file…')); if (f.pickPage) el = h('div', { class: 'sb-pick' }, el, selIn('', [['', 'Link to a page…'], ...site.pages.map((p) => ['/' + (p.slug === 'home' ? '' : p.slug + '.html'), p.title])], (v) => { if (v !== '') { b.p[f.k] = v; changed(); renderAll(); } })); }
-        else if (f.t === 'area') el = area(b.p[f.k], set);
+        else if (f.t === 'area') { el = area(b.p[f.k], set); if (f.pick === 'images') el = h('div', {}, el, h('button', { class: 'btn', onclick: () => pickImages((urls) => { b.p[f.k] = ((b.p[f.k] ? b.p[f.k].replace(/\n*$/, '\n') : '') + urls.join('\n')); changed(); renderAll(); }) }, 'Add pictures…')); }
+        else if (f.t === 'datetime') { el = h('input', { type: 'datetime-local', value: b.p[f.k] || '' }); el.addEventListener('input', () => set(el.value)); }
         else if (f.t === 'num') el = numIn(b.p[f.k], set, f.min, f.max);
         else if (f.t === 'sel') el = selIn(b.p[f.k], f.opts, (v) => set(isNaN(+v) || v === '' ? v : +v));
         else if (f.t === 'color') el = colIn(b.p[f.k], set);
@@ -92,7 +93,28 @@
         else if (f.t === 'coll') el = selIn(b.p[f.k] || '', [['', 'Choose…'], ...site.collections.map((c) => [c.name, c.label || c.name])], (v) => { set(v); renderRight(); });
         right.append(lab(f.label, el));
       }
+      right.append(styleBox(b));
       if (b.type === 'form' || b.type === 'list') right.append(h('button', { class: 'btn', onclick: () => { tab = 'data'; const i = site.collections.findIndex((c) => c.name === b.p.collection); if (i >= 0) dataIdx = i; renderAll(); } }, 'Edit this collection →'));
+    }
+    /* style options every block has */
+    function styleBox(b) {
+      const st = b.s = b.s || {}; const set = (k) => (v) => { if (v === '' || v === 0 || v === false) delete st[k]; else st[k] = v; if (!Object.keys(st).length) delete b.s; changed(); renderCanvas(); };
+      const clr = (k) => h('div', { class: 'sb-pick' }, colIn(st[k], set(k)), h('button', { class: 'btn', title: 'No colour', onclick: () => { set(k)(''); renderRight(); } }, 'None'));
+      const box = h('details', { class: 'sb-style' }, h('summary', {}, 'Style & behaviour'));
+      box.open = Object.keys(st).length > 0;
+      box.append(lab('Space above (px)', numIn(st.pt || 0, set('pt'), 0, 240)), lab('Space below (px)', numIn(st.pb || 0, set('pb'), 0, 240)), lab('Space left & right (px)', numIn(st.px || 0, set('px'), 0, 160)),
+        lab('Background', clr('bg')), lab('Text colour', clr('fg')), lab('Corner radius (px)', numIn(st.radius || 0, set('radius'), 0, 60)),
+        lab('Border', selIn(st.border || '', [['', 'None'], ['thin', 'Thin'], ['thick', 'Thick'], ['accent', 'Main colour']], set('border'))), lab('Shadow', selIn(st.shadow || '', [['', 'None'], ['soft', 'Soft'], ['strong', 'Strong']], set('shadow'))),
+        lab('Maximum width (px, 0 = full)', numIn(st.maxw || 0, set('maxw'), 0, 1600)), lab('Place it', selIn(st.self || '', [['', 'Centred'], ['left', 'Left'], ['right', 'Right']], set('self'))),
+        lab('Hide on', selIn(st.hide || '', [['', 'Nowhere'], ['phone', 'Phones'], ['desktop', 'Computers']], set('hide'))),
+        lab('Who sees it', selIn(st.vis || '', [['', 'Everyone'], ['guests', 'Visitors who are not logged in'], ['members', 'Logged-in members']], (v) => { set('vis')(v); renderRight(); }), st.vis ? 'Only hides it on the page – it is NOT a lock. Put private content on a “Members only” page.' : ''),
+        lab('Appear with', selIn(st.anim || '', [['', 'No animation'], ['fade', 'Fade in'], ['up', 'Slide up'], ['zoom', 'Zoom in']], set('anim'))),
+        lab('Link name (for #links)', txt(st.anchor || '', set('anchor')), st.anchor ? 'Link to it with #' + S.cleanStyle({ anchor: st.anchor }).anchor : ''));
+      return box;
+    }
+    function pickImages(cb) {
+      const i = h('input', { type: 'file', multiple: true, accept: 'image/png,image/jpeg,image/gif,image/webp' });
+      i.addEventListener('change', async () => { const out = []; for (const f of [...i.files].slice(0, 30)) { if (f.size > 4e6) { VX.ui.toast(f.name + ' is bigger than 4 MB – skipped.', 'warn'); continue; } out.push(await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.readAsDataURL(f); })); } if (out.length) cb(out); }); i.click();
     }
     function pickImage(cb) {
       const i = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp' });
@@ -107,16 +129,20 @@
     }
     function paneBlocks(body) {
       body.append(h('p', { class: 'sb-hint' }, 'Drag a block onto the page – or click it to add it at the end.'));
+      paneSections(body);
       for (const g of GROUPS) {
         const list = Object.entries(S.BLOCKS).filter(([, d]) => d.group === g); if (!list.length) continue;
         body.append(h('h4', {}, g), h('div', { class: 'sb-pal' }, list.map(([type, d]) => { const it = h('button', { class: 'sb-pi', draggable: 'true', title: d.label, onclick: () => { insertAt({ drop: 'root' }, S.newBlock(type)); changed(); renderAll(); } }, h('span', { class: 'ic' }, d.icon), h('span', {}, d.label)); it.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/vx-new', type); e.dataTransfer.effectAllowed = 'copy'; }); return it; })));
       }
     }
+    function paneSections(body) {
+      body.append(h('h4', {}, 'Ready-made sections'), h('div', { class: 'sb-pal' }, S.SECTIONS.map((t) => h('button', { class: 'sb-pi', title: 'Adds several blocks at once', onclick: () => { const bl = t.build(site); for (const b of bl) insertAt({ drop: 'root' }, b); sel = bl[0] && bl[0].id; changed(); renderAll(); } }, h('span', { class: 'ic' }, '✚'), h('span', {}, t.label)))));
+    }
     function panePages(body) {
-      body.append(h('div', { class: 'sb-row' }, h('button', { class: 'btn primary', onclick: () => { const n = site.pages.length + 1; let slug = 'page-' + n; while (site.pages.some((p) => p.slug === slug)) slug += 'x'; const p = { id: S.uid(), title: 'Page ' + n, slug, desc: '', access: 'public', inNav: true, blocks: [S.newBlock('heading')] }; site.pages.push(p); pageId = p.id; sel = null; changed(); renderAll(); } }, '＋ New page')));
+      body.append(h('div', { class: 'sb-row' }, h('select', { id: 'sb-ptpl', 'aria-label': 'Start the new page from', class: 'sb-tpl' }, S.PAGE_TEMPLATES.map((t) => h('option', { value: t.id }, t.label))), h('button', { class: 'btn primary', onclick: () => { const tpl = body.querySelector('#sb-ptpl'); const n = site.pages.length + 1; let slug = 'page-' + n; while (site.pages.some((p) => p.slug === slug)) slug += 'x'; const p = { id: S.uid(), title: 'Page ' + n, slug, desc: '', access: 'public', inNav: true, blocks: S.pageBlocks(tpl ? tpl.value : 'blank', site) }; site.pages.push(p); pageId = p.id; sel = null; changed(); renderAll(); } }, '＋ New page')));
       site.pages.forEach((p, i) => body.append(h('div', { class: 'sb-pg' + (p.id === pageId ? ' on' : '') }, h('button', { class: 'sb-pgn', onclick: () => { pageId = p.id; sel = null; renderAll(); } }, p.title, p.access === 'members' ? ' 🔒' : ''), h('button', { class: 'iconbtn', title: 'Move up', onclick: () => { if (i) { [site.pages[i - 1], site.pages[i]] = [site.pages[i], site.pages[i - 1]]; changed(); renderAll(); } } }, '↑'), h('button', { class: 'iconbtn', title: 'Move down', onclick: () => { if (i < site.pages.length - 1) { [site.pages[i + 1], site.pages[i]] = [site.pages[i], site.pages[i + 1]]; changed(); renderAll(); } } }, '↓'))));
       const p = page(); const set = (fn) => (v) => { fn(v); changed(); renderCanvas(); };
-      body.append(h('h4', {}, 'This page'), lab('Title', txt(p.title, (v) => { p.title = v; changed(); renderCanvas(); }, 'Page title')), lab('Address', txt(p.slug, (v) => { p.slug = S.slugOf(v); changed(); }), p.slug === 'home' ? 'The page called “home” is your front page.' : 'Shows as /' + p.slug + '.html'), lab('Short description (for search engines)', txt(p.desc, (v) => { p.desc = v; changed(); })), lab('Who can open it', selIn(p.access, [['public', 'Everyone'], ['members', 'Logged-in members only']], (v) => { p.access = v; changed(); renderAll(); }), p.access === 'members' ? 'Enforced by the server – visitors are sent to the login page.' : ''), chk(p.inNav, set((v) => { p.inNav = v; }), 'Show in the menu'),
+      body.append(h('h4', {}, 'This page'), lab('Title', txt(p.title, (v) => { p.title = v; changed(); renderCanvas(); }, 'Page title')), lab('Address', txt(p.slug, (v) => { p.slug = S.slugOf(v); changed(); }), p.slug === 'home' ? 'The page called “home” is your front page.' : 'Shows as /' + p.slug + '.html'), lab('Short description (for search engines)', txt(p.desc, (v) => { p.desc = v; changed(); })), lab('Social preview picture address (optional, https://…)', txt(p.image || '', (v) => { p.image = v.trim(); changed(); })), lab('Who can open it', selIn(p.access, [['public', 'Everyone'], ['members', 'Logged-in members only']], (v) => { p.access = v; changed(); renderAll(); }), p.access === 'members' ? 'Enforced by the server – visitors are sent to the login page.' : ''), chk(p.inNav, set((v) => { p.inNav = v; }), 'Show in the menu'),
         h('button', { class: 'btn danger', disabled: site.pages.length < 2, onclick: async () => { if (await VX.ui.confirm('Delete the page “' + p.title + '”?', 'Delete', { danger: true })) { site.pages = site.pages.filter((x) => x !== p); pageId = site.pages[0].id; sel = null; changed(); renderAll(); } } }, 'Delete page'));
     }
     function paneData(body) {
@@ -128,13 +154,13 @@
       body.append(h('h4', {}, 'Collection'), lab('Name', txt(c.label, (v) => { c.label = v; upd(); })), lab('Identifier', txt(c.name, (v) => { const old = c.name; c.name = S.nameOf(v); for (const p of site.pages) (function w(l) { for (const b of l) { if (b.p && b.p.collection === old) b.p.collection = c.name; (b.cols || []).forEach(w); } })(p.blocks); upd(); }), 'Letters, numbers and dashes. Used in the form address.'),
         lab('Who can add entries', selIn(c.submit, [['anyone', 'Anyone (public form)'], ['members', 'Logged-in members only']], (v) => { c.submit = v; upd(); })), chk(c.public, (v) => { c.public = v; upd(); renderLeft(); }, 'Visitors may read the entries (for a list block)'), c.public ? h('div', { class: 'sb-warn' }, 'Entries become public. Email fields and fields marked private are never sent to visitors.') : null,
         h('h4', {}, 'Fields'));
-      c.fields.forEach((f, i) => { const opt = f.type === 'select' ? lab('Choices (one per line)', area((f.options || []).join('\n'), (v) => { f.options = v.split('\n').map((x) => x.trim()).filter(Boolean); upd(); })) : null; body.append(h('div', { class: 'sb-field' }, h('div', { class: 'sb-row' }, txt(f.label, (v) => { f.label = v; if (!f._k) f.key = S.nameOf(v).replace(/-/g, '_') || 'field'; upd(); }, 'Label'), h('button', { class: 'iconbtn', title: 'Remove field', onclick: () => { c.fields.splice(i, 1); changed(); renderAll(); } }, '✕')), h('div', { class: 'sb-row' }, selIn(f.type, [['text', 'Short text'], ['textarea', 'Long text'], ['email', 'Email'], ['number', 'Number'], ['select', 'Choice list'], ['checkbox', 'Tick box']], (v) => { f.type = v; changed(); renderAll(); }), chk(f.required, (v) => { f.required = v; upd(); }, 'Required'), chk(f.private, (v) => { f.private = v; upd(); }, 'Private')), opt)); });
+      c.fields.forEach((f, i) => { const opt = (f.type === 'select' || f.type === 'radio') ? lab('Choices (one per line)', area((f.options || []).join('\n'), (v) => { f.options = v.split('\n').map((x) => x.trim()).filter(Boolean); upd(); })) : null; body.append(h('div', { class: 'sb-field' }, h('div', { class: 'sb-row' }, txt(f.label, (v) => { f.label = v; if (!f._k) f.key = S.nameOf(v).replace(/-/g, '_') || 'field'; upd(); }, 'Label'), h('button', { class: 'iconbtn', title: 'Remove field', onclick: () => { c.fields.splice(i, 1); changed(); renderAll(); } }, '✕')), h('div', { class: 'sb-row' }, selIn(f.type, [['text', 'Short text'], ['textarea', 'Long text'], ['email', 'Email'], ['number', 'Number'], ['select', 'Choice list'], ['radio', 'Pick one (buttons)'], ['checkbox', 'Tick box'], ['date', 'Date'], ['url', 'Web address'], ['tel', 'Phone'], ['rating', 'Rating 1–5']], (v) => { f.type = v; changed(); renderAll(); }), chk(f.required, (v) => { f.required = v; upd(); }, 'Required'), chk(f.private, (v) => { f.private = v; upd(); }, 'Private')), opt, h('details', { class: 'sb-style' }, h('summary', {}, 'Hint & conditions'), lab('Placeholder', txt(f.placeholder || '', (v) => { f.placeholder = v || undefined; upd(); })), lab('Help text under the field', txt(f.help || '', (v) => { f.help = v || undefined; upd(); })), lab('Only ask when this field…', selIn(f.showIf ? f.showIf.field : '', [['', 'Always ask'], ...c.fields.filter((o) => o !== f).map((o) => [o.key, o.label || o.key])], (v) => { f.showIf = v ? { field: v, equals: f.showIf ? f.showIf.equals : '' } : undefined; changed(); renderLeft(); })), f.showIf ? lab('…has this value (ticked = true)', txt(f.showIf.equals, (v) => { f.showIf.equals = v; upd(); })) : null))); });
       body.append(h('button', { class: 'btn', onclick: () => { let k = 'field' + (c.fields.length + 1); c.fields.push({ key: k, label: 'New field', type: 'text', required: false }); changed(); renderAll(); } }, '＋ Add field'), h('button', { class: 'btn danger', onclick: async () => { if (await VX.ui.confirm('Delete the collection “' + (c.label || c.name) + '”? Forms using it stop working.', 'Delete', { danger: true })) { site.collections.splice(dataIdx, 1); dataIdx = 0; changed(); renderAll(); } } }, 'Delete collection'));
     }
     function paneSite(body) {
       const t = site.theme, sec = site.security, ho = site.hosting, upd = () => { changed(); renderCanvas(); };
       body.append(h('h4', {}, 'Site'), lab('Site name', txt(site.name, (v) => { site.name = v; upd(); })), lab('Brand in the menu', txt(site.nav.brand, (v) => { site.nav.brand = v; upd(); })), lab('Footer text', txt(site.nav.footer, (v) => { site.nav.footer = v; upd(); })), chk(site.nav.show !== false, (v) => { site.nav.show = v; upd(); }, 'Show the menu bar'),
-        h('h4', {}, 'Look'), lab('Main colour', colIn(t.primary, (v) => { t.primary = v; upd(); })), lab('Page background', colIn(t.bg, (v) => { t.bg = v; upd(); })), lab('Text colour', colIn(t.text, (v) => { t.text = v; upd(); })), lab('Font', selIn(t.font, [['system', 'Clean (system)'], ['serif', 'Classic (serif)'], ['rounded', 'Friendly'], ['mono', 'Code (monospace)']], (v) => { t.font = v; upd(); })), lab('Rounded corners (px)', numIn(t.radius, (v) => { t.radius = v; upd(); }, 0, 40)), lab('Page width (px)', numIn(t.width, (v) => { t.width = v; upd(); }, 600, 1600)),
+        h('h4', {}, 'Look'), lab('Main colour', colIn(t.primary, (v) => { t.primary = v; upd(); })), lab('Page background', colIn(t.bg, (v) => { t.bg = v; upd(); })), lab('Text colour', colIn(t.text, (v) => { t.text = v; upd(); })), lab('Font', selIn(t.font, [['system', 'Clean (system)'], ['serif', 'Classic (serif)'], ['rounded', 'Friendly'], ['mono', 'Code (monospace)']], (v) => { t.font = v; upd(); })), lab('Heading font', selIn(t.headFont || 'same', [['same', 'Same as text'], ['serif', 'Classic (serif)'], ['rounded', 'Friendly'], ['mono', 'Code (monospace)'], ['system', 'Clean (system)']], (v) => { t.headFont = v; upd(); })), lab('Colour mode', selIn(t.dark || 'light', [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Follow the visitor’s device']], (v) => { t.dark = v; upd(); })), lab('Buttons', selIn(t.buttons || 'rounded', [['rounded', 'Rounded'], ['pill', 'Pill'], ['square', 'Square']], (v) => { t.buttons = v; upd(); })), chk(!!site.nav.sticky, (v) => { site.nav.sticky = v; upd(); }, 'Keep the menu at the top while scrolling'), lab('Rounded corners (px)', numIn(t.radius, (v) => { t.radius = v; upd(); }, 0, 40)), lab('Page width (px)', numIn(t.width, (v) => { t.width = v; upd(); }, 600, 1600)),
         h('h4', {}, 'Accessibility'), chk(site.a11y.listen, (v) => { site.a11y.listen = v; changed(); }, '“Listen” button that reads the page aloud and highlights the words'), chk(site.a11y.skipLink !== false, (v) => { site.a11y.skipLink = v; changed(); }, '“Skip to the content” link'),
         h('h4', {}, 'Security'), chk(sec.allowSignup, (v) => { sec.allowSignup = v; changed(); }, 'Visitors may create member accounts'), chk(sec.honeypot, (v) => { sec.honeypot = v; changed(); }, 'Hidden spam trap on forms'), chk(sec.csp !== false, (v) => { sec.csp = v; changed(); }, 'Strict Content-Security-Policy (recommended)'),
         lab('Requests per minute, per visitor', numIn(sec.rateLimit, (v) => { sec.rateLimit = v; changed(); }, 5, 1000)), lab('Biggest request (KB)', numIn(sec.maxBodyKB, (v) => { sec.maxBodyKB = v; changed(); }, 4, 1024)), lab('Shortest password', numIn(sec.passwordMin, (v) => { sec.passwordMin = v; changed(); }, 8, 64)), lab('Stay logged in (hours)', numIn(sec.sessionHours, (v) => { sec.sessionHours = v; changed(); }, 1, 2160)),

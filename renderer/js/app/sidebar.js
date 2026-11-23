@@ -108,7 +108,7 @@
       { label: 'Reveal in folder', run: () => window.native.reveal(it.path) }, { label: 'Copy path', run: () => navigator.clipboard && navigator.clipboard.writeText(it.path) },
     ].filter(Boolean));
   }
-  SB.newFile = async (dir) => { dir = dir || S.root; if (!dir) return VX.app.openFolder(); const n = await VX.ui.ask('New file name', '', { hint: 'Any file type: index.php, schema.sql, .htaccess, nginx.conf, app.py, config.yml … (or player.vxgame, menu.vxui)' }); if (!n) return; try { const p = await window.native.create(dir, n, false); const starter = VX.templates && VX.templates.starter && VX.templates.starter(n); if (starter) await window.native.writeFile(p, starter); if (VX.path.ext(n) === 'vxgame') await window.native.writeFile(p, JSON.stringify(VX.GameProject.blank({ name: VX.path.stem(n) }), null, 2)); else if (VX.path.ext(n) === 'vxui') await window.native.writeFile(p, VX.Designer.blank().serialize()); expanded.add(dir); SB.refresh(); VX.tabs.open({ path: p }); } catch (e) { VX.ui.toast(e.message, 'error'); } };
+  SB.newFile = async (dir) => { dir = dir || S.root; if (!dir) return VX.app.openFolder(); const n = await VX.ui.ask('New file name', '', { hint: 'Any file type: index.php, schema.sql, .htaccess, nginx.conf, app.py, config.yml … (or player.vxgame, site.vxsite)' }); if (!n) return; try { const p = await window.native.create(dir, n, false); const starter = VX.templates && VX.templates.starter && VX.templates.starter(n); if (starter) await window.native.writeFile(p, starter); if (VX.path.ext(n) === 'vxgame') await window.native.writeFile(p, JSON.stringify(VX.GameProject.blank({ name: VX.path.stem(n) }), null, 2)); else if (VX.path.ext(n) === 'vxsite') await window.native.writeFile(p, JSON.stringify(VXSite.blank(VX.path.stem(n)), null, 2)); expanded.add(dir); SB.refresh(); VX.tabs.open({ path: p }); } catch (e) { VX.ui.toast(e.message, 'error'); } };
   SB.newFolder = async (dir) => { dir = dir || S.root; if (!dir) return VX.app.openFolder(); const n = await VX.ui.ask('New folder name'); if (!n) return; try { await window.native.create(dir, n, true); expanded.add(dir); expanded.add(VX.path.join(dir, n)); SB.refresh(); } catch (e) { VX.ui.toast(e.message, 'error'); } };
 
   SB.views.explorer = {
@@ -175,9 +175,9 @@
         return;
       }
       if (t && t.kind === 'game' && t.ctl) { t.ctl.renderPalette(c); return; }
-      c.append(h('div', { class: 'empty left', style: 'padding:8px 6px;font-size:12px' }, 'Start something new. Open a UI design to get a component palette you can drag onto the canvas, or a game to drag in objects.'));
+      c.append(h('div', { class: 'empty left', style: 'padding:8px 6px;font-size:12px' }, 'Start something new. Open a website to get a block palette you can drag onto the page, or a game to drag in objects.'));
       heading('New');
-      const items = [['New UI design', 'blocks', () => VX.app.newUI()], ['New 2D game', 'game', () => VX.app.newGame('2d')], ['New 3D game', 'cube', () => VX.app.newGame('3d')], ['New website (blocks)', 'globe', () => VX.app.newSite()], ['New web project', 'globe', () => VX.app.newProject()], ['New file…', 'file', () => SB.newFile()]];
+      const items = [['New 2D game', 'game', () => VX.app.newGame('2d')], ['New 3D game', 'cube', () => VX.app.newGame('3d')], ['New website (blocks)', 'globe', () => VX.app.newSite()], ['New web project', 'globe', () => VX.app.newProject()], ['New file…', 'file', () => SB.newFile()]];
       for (const [l, ic, fn] of items) c.append(h('button', { class: 'btn block', style: 'margin:4px 0;justify-content:flex-start', onclick: fn }, VX.icon(ic, 15), l));
     },
   };

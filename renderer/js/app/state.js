@@ -31,7 +31,6 @@
   app.fileKind = (path) => {
     const e = VX.path.ext(path);
     if (e === 'vxgame' || e === 'forgescene') return 'game';
-    if (e === 'vxui' || e === 'forgeui') return 'ui';
     if (e === 'vxsite') return 'site';
     if (IMG.has(e) && e !== 'svg') return 'image';
     if (AUDIO.has(e)) return 'audio';
@@ -42,7 +41,6 @@
     if (isDir) return ['folder', 'ft-dir'];
     const e = VX.path.ext(name);
     if (e === 'vxgame' || e === 'forgescene') return ['game', 'ft-game'];
-    if (e === 'vxui' || e === 'forgeui') return ['blocks', 'ft-ui'];
     if (e === 'vxsite') return ['globe', 'ft-html'];
     const nm = String(name).toLowerCase();
     const B = { php: ['PHP', '#8892bf'], phtml: ['PHP', '#8892bf'], sql: ['SQL', '#e38c00'], sqlite: ['DB', '#58a6ff'], sqlite3: ['DB', '#58a6ff'], db: ['DB', '#58a6ff'], md: ['MD', '#8b93a1'], markdown: ['MD', '#8b93a1'], py: ['PY', '#3fb950'], rb: ['RB', '#e5534b'], go: ['GO', '#39c5cf'], rs: ['RS', '#f0883e'], java: ['JV', '#e5534b'], c: ['C', '#58a6ff'], h: ['H', '#58a6ff'], cpp: ['C++', '#58a6ff'], cs: ['C#', '#bc8cff'], sh: ['SH', '#3fb950'], bat: ['BAT', '#8b93a1'], yml: ['YML', '#f778ba'], yaml: ['YML', '#f778ba'], toml: ['TML', '#f778ba'], ini: ['INI', '#8b93a1'], conf: ['CFG', '#8b93a1'], env: ['ENV', '#d29922'], xml: ['XML', '#f0883e'], svg: ['SVG', '#d29922'], csv: ['CSV', '#3fb950'], txt: ['TXT', '#8b93a1'], log: ['LOG', '#8b93a1'], zip: ['ZIP', '#d29922'], gz: ['GZ', '#d29922'], tar: ['TAR', '#d29922'], pdf: ['PDF', '#e5534b'], glb: ['3D', '#bc8cff'], gltf: ['3D', '#bc8cff'], obj: ['3D', '#bc8cff'], vxmat: ['MAT', '#f778ba'], vxshader: ['FX', '#58a6ff'], glsl: ['FX', '#58a6ff'], frag: ['FX', '#58a6ff'], vert: ['VRT', '#58a6ff'], wgsl: ['FX', '#58a6ff'] };

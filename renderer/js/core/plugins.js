@@ -99,11 +99,10 @@
        *  all of them keep working on THAT tab after the user switches to another one (game() is its editor controller, or null). */
       pin: () => H().pin?.() ?? { id: null, kind: null, alive: () => false, isActive: () => false, path: () => null, lang: () => 'plaintext', value: () => '', setValue() {}, insert() {}, game: () => null },
       designer: {
-        /** mode 'ui' adds a UI-designer component. mode 'scene' (legacy) adds a 2D game object type. */
+        /** Adds a 2D game object type (kept as `designer.registerComponent('scene', def)` for older plugins). The UI designer was replaced by the website builder. */
         registerComponent(mode, def) {
           if (mode === 'scene') return this._legacyScene(def);
-          VX.components.register(mode, def); note('components', def.label || def.type);
-          track(() => { delete VX.components.registry[mode][def.type]; VXHost.changed(); }); VXHost.changed();
+          throw new Error("The UI designer was removed in 4.4.0 – use vx.game.registerObjectType for game objects.");
         },
         _legacyScene(def) {
           const e = def.props?.emoji;
@@ -356,7 +355,7 @@ vx.editor.onSave(() => status.update('${id}: saved'));
 //   inputs: ['in'], outputs: ['out'], params: [],
 //   onInput(node, port, value, rt) { rt.send(node, 'out', (+value || 0) * 2); } });
 
-// More: vx.panels.register, vx.designer.registerComponent, vx.themes.register,
+// More: vx.panels.register, vx.themes.register,
 //       vx.docs.register, vx.ui.form/modal, vx.settings.get/set ...
 // Clean-up is automatic when the plugin is disabled.
 ` };

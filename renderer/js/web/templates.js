@@ -46,7 +46,7 @@ a { color: var(--accent); }
   const gameTpl = (id, name, desc, icon, dim) => add({ id, name, desc, icon, open: ['game.vxgame'], files: (n) => ({ 'game.vxgame': JSON.stringify(VX.GameProject.blank({ name: cap(n), dim, sample: true }), null, 2), 'README.md': `# ${cap(n)}\n\nOpen **game.vxgame** to edit the game. Press **F5** (Play) to test it, then use **Export** to publish.\n` }) });
   gameTpl('game2d', '2D game', 'Empty 2D scene – build from scratch', 'game', '2d');
   gameTpl('game3d', '3D game', 'Empty 3D scene – build from scratch', 'cube', '3d');
-  add({ id: 'uidesign', name: 'UI design', desc: 'Visual layout you can export to HTML', icon: 'blocks', open: ['design.vxui'], files: () => ({ 'design.vxui': VX.Designer.blank().serialize() }) });
+  add({ id: 'website', name: 'Block website', desc: 'Drag-and-drop website (.vxsite) with database, forms and members', icon: 'globe', open: ['site.vxsite'], files: (n) => ({ 'site.vxsite': JSON.stringify(VXSite.blank(cap(n)), null, 2) }) });
 
   add({ id: 'php-sqlite', name: 'PHP + SQLite site', desc: 'Dynamic site with a database (guestbook). Runs with “Run PHP”', icon: 'globe', open: ['index.php', 'schema.sql'],
     files: (n) => ({

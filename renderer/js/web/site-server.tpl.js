@@ -8,6 +8,9 @@ const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(R
 const SITE = readJson('site.json', { pages: [], collections: [], security: {} });
 const CFG = Object.assign({ port: 8080, host: '0.0.0.0', forceHttps: false, trustProxy: false, adminPasswordHash: '' }, readJson('config.json', {}));
 const SEC = Object.assign({ rateLimit: 60, maxBodyKB: 64, honeypot: true, allowSignup: true, sessionHours: 168, passwordMin: 10, maxFails: 5 }, SITE.security || {});
+/* embeds (video, map) may only come from this fixed list – whatever site.json says */
+const FRAME_OK = ['https://www.youtube-nocookie.com', 'https://player.vimeo.com', 'https://www.openstreetmap.org'];
+const FRAMES = (Array.isArray(SEC.frames) ? SEC.frames.filter((x) => FRAME_OK.includes(x)) : []).join(' ') || "'none'";
 const PORT = +(process.env.PORT || CFG.port), HOST = process.env.HOST || CFG.host;
 const COLL = Object.fromEntries((SITE.collections || []).map((c) => [c.name, c]));
 const PAGES = Object.fromEntries((SITE.pages || []).map((p) => [p.file, p]));
@@ -27,7 +30,8 @@ const hashPw = (pw) => { const s = crypto.randomBytes(16).toString('hex'); retur
 const checkPw = (pw, stored) => { const [s, h] = String(stored || '').split(':'); if (!s || !h) return false; const a = Buffer.from(scrypt(pw, s), 'hex'), b = Buffer.from(h, 'hex'); return a.length === b.length && crypto.timingSafeEqual(a, b); };
 const checkPbkdf2 = (pw, stored) => { const m = /^pbkdf2\$(\d+)\$([0-9a-f]+)\$([0-9a-f]+)$/.exec(stored || ''); if (!m) return false; const a = crypto.pbkdf2Sync(String(pw), Buffer.from(m[2], 'hex'), +m[1], 32, 'sha256'), b = Buffer.from(m[3], 'hex'); return a.length === b.length && crypto.timingSafeEqual(a, b); };
 const adminOk = (pw) => { if (process.env.ADMIN_PASSWORD) return safeEq(pw, process.env.ADMIN_PASSWORD); if (CFG.adminPasswordHash) return checkPbkdf2(pw, CFG.adminPasswordHash); return checkPw(pw, db.adminHash); };
-const safeEq = (x, y) => { const a = crypto.createHash('sha256').update(String(x)).digest(), b = crypto.createHash('sha256').update(String(y)).digest(); return crypto.timingSafeEqual(a, b); };
+const PEPPER = crypto.randomBytes(16);   // both sides go through scrypt with the same random salt, so the comparison is constant-time and equal-length
+const safeEq = (x, y) => crypto.timingSafeEqual(crypto.scryptSync(String(x), PEPPER, 32), crypto.scryptSync(String(y), PEPPER, 32));
 if (!process.env.ADMIN_PASSWORD && !CFG.adminPasswordHash && !db.adminHash) {
   const pw = crypto.randomBytes(9).toString('base64url'); db.adminHash = hashPw(pw); save();
   console.log('\n  First start – your admin password (shown once, change it with ADMIN_PASSWORD):\n  ' + pw + '\n');
@@ -39,7 +43,7 @@ const isHttps = (req) => !!req.socket.encrypted || (CFG.trustProxy && String(req
 const ipOf = (req) => (CFG.trustProxy && String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || req.socket.remoteAddress || '?';
 function headers(req, extra) {
   const h = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin', 'X-Frame-Options': 'DENY', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=()', 'Cross-Origin-Opener-Policy': 'same-origin' };
-  if (SEC.csp !== false) h['Content-Security-Policy'] = "default-src 'self'; img-src 'self' data: https:; media-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+  if (SEC.csp !== false) h['Content-Security-Policy'] = "default-src 'self'; img-src 'self' data: https:; media-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src "+FRAMES+"; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
   if (isHttps(req)) h['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
   return Object.assign(h, extra);
 }
@@ -47,6 +51,7 @@ function send(req, res, code, body, type, extra) { const buf = Buffer.isBuffer(b
 const json = (req, res, code, o, extra) => send(req, res, code, o, 'application/json', extra);
 const cookies = (req) => Object.fromEntries(String(req.headers.cookie || '').split(';').map((c) => c.trim().split(/=(.*)/s).slice(0, 2)).filter((x) => x[0]));
 const setCookie = (req, name, val, maxAge) => `${name}=${val}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${isHttps(req) ? '; Secure' : ''}`;
+/* session tokens are 256 random bits (not passwords), so a fast hash is the right tool here */
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const hits = new Map(), fails = new Map(), adminSess = new Map();
 function limited(req, key, max, windowMs) { const k = key + ipOf(req), now = Date.now(); let e = hits.get(k); if (!e || e.reset < now) { e = { n: 0, reset: now + windowMs }; hits.set(k, e); } e.n++; return e.n > max; }
@@ -66,18 +71,24 @@ const isAdmin = (req) => { const t = cookies(req).vxa; const e = t && adminSess.
 const emailOk = (s) => /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(s) && s.length <= 254;
 
 /* ---------- form validation against the collection you designed ---------- */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/, TEL_RE = /^[+()\d][\d\s().\-+]{3,28}$/;
 function validate(c, input) {
   const out = {}, errs = [];
   for (const f of c.fields) {
     let v = input[f.key]; const label = f.label || f.key;
+    /* conditional field: only checked (and only stored) while the field it depends on has the wanted value – decided here, never by the browser */
+    if (f.showIf && f.showIf.field) { const dep = input[f.showIf.field]; const have = dep === true ? 'true' : dep === false || dep == null ? '' : String(dep); if (have !== String(f.showIf.equals == null ? '' : f.showIf.equals)) { out[f.key] = f.type === 'checkbox' ? false : ''; continue; } }
     if (f.type === 'checkbox') { out[f.key] = v === true || v === 'true' || v === 'on'; if (f.required && !out[f.key]) errs.push(label + ' must be ticked'); continue; }
     if (v === undefined || v === null || v === '') { if (f.required) errs.push(label + ' is required'); out[f.key] = ''; continue; }
-    if (f.type === 'number') { v = Number(v); if (!Number.isFinite(v)) { errs.push(label + ' must be a number'); continue; } out[f.key] = v; continue; }
+    if (f.type === 'number' || f.type === 'rating') { v = Number(v); if (!Number.isFinite(v)) { errs.push(label + ' must be a number'); continue; } if (f.type === 'rating' && (v < 1 || v > 5 || !Number.isInteger(v))) { errs.push(label + ' must be 1 to 5'); continue; } out[f.key] = v; continue; }
     if (typeof v !== 'string') { errs.push(label + ' is not valid'); continue; }
     v = v.replace(/\r\n/g, '\n').trim(); const max = f.maxLength || (f.type === 'textarea' ? 5000 : 300);
     if (v.length > max) { errs.push(label + ' is too long (max ' + max + ')'); continue; }
     if (f.type === 'email' && !emailOk(v)) { errs.push(label + ' must be an email address'); continue; }
-    if (f.type === 'select' && f.options && !f.options.includes(v)) { errs.push(label + ' is not one of the choices'); continue; }
+    if ((f.type === 'select' || f.type === 'radio') && f.options && !f.options.includes(v)) { errs.push(label + ' is not one of the choices'); continue; }
+    if (f.type === 'date' && (!DATE_RE.test(v) || Number.isNaN(Date.parse(v + 'T00:00:00Z')))) { errs.push(label + ' must be a date'); continue; }
+    if (f.type === 'url') { let ok = false; try { const u = new URL(v); ok = u.protocol === 'https:' || u.protocol === 'http:'; } catch (e) { ok = false; } if (!ok) { errs.push(label + ' must be a web address (http or https)'); continue; } }
+    if (f.type === 'tel' && !TEL_RE.test(v)) { errs.push(label + ' must be a phone number'); continue; }
     out[f.key] = v;
   }
   return { out, errs };
@@ -104,7 +115,7 @@ async function api(req, res, url) {
   }
   if ((mt = /^\/api\/data\/([\w-]{1,40})$/.exec(p)) && m === 'GET') {
     const c = COLL[mt[1]]; if (!c || c.public !== true) return json(req, res, 404, { error: 'Not available' });
-    const lim = Math.min(200, Math.max(1, +url.searchParams.get('limit') || 50)); const hide = new Set(c.fields.filter((f) => f.private || f.type === 'email').map((f) => f.key));
+    const lim = Math.min(200, Math.max(1, +url.searchParams.get('limit') || 50)); const hide = new Set(c.fields.filter((f) => f.private || f.type === 'email' || f.type === 'tel').map((f) => f.key));
     const rows = (db.records[c.name] || []).slice(-lim).reverse().map((r) => ({ at: r.at, data: Object.fromEntries(Object.entries(r.data).filter(([k]) => !hide.has(k))) }));
     return json(req, res, 200, { rows });
   }
@@ -192,6 +203,6 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/admin' || url.pathname.startsWith('/admin/') || url.pathname === '/admin.js' || url.pathname === '/admin.css') return await admin(req, res, url);
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(req, res, 405, 'Method not allowed', 'text/plain');
     return serveStatic(req, res, url);
-  } catch (e) { if (!res.headersSent) json(req, res, e.code >= 400 && e.code < 600 ? e.code : 500, { error: e.code ? e.message : 'Something went wrong' }); else res.end(); }
+  } catch (e) { if (!res.headersSent) { const c = e && [400, 413, 415].includes(e.code) ? e.code : 500; json(req, res, c, { error: ({ 400: 'Invalid request', 413: 'The request is too large', 415: 'Send JSON', 500: 'Something went wrong' })[c] }); } else res.end(); }
 });
 server.listen(PORT, HOST, () => console.log('Your site is running at http://localhost:' + PORT + '   (admin: /admin)'));
