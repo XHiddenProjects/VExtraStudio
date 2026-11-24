@@ -2,7 +2,24 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.4.1] — current
+## [4.4.2] — current
+
+### Fixed
+- **Games: "Maximum call stack size exceeded"** after the game had run for a while. The anti-cheat variable guard wrapped `g.vars` in a new proxy every frame; proxies are now reused and never stacked.
+
+### Added
+- **Site login / sign-up popup:** every page gets one shared popup (set in Site → *Login / sign-up popup*: link, on page load, or off), plus automatic Login and Sign-up pages that use the same form – nothing to clone twice. The password placeholder shows the minimum ("At least 10 characters").
+- **Vextra Cloud sign-in is a popup** (not a sidebar form); the password placeholder shows the server's `MIN_PASSWORD`, which `/api/health` now reports.
+- **Custom validation** in built sites instead of browser bubbles (inline messages, `aria-invalid`, `role="alert"`); the server still checks everything.
+- **Regular expressions for form fields** with presets (email, phone, US phone, ZIP, UK postcode, URL, username, letters, digits, letters+digits, strong password, hex colour, time, IPv4, slug), your own pattern and message, and a live tester. Enforced on the server with a ReDoS guard (nested repeats rejected, 50 ms limit).
+- **Syntax highlighting** for code blocks and Markdown fences in the website builder.
+- **Map address search:** type an address (with suggestions, OpenStreetMap Nominatim) to place the map.
+- **Automatic identifiers:** page addresses, collection names, field keys and link names are derived from the title and cannot be edited by hand.
+
+### Changed
+- **Game Code view shows VXScript only** (no JavaScript API script). *Edit as VXScript* replaces *Convert to code*; older script-mode behaviours still load and are marked *legacy script*.
+
+## [4.4.1]
 
 ### Fixed
 - **Website builder preview:** clicking a page link (for example *Contact*) in the preview loaded the whole Vextra app inside the preview frame and showed "Vextra failed to start". The preview now keeps every link inside the frame, shows the linked page of your site, and ignores form submits.

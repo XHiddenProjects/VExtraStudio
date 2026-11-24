@@ -22,6 +22,33 @@
       (ch.methods || []).includes('key') ? h('div', { style: 'margin-top:10px' }, h('button', { class: 'btn', onclick: () => fin({ key: true }) }, '🔑 Use a security key')) : null), actions: [h('button', { class: 'btn', onclick: () => fin(null) }, 'Cancel'), hasCode ? h('button', { class: 'btn primary', onclick: submit }, 'Verify') : null] });
     setTimeout(() => code.focus(), 50);
   });
+  /** Sign in / create account as a popup (resolves true when the visitor ends up signed in). Checks are done here with clear messages instead of the browser's own bubbles. */
+  U.authDialog = function (mode = 'login') {
+    return new Promise(async (resolve) => {
+      const C = VX.cloud; if (C.user) return resolve(true); if (U._authOpen) return resolve(false); U._authOpen = true;
+      await C.health(); let m = mode; const body = h('div'); let dlg;
+      const draw = () => {
+        body.textContent = ''; const reg = m === 'register', min = C.minPassword || 8;
+        const user = h('input', { placeholder: 'Username', autocomplete: 'username', 'aria-label': 'Username' }), pass = h('input', { type: 'password', placeholder: 'Password (min ' + min + ' characters)', autocomplete: reg ? 'new-password' : 'current-password', 'aria-label': 'Password' }), disp = h('input', { placeholder: 'Display name (optional)', 'aria-label': 'Display name' }), msg = h('div', { class: 'form-error hidden', role: 'alert' });
+        const fail = (t, el) => { msg.textContent = t; msg.classList.remove('hidden'); el && el.focus(); };
+        const go = async () => {
+          msg.classList.add('hidden'); const un = user.value.trim();
+          if (!un) return fail('Type your username.', user);
+          if (reg && !/^[A-Za-z0-9][A-Za-z0-9_-]{1,30}$/.test(un)) return fail('Username: 2–31 characters, letters, numbers, - and _.', user);
+          if (!pass.value) return fail('Type your password.', pass);
+          if (reg && pass.value.length < min) return fail('Password needs at least ' + min + ' characters (you typed ' + pass.value.length + ').', pass);
+          btn.disabled = true;
+          try { if (reg) await C.register(un, pass.value, disp.value || undefined); else await C.login(un, pass.value); dlg.close(); VX.ui.toast('Signed in as ' + C.user.username, 'ok'); const body2 = document.getElementById('side-body'); if (body2 && body2.querySelector('.vx-cloud-auth')) { body2.textContent = ''; U.renderPanel(body2); } }
+          catch (e) { fail(e.message); btn.disabled = false; }
+        };
+        const btn = h('button', { class: 'btn primary block', onclick: go }, reg ? 'Create account' : 'Sign in');
+        [user, pass, disp].forEach((i) => i.addEventListener('keydown', (e) => e.key === 'Enter' && go()));
+        body.append(VX.ui.segmented([['login', 'Sign in'], ['register', 'Create account']], m, (v) => { m = v; draw(); }), h('div', { style: 'height:10px' }), user, h('div', { style: 'height:6px' }), pass, reg ? [h('div', { style: 'height:6px' }), disp] : null, msg, h('div', { style: 'height:8px' }), btn);
+        setTimeout(() => user.focus(), 30);
+      };
+      draw(); dlg = VX.ui.modal({ title: 'Vextra Cloud', size: 'small', body, onClose: () => { U._authOpen = false; resolve(!!C.user); } });
+    });
+  };
   U.renderPanel = function (c) {
     const C = VX.cloud;
     const redraw = () => { const body = document.getElementById('side-body'); if (body && c.isConnected) { body.textContent = ''; U.renderPanel(body); } };
@@ -31,12 +58,10 @@
       h('div', { class: 'row', style: 'display:flex;gap:6px;flex-wrap:wrap' }, local ? h('button', { class: 'btn sm primary', onclick: async (e) => { const b = e.currentTarget; b.disabled = true; b.textContent = 'Starting…'; try { await C.startLocalServer(); redraw(); return; } catch (er) { sm.textContent = er.message; sm.classList.remove('hidden'); } b.disabled = false; b.textContent = '▶ Start local server'; } }, '▶ Start local server') : null, h('button', { class: 'btn sm', onclick: async () => { await C.init(); redraw(); } }, 'Retry')), sm,
       local ? h('label', { class: 'cfgp-check', style: 'display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px' }, (() => { const i = h('input', { type: 'checkbox' }); i.checked = !!VX.app.settings.autoServer; i.onchange = () => { VX.app.set('autoServer', i.checked); }; return i; })(), 'Start it automatically when Vextra opens') : null)); }
     if (!C.user) {
-      const user = h('input', { placeholder: 'Username', autocomplete: 'username' }), pass = h('input', { type: 'password', placeholder: 'Password (min 8 characters)', autocomplete: authMode === 'login' ? 'current-password' : 'new-password' }), disp = h('input', { placeholder: 'Display name (optional)' }), msg = h('div', { class: 'form-error hidden' });
-      const go = async () => { msg.classList.add('hidden'); try { if (authMode === 'login') await C.login(user.value, pass.value); else await C.register(user.value, pass.value, disp.value || undefined); VX.ui.toast('Signed in as ' + C.user.username, 'ok'); redraw(); } catch (e) { msg.textContent = e.message; msg.classList.remove('hidden'); } };
-      [user, pass, disp].forEach((i) => i.addEventListener('keydown', (e) => e.key === 'Enter' && go()));
-      c.append(h('div', { class: 'card' }, h('h4', {}, authMode === 'login' ? 'Sign in' : 'Create your account'),
-        VX.ui.segmented([['login', 'Sign in'], ['register', 'Create account']], authMode, (v) => { authMode = v; redraw(); }), h('div', { style: 'height:10px' }), user, h('div', { style: 'height:6px' }), pass, authMode === 'register' ? [h('div', { style: 'height:6px' }), disp] : null, msg, h('div', { style: 'height:8px' }), h('button', { class: 'btn primary block', onclick: go }, authMode === 'login' ? 'Sign in' : 'Create account')),
-        h('div', { class: 'empty left', style: 'font-size:12px' }, 'An account lets you publish sites and games to a public link, collaborate on projects and keep cloud saves and leaderboards.'));
+      c.append(h('div', { class: 'card vx-cloud-auth' }, h('h4', {}, 'Sign in to Vextra Cloud'),
+        h('p', { style: 'color:var(--muted);margin-top:0' }, 'An account lets you publish sites and games to a public link, collaborate on projects and keep cloud saves and leaderboards.'),
+        h('div', { class: 'row', style: 'display:flex;gap:8px;flex-wrap:wrap' }, h('button', { class: 'btn primary', onclick: () => U.authDialog('login') }, 'Sign in…'), h('button', { class: 'btn', onclick: () => U.authDialog('register') }, 'Create account…'))));
+      if (C.status === 'online' && !U._autoAsked) { U._autoAsked = true; setTimeout(() => { if (!VX.cloud.user && document.querySelector('.vx-cloud-auth')) U.authDialog('login'); }, 150); } /* opens once per session, the first time the Cloud tab is shown */
       return;
     }
     const u = C.user;
@@ -81,7 +106,7 @@
 
   /* ---------- publish ---------- */
   U.publish = async function () {
-    const C = VX.cloud; if (!C.user) { VX.sidebar.show('cloud'); VX.ui.toast('Sign in first to publish', 'warn'); return; }
+    const C = VX.cloud; if (!C.user) { U.authDialog('login'); return; }
     const t = VX.tabs.active(); const isGame = t && t.kind === 'game' && t.ctl;
     if (!isGame && !S.root) return VX.ui.toast('Open a project folder (or a game) to publish', 'warn');
     const title0 = isGame ? t.ctl.project.settings.title : VX.path.base(S.root); const slug0 = (isGame ? t.ctl.project.settings.title : VX.path.base(S.root)).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'my-site';
@@ -99,7 +124,7 @@
 
   /* ---------- share / collaborate ---------- */
   U.share = async function () {
-    const C = VX.cloud; if (!C.user) { VX.sidebar.show('cloud'); return VX.ui.toast('Sign in first', 'warn'); } if (!S.root) return VX.ui.toast('Open the project folder you want to share', 'warn');
+    const C = VX.cloud; if (!C.user) { U.authDialog('login'); return; } if (!S.root) return VX.ui.toast('Open the project folder you want to share', 'warn');
     if (!C.link) { if (!(await VX.ui.confirm(`Upload “${VX.path.base(S.root)}” to ${C.base()} so others can join? Everything in the folder (except node_modules and build folders) is synced.`, 'Upload & share'))) return; try { await C.uploadProject(VX.path.base(S.root)); } catch (e) { return err(e); } }
     let proj; try { proj = (await C.request('GET', '/api/projects/' + C.link.id)).project; } catch (e) { return err(e); }
     const shared = VX.hostUI && VX.hostUI.ensureShared ? await VX.hostUI.ensureShared() : null;
@@ -117,7 +142,7 @@
     draw(); VX.ui.modal({ title: 'Share “' + proj.name + '”', body });
   };
   U.join = async function () {
-    const C = VX.cloud; if (!C.user) { VX.sidebar.show('cloud'); return VX.ui.toast('Sign in first', 'warn'); }
+    const C = VX.cloud; if (!C.user) { U.authDialog('login'); return; }
     const v = await VX.ui.form({ title: 'Join a project', fields: [{ key: 'code', label: 'Invite code', required: true, placeholder: 'ABCDE12345' }], submit: 'Join' }); if (!v) return;
     let parent = window.native.isDesktop ? await window.native.openFolder() : '/projects'; if (!parent) return;
     try { const p = await C.joinProject(v.code, parent); VX.ui.toast('Joined ' + p.name + ' – downloading files…', 'ok'); C.startSync(); } catch (e) { err(e); }

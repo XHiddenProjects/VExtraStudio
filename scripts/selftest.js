@@ -32,6 +32,8 @@ const call = (method, p, body, token) => new Promise((res) => { const d = body ?
     ok((g.match(/class="task"/g) || []).length === 2, 'markdown: nested task items are rendered as tasks'); }
   ok(ctx.VX.archive.crc32(new TextEncoder().encode('123456789')) === 0xcbf43926, 'crc32 check value');
   ctx.VX.esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  { const ac = fs.readFileSync(path.join(ROOT, 'renderer/js/game/rt-anticheat.js'), 'utf8'), r2 = fs.readFileSync(path.join(ROOT, 'renderer/js/game/rt-render2d.js'), 'utf8');
+    ok(!/g\.vars = g\.vars/.test(r2) && /wraps\.get\(v\) \|\| v/.test(ac), 'anti-cheat: writing g.vars back never adds another Proxy layer (no per-frame "Maximum call stack size exceeded")'); }
   ok(!fs.existsSync(path.join(ROOT, 'renderer/js/designer')) && !/designer\/|vxui/i.test(fs.readFileSync(path.join(ROOT, 'renderer/index.html'), 'utf8')), 'UI designer (vxui) removed – the website builder replaces it');
   ctx.__done = false;
   (async () => { const es = [{ path: 'a/b.txt', data: 'hello '.repeat(200) }, { path: '.htaccess', data: 'x' }]; const z = await ctx.VX.archive.zip(es), t = await ctx.VX.archive.tarGz(es);
@@ -131,12 +133,13 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
     const evil = S.newBlock('heading'); evil.p.text = '<img src=x onerror=alert(1)>'; site.pages[0].blocks.push(evil); const btn = S.newBlock('button'); btn.p.href = 'javascript:alert(1)'; btn.p.label = '"><script>'; site.pages[0].blocks.push(btn);
     site.collections.push({ name: 'reviews', label: 'Reviews', public: true, submit: 'members', fields: [{ key: 'who', label: 'Name', type: 'text', required: true, maxLength: 10 }, { key: 'mail', label: 'Mail', type: 'email' }] });
     site.pages.push({ id: 'm1', title: 'Members', slug: 'members', access: 'members', inNav: true, blocks: [S.newBlock('heading')] });
-    site.collections.push({ name: 'events', label: 'Events', public: true, submit: 'anyone', fields: [{ key: 'kind', label: 'Kind', type: 'radio', options: ['talk', 'party'], required: true }, { key: 'topic', label: 'Topic', type: 'text', required: true, showIf: { field: 'kind', equals: 'talk' } }, { key: 'day', label: 'Day', type: 'date' }, { key: 'site', label: 'Site', type: 'url' }, { key: 'phone', label: 'Phone', type: 'tel' }, { key: 'stars', label: 'Stars', type: 'rating' }] });
+    site.collections.push({ name: 'events', label: 'Events', public: true, submit: 'anyone', fields: [{ key: 'kind', label: 'Kind', type: 'radio', options: ['talk', 'party'], required: true }, { key: 'topic', label: 'Topic', type: 'text', required: true, showIf: { field: 'kind', equals: 'talk' } }, { key: 'day', label: 'Day', type: 'date' }, { key: 'site', label: 'Site', type: 'url' }, { key: 'phone', label: 'Phone', type: 'tel' }, { key: 'stars', label: 'Stars', type: 'rating' }, { key: 'zip', label: 'ZIP', type: 'text', format: 'uszip', message: 'Bad ZIP' }, { key: 'evil', label: 'Evil', type: 'text', format: 'custom', pattern: '(a+)+$' }, { key: 'own', label: 'Own', type: 'text', format: 'custom', pattern: '[A-Z]{2}[0-9]{2}' }] });
     { const adv = []; const mkb = (t, p, st) => { const b = S.newBlock(t); Object.assign(b.p, p); if (st) b.s = st; adv.push(b); return b; };
-      mkb('richtext', { md: '# Hi <b>x</b>\n\n[bad](javascript:alert(1)) [ok](https://ok.example) **bold** `<i>`' }, { anchor: 'Top Part', vis: 'members', anim: 'fade', bg: 'red;} body{display:none', pt: 20 });
+      mkb('richtext', { md: '# Hi <b>x</b>\n\n[bad](javascript:alert(1)) [ok](https://ok.example) **bold** `<i>`' }, { anchor: true, vis: 'members', anim: 'fade', bg: 'red;} body{display:none', pt: 20 });
       mkb('video', { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }); mkb('video', { url: 'javascript:alert(1).mp4' }); mkb('map', { lat: 48.85, lon: 2.35, zoom: 12 });
       mkb('gallery', { items: 'https://x.example/a.png | "><script>alert(1)</script>\njavascript:alert(1) | bad' }); mkb('alert', { title: '<script>x</script>', text: 'hi' }); mkb('stats', {}); mkb('pricing', {}); mkb('features', { items: '<b>|<i>|<u>' }); mkb('testimonials', {}); mkb('table', {}); mkb('countdown', { to: '2030-01-01T10:00' }); mkb('countdown', { to: '"><x>' }); mkb('code', { text: '<script>alert(1)</script>' }); mkb('buttons', { items: 'Go | javascript:alert(1)' });
       const tb = mkb('tabs', {}); tb.cols[0] = [Object.assign(S.newBlock('heading'), {})]; const ac = mkb('accordion', {}); ac.cols[1] = [S.newBlock('text')]; const se = mkb('section', { image: 'javascript:alert(1)' }); se.cols[0] = [S.newBlock('button')];
+      mkb('code', { text: 'if (a < b) { return "<script>x</script>"; }', lang: 'js' }); mkb('map', { address: '<b>Main St</b>', lat: 1, lon: 2 }, { anchor: true });
       mkb('list', { collection: 'events', search: true, sort: 'day', per: 5, layout: 'table' }); mkb('form', { collection: 'events', steps: 2 });
       site.pages[0].blocks.push(...adv); }
     const files = await S.generate(site, { serverSource: fs.readFileSync(path.join(ROOT, 'renderer/js/web/site-server.tpl.js'), 'utf8'), adminPasswordHash: await S.hashAdminPassword('selftest-admin-pw') });
@@ -171,7 +174,7 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
       const sm = await rq('GET', '/admin/api/summary', null, { Cookie: ack }); ok(sm.status === 200 && sm.json.collections.find((c) => c.name === 'messages').count === 1 && sm.json.users.length === 1 && !('hash' in sm.json.users[0]), 'site server: admin sees entries and members (no password hashes)');
       { const h2 = (await rq('GET', '/')); const H = h2.text || '';
         ok(!/javascript:/i.test(H) && !/<script>alert|<b>x<\/b>|<i>|"><x>/.test(H.replace(/<script src="[^"]+"><\/script>/g, '')) && !/body\{display:none/.test(H), 'advanced blocks: hostile text, links, colours and addresses are neutralised');
-        ok(/id="top-part"/.test(H) && /data-vis="members"/.test(H) && /vx-an-fade/.test(H), 'advanced blocks: style options (anchor, who sees it, animation) are applied safely');
+        ok(/id="hi-b-x-b"/.test(H) && /data-vis="members"/.test(H) && /vx-an-fade/.test(H), 'advanced blocks: style options (anchor, who sees it, animation) are applied safely');
         ok(/youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(H) && !/youtube\.com\/watch/.test(H) && /openstreetmap\.org\/export\/embed/.test(H), 'advanced blocks: video and map embeds are built from a fixed allow-list');
         ok(/frame-src https:\/\/www\.youtube-nocookie\.com https:\/\/www\.openstreetmap\.org;/.test(hp.headers['content-security-policy'] || ''), 'site server: CSP allows frames only for the embeds the site really uses');
         ok(/data-vx-tabs/.test(H) && /<details class="vx-det"/.test(H) && /class="vx-step"/.test(H) && /data-showif="kind\|talk"/.test(H) && /data-per="5"/.test(H), 'advanced blocks: tabs, accordion, multi-step form, conditional field and paged list render'); }
@@ -180,7 +183,16 @@ for (const f of ['renderer/vendor/sqljs/sql-wasm.js', 'renderer/vendor/sqljs/sql
       ok((await rq('POST', '/api/forms/events', { kind: 'party', stars: 9 })).status === 422 && (await rq('POST', '/api/forms/events', { kind: 'party', phone: 'abc' })).status === 422, 'site server: rating and phone are validated');
       ok((await rq('POST', '/api/forms/events', { kind: 'talk' })).status === 422, 'site server: a conditional field is required while its condition holds');
       ok((await rq('POST', '/api/forms/events', { kind: 'party', topic: 'ignored', day: '2030-02-01', phone: '+1 555 0100', stars: 4 })).status === 200, 'site server: a conditional field is ignored when its condition is not met');
-      { const ev = await rq('GET', '/api/data/events'); ok(ev.json.rows.length === 1 && ev.json.rows[0].data.topic === '' && !('phone' in ev.json.rows[0].data), 'site server: ignored values are not stored and phone numbers are not public'); }
+      { const h3 = (await rq('GET', '/')).text || '';
+        ok(/class="tk-k">if</.test(h3) && !/<script>x<\/script>/.test(h3) && /&lt;script&gt;x&lt;\/script&gt;/.test(h3), 'code block: syntax colours are added and the code itself stays escaped');
+        ok(/<dialog id="vx-auth"[^>]*data-open="link"/.test(h3) && /placeholder="At least 10 characters"/.test(h3) && /minlength="10"/.test(h3), 'login / sign-up popup is on every page and the password placeholder shows the minimum');
+        ok(!/<script>[^<]*<b>Main/.test(h3) && /&lt;b&gt;Main St&lt;\/b&gt;/.test(h3), 'map: the address text is escaped');
+        ok(/data-rx="\[0-9\]\{5\}\(-\[0-9\]\{4\}\)\?"/.test(h3) && /data-msg="Bad ZIP"/.test(h3) && !/\(a\+\)\+/.test(h3), 'form formats: presets and own patterns reach the form; a catastrophic pattern is dropped'); }
+      ok((await rq('POST', '/api/forms/events', { kind: 'party', zip: 'abcde' })).status === 422, 'site server: a field that does not match its format is rejected');
+      ok((await rq('POST', '/api/forms/events', { kind: 'party', own: 'AB12', zip: '90210' })).status === 200, 'site server: a matching own regular expression is accepted');
+      ok((await rq('POST', '/api/forms/events', { kind: 'party', own: 'ab12' })).status === 422, 'site server: an own regular expression is enforced');
+      { const t0 = Date.now(); await rq('POST', '/api/forms/events', { kind: 'party', evil: 'a'.repeat(40) + '!' }); ok(Date.now() - t0 < 1500, 'site server: a bad pattern can never freeze the server'); }
+      { const ev = await rq('GET', '/api/data/events'); ok(ev.json.rows.length >= 1 && ev.json.rows.every((r) => r.data.topic === '' && !('phone' in r.data)), 'site server: ignored values are not stored and phone numbers are not public'); }
     } catch (e) { ok(false, 'site builder server test crashed: ' + e.message); }
     ss.kill(); await new Promise((r) => setTimeout(r, 300)); try { fs.rmSync(sd, { recursive: true, force: true, maxRetries: 5 }); } catch { /* temp dir */ }
   }

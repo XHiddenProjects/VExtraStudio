@@ -71,6 +71,9 @@ const isAdmin = (req) => { const t = cookies(req).vxa; const e = t && adminSess.
 const emailOk = (s) => /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(s) && s.length <= 254;
 
 /* ---------- form validation against the collection you designed ---------- */
+const vm = require('vm');
+/* the site owner's own pattern, run with a time limit so a bad pattern can never freeze the server */
+function matchRx(src, v) { const run = (flags) => vm.runInNewContext('new RegExp(src, flags).test(v)', { src: '^(?:' + src + ')$', flags, v: String(v).slice(0, 500) }, { timeout: 50 }); try { return run('u'); } catch (e) { try { return run(''); } catch (e2) { return false; } } }
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/, TEL_RE = /^[+()\d][\d\s().\-+]{3,28}$/;
 function validate(c, input) {
   const out = {}, errs = [];
@@ -84,6 +87,7 @@ function validate(c, input) {
     if (typeof v !== 'string') { errs.push(label + ' is not valid'); continue; }
     v = v.replace(/\r\n/g, '\n').trim(); const max = f.maxLength || (f.type === 'textarea' ? 5000 : 300);
     if (v.length > max) { errs.push(label + ' is too long (max ' + max + ')'); continue; }
+    if (f.pattern && typeof f.pattern === 'string' && f.pattern.length <= 200 && !matchRx(f.pattern, v)) { errs.push(f.message || label + ' is not in the expected format'); continue; }
     if (f.type === 'email' && !emailOk(v)) { errs.push(label + ' must be an email address'); continue; }
     if ((f.type === 'select' || f.type === 'radio') && f.options && !f.options.includes(v)) { errs.push(label + ' is not one of the choices'); continue; }
     if (f.type === 'date' && (!DATE_RE.test(v) || Number.isNaN(Date.parse(v + 'T00:00:00Z')))) { errs.push(label + ' must be a date'); continue; }

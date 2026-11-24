@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Vextra server – accounts, project sync/collaboration, public hosting, leaderboards and cloud saves.
    Zero dependencies (Node 18+).  Usage:  node server/server.js [--port 8787] [--data ./server/data] [--public-url https://example.com]
-   Environment: PORT, DATA_DIR, PUBLIC_URL, MAX_BODY_MB, ALLOW_REGISTER=0 to close sign-ups. */
+   Environment: PORT, DATA_DIR, PUBLIC_URL, MAX_BODY_MB, ALLOW_REGISTER=0 to close sign-ups, MIN_PASSWORD (6–64, default 8). */
 'use strict';
 const http = require('http');
 const fs = require('fs');
@@ -15,6 +15,7 @@ const DATA = path.resolve(arg('data', process.env.DATA_DIR || path.join(__dirnam
 const PUBLIC_URL = (arg('public-url', process.env.PUBLIC_URL || '')).replace(/\/$/, '');
 const MAX_BODY = (+process.env.MAX_BODY_MB || 40) * 1024 * 1024;
 const ALLOW_REGISTER = process.env.ALLOW_REGISTER !== '0';
+const MIN_PASSWORD = Math.min(64, Math.max(6, parseInt(process.env.MIN_PASSWORD, 10) || 8)); /* shown to the sign-up form through /api/health */
 const MAX_PROJECT_BYTES = 120 * 1024 * 1024;
 
 fs.mkdirSync(DATA, { recursive: true });
@@ -83,12 +84,12 @@ const presence = {}; // pid -> user -> {file, at}
 /* ------------------------------------------------------------------ routes */
 async function api(req, res, url, ip) {
   const m = req.method, p = url.pathname, seg = p.split('/').filter(Boolean); // ['api', ...]
-  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.4.1', time: Date.now(), register: ALLOW_REGISTER, invite: HOST_.requireInvite(req) });
+  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.4.2', time: Date.now(), register: ALLOW_REGISTER, minPassword: MIN_PASSWORD, invite: HOST_.requireInvite(req) });
 
   /* --- hosting (this computer only) --- */
   if (p.startsWith('/api/host')) {
     if (!HOST_.isAdmin(req)) return fail(res, 403, 'Hosting can only be changed from the Vextra app on the computer that runs this server');
-    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.4.1' });
+    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.4.2' });
     if (m !== 'POST') return fail(res, 405, 'Use POST');
     const b = await readJson(req);
     try {
@@ -108,7 +109,7 @@ async function api(req, res, url, ip) {
     if (!ALLOW_REGISTER) return fail(res, 403, 'Registration is closed on this server'); if (limited(ip, 'reg', 8, 3600e3)) return fail(res, 429, 'Too many sign-ups from your network, try later');
     const b = await readJson(req); const un = String(b.username || '').toLowerCase().trim(); const pw = String(b.password || '');
     if (HOST_.requireInvite(req) && !HOST_.checkInvite(b.invite)) return fail(res, 403, 'This server is shared publicly: ask the host for the invite code');
-    if (!safeName(un)) return fail(res, 400, 'Username: 2–31 characters, letters, numbers, - and _ (start with a letter or number)'); if (pw.length < 8 || pw.length > 200) return fail(res, 400, 'Password must be 8–200 characters');
+    if (!safeName(un)) return fail(res, 400, 'Username: 2–31 characters, letters, numbers, - and _ (start with a letter or number)'); if (pw.length < MIN_PASSWORD || pw.length > 200) return fail(res, 400, 'Password must be ' + MIN_PASSWORD + '–200 characters');
     if (store.users[un]) return fail(res, 409, 'That username is taken');
     const salt = rid(16); store.users[un] = { id: rid(6), username: un, display: String(b.displayName || un).slice(0, 40), salt, hash: hashPw(pw, salt), created: Date.now() }; dirty('users');
     return send(res, 201, { token: newSession(un, req.headers['user-agent']), user: pub(store.users[un]) });
@@ -157,7 +158,7 @@ async function api(req, res, url, ip) {
   }
   if (p === '/api/me/password' && m === 'POST') {
     const u = need(req, res); if (!u) return; const b = await readJson(req); if (!crypto.timingSafeEqual(Buffer.from(hashPw(String(b.old || ''), u.salt), 'hex'), Buffer.from(u.hash, 'hex'))) return fail(res, 403, 'Current password is incorrect');
-    const np = String(b.new || ''); if (np.length < 8 || np.length > 200) return fail(res, 400, 'New password must be 8–200 characters'); u.salt = rid(16); u.hash = hashPw(np, u.salt); dirty('users'); return send(res, 200, { ok: true });
+    const np = String(b.new || ''); if (np.length < MIN_PASSWORD || np.length > 200) return fail(res, 400, 'New password must be ' + MIN_PASSWORD + '–200 characters'); u.salt = rid(16); u.hash = hashPw(np, u.salt); dirty('users'); return send(res, 200, { ok: true });
   }
   if (p === '/api/me/logout-all' && m === 'POST') { const u = need(req, res); if (!u) return; const cur = sha((/^Bearer\s+(\S+)/.exec(req.headers.authorization) || [])[1] || ''); for (const [k, s] of Object.entries(store.sessions)) if (s.user === u.username && k !== cur) delete store.sessions[k]; dirty('sessions'); return send(res, 200, { ok: true }); }
 

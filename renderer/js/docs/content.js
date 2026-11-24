@@ -137,17 +137,17 @@ A node graph. Each block has input sockets on the left and output sockets on the
 
 ## Code
 
-The same logic as a JavaScript script. Reading it teaches you how blocks map to code:
+The same logic as **VXScript**, a plain-text language with one line per step. Reading it teaches you how blocks map to text:
 
-\`\`\`js
-const key  = block('keyboard', { key: 'space', mode: 'down' });
-const jump = block('impulse',  { y: -420 });
-connect(key, 'out', jump, 'in');
+\`\`\`vxscript
+behavior "Jump"
+
+when block keyboard key="space":
+    block impulse y=-420
 \`\`\`
 
-- Switch to **Code** to *read* the script; blocks are generated from the graph and a comment marks each one.
-- Press **Convert to code** to make the script the source of truth. You can then write anything: loops, functions, your own logic. The graph becomes a read-only picture of what your code builds.
-- **Revert to blocks** goes back to the stored graph.
+- The **Code** view shows the behaviour as VXScript (read only). Press **Edit as VXScript** to change it as text; Apply rebuilds the blocks.
+- Older projects that stored a JavaScript script keep working and are marked *legacy script*; **Apply code to blocks** moves them to blocks.
 
 ## Split view
 

@@ -20,6 +20,15 @@ Build a real website by **dragging blocks** – no code. Pages can save what vis
 
 The toolbar has **Desktop / Phone** width, **Checks** (problems to fix), **Preview** (forms pretend to work) and **Export & host**.
 
+## Login popup, validation and identifiers
+
+- **Login / sign-up popup:** one popup is added to every page (Site → *Login / sign-up popup*: link, on page load, or off). Login and Sign-up pages are created automatically and use the same form.
+- **Validation:** forms show their own messages instead of the browser's. The server checks everything again.
+- **Formats:** give a text field a preset (email, phone, ZIP, URL, username, strong password…) or your own pattern and message; the tester shows what passes. Very slow patterns are refused.
+- **Identifiers** (page address, collection name, field key, link name) fill in from the title and cannot be edited by hand.
+- **Map:** type an address to place the map. **Code blocks** are syntax highlighted.
+- **Where entries are saved:** the exported site's server keeps them in \`data/db.json\` (a JSON file in the folder set by \`DATA_DIR\`). Nothing is saved in the builder preview.
+
 ## Advanced blocks
 - **Style & behaviour** (inspector, every block): space above / below / sides, background and text colour, border, corner radius, shadow, maximum width and placement, **hide on phones or computers**, **fade / slide / zoom in** when scrolled into view (switched off for visitors who prefer reduced motion) and a **link name** so a button can jump to \`#name\`.
 - **Who sees it** shows a block only to logged-in members or only to guests. This is **cosmetic**: the text is still in the page source. Put private content on a **Members only** page, which the server enforces.

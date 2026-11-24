@@ -194,7 +194,7 @@
     ctx.fillStyle = g.scene.bg || g.settings.bg; ctx.fillRect(0, 0, W, H);
     const sx = c.shake ? (Math.random() - 0.5) * c.shake : 0, sy = c.shake ? (Math.random() - 0.5) * c.shake : 0;
     ctx.setTransform(c.zoom, 0, 0, c.zoom, W / 2 - c.x * c.zoom + sx, H / 2 - c.y * c.zoom + sy);
-    g.imgs = g.imgs || new Map(); g.vars = g.vars || {}; g.assets = g.data.assets;
+    g.imgs = g.imgs || new Map(); if (!g.vars) g.vars = {}; g.assets = g.data.assets;
     const sorted = draw2D.sorted(g.objects), bgFx = VXRT.fx && VXRT.fx.active(g, 'bg'); let rest = sorted;
     if (bgFx) { // Background layer: the scene colour + objects tagged "background" go through their own shader pass
       const isBg = (o) => (o.tags || []).includes('background'); const bc = getBg(W, H), bx = bc.getContext('2d'); bx.setTransform(1, 0, 0, 1, 0, 0); bx.fillStyle = g.scene.bg || g.settings.bg; bx.fillRect(0, 0, W, H); bx.setTransform(c.zoom, 0, 0, c.zoom, W / 2 - c.x * c.zoom + sx, H / 2 - c.y * c.zoom + sy);

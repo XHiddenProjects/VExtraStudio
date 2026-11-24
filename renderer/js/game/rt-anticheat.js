@@ -72,8 +72,9 @@
     /* ---- outside edits: g.vars may only be written by the game's own code ---- */
     if (on('tamper')) {
       const legit = () => { const st = String(new Error().stack || '').split('\n').slice(3).join('\n'); return /eval at|VXRT|rt-core|rt-graph|blocks-/.test(st); };
-      let raw = g.vars, prox = null; const mk = (o) => new Proxy(o, { set(t, k, v) { if (!legit()) { flag('tamper', 'variable "' + String(k) + '" was changed from outside the game'); return true; } t[k] = v; return true; }, deleteProperty(t, k) { if (!legit()) { flag('tamper', 'variable "' + String(k) + '" was deleted from outside the game'); return true; } delete t[k]; return true; } });
-      prox = mk(raw); try { Object.defineProperty(g, 'vars', { configurable: true, get: () => prox, set: (v) => { raw = v; prox = mk(v); } }); } catch { /* frozen */ }
+      let raw = g.vars, prox = null; const wraps = new WeakMap(); /* proxy -> its target: writing a guarded object back (g.vars = g.vars) must never add another layer, or the chain grows every frame and ends in "Maximum call stack size exceeded" */
+      const mk = (o) => { if (wraps.has(o)) return o; const p = new Proxy(o, { set(t, k, v) { if (!legit()) { flag('tamper', 'variable "' + String(k) + '" was changed from outside the game'); return true; } t[k] = v; return true; }, deleteProperty(t, k) { if (!legit()) { flag('tamper', 'variable "' + String(k) + '" was deleted from outside the game'); return true; } delete t[k]; return true; } }); wraps.set(p, o); return p; };
+      prox = mk(raw); try { Object.defineProperty(g, 'vars', { configurable: true, get: () => prox, set: (v) => { if (v === prox) return; raw = wraps.get(v) || v; prox = mk(raw); } }); } catch { /* frozen */ }
       try { delete window.__vxGame; } catch { /* ignore */ }
     }
     /* ---- integrity: the game data is still what was exported ---- */

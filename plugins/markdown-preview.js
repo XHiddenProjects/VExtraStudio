@@ -1,4 +1,4 @@
-/** @vx-plugin {"id":"markdown-preview","name":"Markdown Preview","version":"4.4.1","description":"Full Markdown viewer: outline, tables, task lists, syntax-highlighted code with line numbers and a Copy button that follows the scroll."} */
+/** @vx-plugin {"id":"markdown-preview","name":"Markdown Preview","version":"4.4.2","description":"Full Markdown viewer: outline, tables, task lists, syntax-highlighted code with line numbers and a Copy button that follows the scroll."} */
 /** @vx-docs
  * ## Using Markdown Preview
  * Open any `.md` file and press **👁 Markdown Preview** in the toolbar, or run **Markdown: Preview current file** from the Command Palette.

@@ -24,6 +24,9 @@
       return C._ensuring;
     },
     /** The version the server on this address reports (null = unreachable, '' = too old to say). */
+    minPassword: 8,
+    /** the server's own rules (password minimum), so forms can show them before anything is sent */
+    async health() { try { const h = await C.request('GET', '/api/health', null, false); C.minPassword = Math.min(64, Math.max(6, +h.minPassword || 8)); return h; } catch { return null; } },
     async serverVersion() { try { const r = await window.native.http({ method: 'GET', url: C.base() + '/api/health' }); return (JSON.parse(r.body) || {}).version || ''; } catch { return null; } },
     /** true when `a` is an older version than `b` (1.2.3 style; an empty version counts as older). */
     olderThan(a, b) { const n = (x) => String(x || '0').split('.').map((p) => parseInt(p, 10) || 0); const x = n(a), y = n(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); } return false; },
@@ -42,7 +45,7 @@
       try { C.token = await window.native.secret.get('cloudToken:' + C.base()); } catch { C.token = null; }
       if (C.token) { try { const r = await C.request('GET', '/api/me'); C.user = r.user; C.status = 'online'; } catch (e) { if (e.status === 401) { C.token = null; await window.native.secret.set('cloudToken:' + C.base(), null); } C.status = e.status ? 'online' : 'offline'; } }
       else if (window.__VX_DEMO && !(VX.app.settings && VX.app.settings.serverUrl)) C.status = 'offline'; /* live demo: there is no server to ask */
-      else { try { await C.request('GET', '/api/health', null, false); C.status = 'online'; } catch { C.status = 'offline'; } }
+      else { C.status = (await C.health()) ? 'online' : 'offline'; }
       if (C.status === 'offline' && VX.app.settings.autoServer && C.isLocal() && !C._autoTried) { C._autoTried = true; try { await C.startLocalServer(true); return; } catch { /* the Cloud panel shows the Start button and the reason */ } }
       VX.emit('cloud'); C.loadLink();
       /* after an update the old server may still be running – replace it by itself (once per start; Settings shows the result) */
