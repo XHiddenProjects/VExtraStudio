@@ -5,6 +5,7 @@ All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://
 ## [4.4.2] — current
 
 ### Fixed
+- **Vextra Cloud sign-in popup** showed "[object HTMLDivElement]" / "null" under the password box and had narrow inputs; the form now renders cleanly.
 - **Games: "Maximum call stack size exceeded"** after the game had run for a while. The anti-cheat variable guard wrapped `g.vars` in a new proxy every frame; proxies are now reused and never stacked.
 
 ### Added

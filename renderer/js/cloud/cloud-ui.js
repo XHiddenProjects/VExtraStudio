@@ -29,7 +29,7 @@
       await C.health(); let m = mode; const body = h('div'); let dlg;
       const draw = () => {
         body.textContent = ''; const reg = m === 'register', min = C.minPassword || 8;
-        const user = h('input', { placeholder: 'Username', autocomplete: 'username', 'aria-label': 'Username' }), pass = h('input', { type: 'password', placeholder: 'Password (min ' + min + ' characters)', autocomplete: reg ? 'new-password' : 'current-password', 'aria-label': 'Password' }), disp = h('input', { placeholder: 'Display name (optional)', 'aria-label': 'Display name' }), msg = h('div', { class: 'form-error hidden', role: 'alert' });
+        const user = h('input', { style: 'width:100%;box-sizing:border-box', placeholder: 'Username', autocomplete: 'username', 'aria-label': 'Username' }), pass = h('input', { style: 'width:100%;box-sizing:border-box', type: 'password', placeholder: 'Password (min ' + min + ' characters)', autocomplete: reg ? 'new-password' : 'current-password', 'aria-label': 'Password' }), disp = h('input', { style: 'width:100%;box-sizing:border-box', placeholder: 'Display name (optional)', 'aria-label': 'Display name' }), msg = h('div', { class: 'form-error hidden', role: 'alert' });
         const fail = (t, el) => { msg.textContent = t; msg.classList.remove('hidden'); el && el.focus(); };
         const go = async () => {
           msg.classList.add('hidden'); const un = user.value.trim();
@@ -43,7 +43,7 @@
         };
         const btn = h('button', { class: 'btn primary block', onclick: go }, reg ? 'Create account' : 'Sign in');
         [user, pass, disp].forEach((i) => i.addEventListener('keydown', (e) => e.key === 'Enter' && go()));
-        body.append(VX.ui.segmented([['login', 'Sign in'], ['register', 'Create account']], m, (v) => { m = v; draw(); }), h('div', { style: 'height:10px' }), user, h('div', { style: 'height:6px' }), pass, reg ? [h('div', { style: 'height:6px' }), disp] : null, msg, h('div', { style: 'height:8px' }), btn);
+        body.append(VX.ui.segmented([['login', 'Sign in'], ['register', 'Create account']], m, (v) => { m = v; draw(); }), h('div', { style: 'height:10px' }), user, h('div', { style: 'height:6px' }), pass, ...(reg ? [h('div', { style: 'height:6px' }), disp] : []), msg, h('div', { style: 'height:8px' }), btn);
         setTimeout(() => user.focus(), 30);
       };
       draw(); dlg = VX.ui.modal({ title: 'Vextra Cloud', size: 'small', body, onClose: () => { U._authOpen = false; resolve(!!C.user); } });
