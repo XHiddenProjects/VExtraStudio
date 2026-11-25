@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Vextra server – accounts, project sync/collaboration, public hosting, leaderboards and cloud saves.
    Zero dependencies (Node 18+).  Usage:  node server/server.js [--port 8787] [--data ./server/data] [--public-url https://example.com]
+   Helpdesk (agentless inventory & deployment): see helpdesk.js.
    Environment: PORT, DATA_DIR, PUBLIC_URL, MAX_BODY_MB, ALLOW_REGISTER=0 to close sign-ups, MIN_PASSWORD (6–64, default 8). */
 'use strict';
 const http = require('http');
@@ -21,6 +22,7 @@ const MAX_PROJECT_BYTES = 120 * 1024 * 1024;
 fs.mkdirSync(DATA, { recursive: true });
 const HOST_ = require('./host')({ DATA, PORT, handler: (req, res) => handle(req, res) });
 const F = (n) => path.join(DATA, n);
+let HELPDESK = null; /* created after the helpers below exist */
 
 /* ------------------------------------------------------------------ tiny JSON store */
 const store = {};
@@ -34,8 +36,8 @@ store.boards = load('boards', {});        // gameId -> board -> [{name, score, u
 store.anticheat = load('anticheat', { events: [], bans: {} }); // events: [{game, player, check, detail, strikes, action, at, ip}], bans: 'game|player' -> {until, at}
 store.saves = load('saves', {});          // user/gameId/slot -> {data, at}
 const flushers = {}; const dirty = (n) => { clearTimeout(flushers[n]); flushers[n] = setTimeout(() => save(n), 150); };
-process.on('SIGINT', () => { for (const n of Object.keys(store)) save(n); process.exit(0); });
-process.on('SIGTERM', () => { for (const n of Object.keys(store)) save(n); process.exit(0); });
+process.on('SIGINT', () => { for (const n of Object.keys(store)) save(n); if (HELPDESK) HELPDESK.flush(); process.exit(0); });
+process.on('SIGTERM', () => { for (const n of Object.keys(store)) save(n); if (HELPDESK) HELPDESK.flush(); process.exit(0); });
 
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const rid = (n = 9) => crypto.randomBytes(n).toString('hex');
@@ -84,12 +86,12 @@ const presence = {}; // pid -> user -> {file, at}
 /* ------------------------------------------------------------------ routes */
 async function api(req, res, url, ip) {
   const m = req.method, p = url.pathname, seg = p.split('/').filter(Boolean); // ['api', ...]
-  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.4.2', time: Date.now(), register: ALLOW_REGISTER, minPassword: MIN_PASSWORD, invite: HOST_.requireInvite(req) });
+  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.5.0', time: Date.now(), register: ALLOW_REGISTER, minPassword: MIN_PASSWORD, invite: HOST_.requireInvite(req) });
 
   /* --- hosting (this computer only) --- */
   if (p.startsWith('/api/host')) {
     if (!HOST_.isAdmin(req)) return fail(res, 403, 'Hosting can only be changed from the Vextra app on the computer that runs this server');
-    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.4.2' });
+    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.5.0' });
     if (m !== 'POST') return fail(res, 405, 'Use POST');
     const b = await readJson(req);
     try {
@@ -231,6 +233,7 @@ async function api(req, res, url, ip) {
     if (m === 'POST') { if (limited(ip, 'score', 60, 60e3)) return fail(res, 429, 'Slow down'); const b = await readJson(req); const score = Number(b.score); if (!Number.isFinite(score)) return fail(res, 400, 'Score must be a number'); const u = authUser(req); const name = String((u ? u.display || u.username : b.name) || 'Player').slice(0, 24).replace(/[<>]/g, ''); arr.push({ name, score, user: u && u.username, at: Date.now() }); arr.sort((a, b2) => b2.score - a.score); if (arr.length > 500) arr.length = 500; dirty('boards'); return send(res, 200, { rank: arr.findIndex((e) => e.score === score && e.name === name) + 1 }); }
   }
   /* --- anti-cheat: players send reports and ask if they are banned (public, rate-limited); reading reports and banning is admin-only (this computer's app) --- */
+  if (seg[1] === 'helpdesk') { HELPDESK = HELPDESK || require('./helpdesk')({ DATA, send, fail, readJson, isAdmin: (r) => HOST_.isAdmin(r), authUser, limited, clientIp: (r) => HOST_.clientIp(r) }); return HELPDESK.handle(req, res, url, seg); }
   if (seg[1] === 'anticheat') {
     const AC = store.anticheat, ban = (g, pl) => AC.bans[g + '|' + pl];
     if (seg[2] === 'report' && m === 'POST') {

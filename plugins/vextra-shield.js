@@ -47,7 +47,8 @@ vx.hooks.on('game.export.html', async (html, ctx) => {
     const hashes = []; out.replace(/<script\b([^>]*)>([\s\S]*?)<\/script[^>]*>/gi, (all, attrs, body) => { if (!/\bsrc\s*=/.test(attrs)) hashes.push(body); return all; });
     const sums = []; for (const b of hashes) sums.push("'sha256-" + (await b64sha(b)) + "'");
     const connect = ['https:', 'wss:', 'data:', 'blob:'];
-    const cloud = vx.game.current()?.settings?.cloudUrl; try { if (cloud) connect.push(new URL(cloud).origin); } catch (e) { /* ignore */ }
+    /* the server address is written into the exported game (opts.cloudUrl), not into the project, so read it from the page too – otherwise anti-cheat reports to a local / http server are blocked */
+    const inPage = /"cloudUrl"\s*:\s*"(https?:\/\/[^"\\\s]+)"/.exec(out); const cloud = (inPage && inPage[1]) || vx.game.current()?.settings?.cloudUrl; try { if (cloud) connect.push(new URL(cloud).origin); } catch (e) { /* ignore */ }
     for (const x of String(c.cspConnect).split(/[\s,]+/).filter(Boolean)) if (/^[\w:/.*\-\[\]]+$/.test(x)) connect.push(x);
     const policy = ["default-src 'none'", `script-src ${sums.join(' ')} 'unsafe-eval' blob:`, "style-src 'unsafe-inline'", "img-src data: blob: https:", "media-src data: blob: https:", "font-src data: https:", `connect-src ${[...new Set(connect)].join(' ')}`, "frame-src https: data: blob:", "worker-src blob:", "object-src 'none'", "base-uri 'none'", "form-action 'none'"].join('; ');
     const metas = `<meta http-equiv="Content-Security-Policy" content="${policy.replace(/"/g, '&quot;')}"><meta name="referrer" content="no-referrer">`;

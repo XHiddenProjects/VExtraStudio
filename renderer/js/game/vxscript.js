@@ -130,7 +130,7 @@
       const k = w.slice(0, eq), v = w.slice(eq + 1); if (keys && !keys.includes(k)) throw new Err(ln, `Block “${type}” has no setting “${k}”.${keys.length ? ' Settings: ' + keys.join(', ') + '.' : ''}${nearest(k, keys)}`);
       const pd = def && def.params.find((q) => q.key === k); params[k] = pd && (pd.type === 'text' || pd.type === 'string') ? v : NUM.test(v) ? +v : v === 'true' ? true : v === 'false' ? false : v;
     }
-    if (def) {
+    if (def && type !== 'bundle') {
       let ports = null; try { ports = VXRT.ports(def, Object.assign(VXRT.paramDefaults(def), params)); } catch { /* ports depend on settings */ }
       if (ports && via && !ports.inputs.some((i) => i.id === via)) throw new Err(ln, `Block “${type}” has no input “${via}”. Inputs: ${ports.inputs.map((i) => i.id).join(', ') || 'none'}.`);
       if (ports && outp && !ports.outputs.some((o) => o.id === outp)) throw new Err(ln, `Block “${type}” has no output “${outp}”. Outputs: ${ports.outputs.map((o) => o.id).join(', ') || 'none'}.`);
@@ -147,9 +147,13 @@
     const res = { behaviors: [], warnings: [], errors: [] };
     const lines = String(source).replace(/\r\n?/g, '\n').split('\n'); let cur = null, uid = 0;
     const startBehavior = (name) => { cur = { name: name || 'Behavior', graph: { nodes: [], wires: [] } }; res.behaviors.push(cur); };
-    const addNode = (n, x, y) => { const id = 'n' + ++uid; cur.graph.nodes.push({ id, type: n.type, params: n.params || {}, x, y }); return id; };
+    const addNode = (n, x, y) => { const id = 'n' + ++uid; const o = { id, type: n.type, params: n.params || {}, x, y }; if (n.graph) o.graph = n.graph; cur.graph.nodes.push(o); return id; };
+    /** a bundle's body: an `inside:` section holding ordinary `when …:` lines (like the body of a function); the rest are `on PORT:` branches */
+    const splitInside = (kids) => { const i = kids.findIndex((c) => /^inside\s*:?$/i.test(c.text)); return i < 0 ? { inside: null, rest: kids } : { inside: kids[i], rest: kids.filter((_, j) => j !== i) }; };
+    const buildInside = (insideKid) => { const g = { nodes: [], wires: [] }; if (!insideKid) return g; const saved = cur; cur = { name: '', graph: g }; try { for (const t of insideKid.kids) rootLine(t, true); } finally { cur = saved; } return g; };
+    const bundlePorts = (def, params, g) => { try { return VXRT.ports(def, Object.assign(VXRT.paramDefaults(def), params), { graph: g }); } catch { return { inputs: [], outputs: [] }; } };
     const wire = (from, to, out, inp) => cur.graph.wires.push({ from, to, out: out || 'out', in: inp || 'in' });
-    const checkOut = (type, params, port, line) => { const d = reg && reg[type]; if (!d) return; try { const o = VXRT.ports(d, Object.assign(VXRT.paramDefaults(d), params)).outputs; if (!o.some((q) => q.id === port)) throw new Err(line, `Block “${type}” has no output “${port}”. Outputs: ${o.map((q) => q.id).join(', ') || 'none'}.`); } catch (e) { if (e instanceof Err) throw e; } };
+    const checkOut = (type, params, port, line) => { const d = reg && reg[type]; if (!d || type === 'bundle') return; try { const o = VXRT.ports(d, Object.assign(VXRT.paramDefaults(d), params)).outputs; if (!o.some((q) => q.id === port)) throw new Err(line, `Block “${type}” has no output “${port}”. Outputs: ${o.map((q) => q.id).join(', ') || 'none'}.`); } catch (e) { if (e instanceof Err) throw e; } };
     const outOf = (type, want) => { if (want) return want; const d = reg && reg[type]; if (d) { try { const o = VXRT.ports(d, VXRT.paramDefaults(d)).outputs; if (o.length) return o[0].id; } catch { /* default */ } } return { timer: 'tick', collision: 'out' }[type] || 'out'; };
     const endsFor = (id, type, port) => { const d = reg && reg[type]; if (d) { try { if (!VXRT.ports(d, VXRT.paramDefaults(d)).outputs.length) return []; } catch { /* keep */ } } else if (['loadLevel', 'restartGame', 'pushMotor'].includes(type)) return []; return [{ id, port }]; };
     const inOf = (type, want) => { if (want) return want; const d = reg && reg[type]; if (d) { try { const i = VXRT.ports(d, VXRT.paramDefaults(d)).inputs; if (i.length) return i[0].id; } catch { /* default */ } } return 'in'; };
@@ -201,10 +205,19 @@
           }
           if (head === 'wait') { const sc = secs(r); const id = addNode({ type: 'timer', params: { interval: sc, delay: 0, repeat: false, autoStart: false } }, x, yy); link(id, 'start', 'timer'); ends = [{ id, port: 'tick' }]; x += 290; continue; }
           if (head === 'block') {
-            const sp = blockSpec(r, k.line, reg); const id = addNode({ type: sp.type, params: sp.params }, x, yy); link(id, sp.via, sp.type);
+            const sp = blockSpec(r, k.line, reg); let kidsB = k.kids, bg = null;
+            if (sp.type === 'bundle') {
+              const sx = splitInside(k.kids); kidsB = sx.rest; bg = buildInside(sx.inside); const bp = bundlePorts(reg.bundle, sp.params, bg);
+              if (sp.via && !bp.inputs.some((i) => i.id === sp.via)) throw new Err(k.line, `This bundle has no input “${sp.via}”. Inputs: ${bp.inputs.map((i) => i.id).join(', ') || 'none (add a bundleInput block inside)'}.`);
+              if (sp.outp && !bp.outputs.some((o) => o.id === sp.outp)) throw new Err(k.line, `This bundle has no output “${sp.outp}”. Outputs: ${bp.outputs.map((o) => o.id).join(', ') || 'none (add a bundleOutput block inside)'}.`);
+              for (const c of kidsB) { const m = CLAUSE.exec(c.text); if (m && !bp.outputs.some((o) => o.id === m[1])) throw new Err(c.line, `This bundle has no output “${m[1]}”. Outputs: ${bp.outputs.map((o) => o.id).join(', ') || 'none'}.`); }
+            }
+            const id = addNode({ type: sp.type, params: sp.params, graph: bg || undefined }, x, yy); link(id, sp.via || (bg ? (bundlePorts(reg.bundle, sp.params, bg).inputs[0] || {}).id : null), sp.type);
+            if (bg && !hasBlock && kidsB.length === 0) { const bo = bundlePorts(reg.bundle, sp.params, bg).outputs; ends = bo.length ? [{ id, port: sp.outp || bo[0].id }] : []; x += 290; continue; }
             if (hasBlock) {   /* block TYPE …:  with  on PORT:  branches */
-              if (!k.kids.length || !k.kids.every((c) => CLAUSE.test(c.text))) throw new Err(k.line, 'Under a block line that ends with “:” write one “on PORT:” branch per output, e.g.  on pass:');
-              const found = []; let yb = yy; for (const c of k.kids) { const port = CLAUSE.exec(c.text)[1]; checkOut(sp.type, sp.params, port, c.line); found.push(...chain(c.kids, [{ id, port }], x + 290, yb)); yb += 110 * rows(c.kids); }
+              if (bg && !kidsB.length) { const bo = bundlePorts(reg.bundle, sp.params, bg).outputs; ends = bo.length ? [{ id, port: sp.outp || bo[0].id }] : []; x += 290; continue; }
+              if (!kidsB.length || !kidsB.every((c) => CLAUSE.test(c.text))) throw new Err(k.line, 'Under a block line that ends with “:” write one “on PORT:” branch per output, e.g.  on pass:' + (sp.type === 'bundle' ? '  (a bundle may also start with an “inside:” section)' : ''));
+              const found = []; let yb = yy; for (const c of kidsB) { const port = CLAUSE.exec(c.text)[1]; checkOut(sp.type, sp.params, port, c.line); found.push(...chain(c.kids, [{ id, port }], x + 290, yb)); yb += 110 * rows(c.kids); }
               ends = found; yy = yb; x += 290 * 2; continue;
             }
             ends = endsFor(id, sp.type, outOf(sp.type, sp.outp)); x += 290; continue;
@@ -237,23 +250,25 @@
 
     /* top level: behavior lines and trigger lines */
     startBehavior('Behavior'); let used = false; const first = res.behaviors[0];
-    for (const top of root.kids) {
+    const rootLine = (top0, inBundle) => {
+      let top = top0;
       try {
         const t = tokens(top.text, top.line); const hasBlock = colon(t); const r = reader(t, top.line); const head = (r.word() || '').toLowerCase();
-        if (head === 'behavior' || head === 'behaviour') { const name = r.need('a name in quotes'); if (r.more()) throw new Err(top.line, 'Put the name in quotes: behavior "My name"'); if (hasBlock || top.kids.length) throw new Err(top.line, 'A behavior line has nothing indented below it – write the “when …” lines at the same level'); if (!used && cur === first) { first.name = name; } else startBehavior(name); used = false; continue; }
+        if (head === 'behavior' || head === 'behaviour') { if (inBundle) throw new Err(top.line, 'A bundle cannot contain a behavior line'); const name = r.need('a name in quotes'); if (r.more()) throw new Err(top.line, 'Put the name in quotes: behavior "My name"'); if (hasBlock || top.kids.length) throw new Err(top.line, 'A behavior line has nothing indented below it – write the “when …” lines at the same level'); if (!used && cur === first) { first.name = name; } else startBehavior(name); used = false; return; }
         if (!['when', 'on', 'every', 'after', 'always'].includes(head)) throw new Err(top.line, `A line at the left edge must start with behavior, when, every, after or always (found “${head}”)`);
         if (!hasBlock) throw new Err(top.line, 'End the line with “:”'); let node, trigClauses = false;
         if (head === 'every') { const s = secs(r); node = { type: 'timer', params: { interval: s, delay: 0, repeat: true, autoStart: true } }; if (r.more()) throw new Err(top.line, `Unexpected “${r.rest().join(' ')}”`); node.out = 'tick'; }
         else if (head === 'after') { const s = secs(r); node = { type: 'timer', params: { interval: s, delay: 0, repeat: false, autoStart: true } }; node.out = 'tick'; if (r.more()) throw new Err(top.line, `Unexpected “${r.rest().join(' ')}”`); }
         else if (head === 'always') { node = { type: 'always', params: {} }; }
-        else if ((r.peek() || '').toLowerCase() === 'block') { r.word(); const sp = blockSpec(r, top.line, reg); node = { type: sp.type, params: sp.params, out: sp.outp }; trigClauses = true; }
+        else if ((r.peek() || '').toLowerCase() === 'block') { r.word(); const sp = blockSpec(r, top.line, reg); node = { type: sp.type, params: sp.params, out: sp.outp }; trigClauses = true; if (sp.type === 'bundle') { const sx = splitInside(top.kids); node.graph = buildInside(sx.inside); top = Object.assign({}, top, { kids: sx.rest }); const bp = bundlePorts(reg.bundle, sp.params, node.graph); if (node.out && !bp.outputs.some((o) => o.id === node.out)) throw new Err(top.line, `This bundle has no output “${node.out}”. Outputs: ${bp.outputs.map((o) => o.id).join(', ') || 'none'}.`); if (!node.out && bp.outputs.length) node.out = bp.outputs[0].id; } }
         else { const kind = (r.word() || '').toLowerCase(); if (!kind) throw new Err(top.line, 'Say what to wait for: when start | key K | click | touching T | message M | near T'); const tf = TRIG[kind]; if (!tf) throw new Err(top.line, `I do not know the trigger “${kind}”. Triggers: ${Object.keys(TRIG).join(', ')}, or every N seconds / after N seconds`); node = tf(r, top.line); if (r.more()) throw new Err(top.line, `Unexpected “${r.rest().join(' ')}”`); }
         if (reg && !reg[node.type]) throw new Err(top.line, `This version of Vextra has no “${node.type}” block`);
         const rowY = 40 + (cur.graph.nodes.length ? Math.max(...cur.graph.nodes.map((n) => n.y)) + 160 : 0); const id = addNode(node, 40, rowY); used = true;
         if (trigClauses && top.kids.length && top.kids.every((c) => CLAUSE.test(c.text))) { let yb = rowY; for (const c of top.kids) { const port = CLAUSE.exec(c.text)[1]; checkOut(node.type, node.params, port, c.line); pairElse(c.kids); chain(c.kids, [{ id, port }], 330, yb); yb += 110 * Math.max(1, c.kids.length); } }
         else { pairElse(top.kids); chain(top.kids, [{ id, port: outOf(node.type, node.out) }], 330, rowY); }
       } catch (e) { fail(e, top.line); }
-    }
+    };
+    for (const top of root.kids) rootLine(top, false);
     function pairElse(kids) { for (let i = 0; i < kids.length; i++) { const k = kids[i]; if (/^else\s*:?$/i.test(k.text)) { const p = kids[i - 1]; if (!p || !/^(if|unless|chance)\b/i.test(p.text)) { res.errors.push({ line: k.line, message: '“else:” must come right after an “if” or “chance” block' }); } else p.elseKid = k; k.isElse = true; } pairElse(k.kids); } }
     res.behaviors = res.behaviors.filter((b) => b.graph.nodes.length);
     if (!res.behaviors.length && !res.errors.length) res.warnings.push({ line: 1, message: 'The script has no behaviors yet. Start with:  when start:' });
@@ -349,7 +364,7 @@
     const nodes = new Map((g.nodes || []).map((n) => [n.id, n])); const outW = new Map(), inCount = new Map();
     for (const w of g.wires || []) { if (!nodes.has(w.from) || !nodes.has(w.to)) continue; (outW.get(w.from) || outW.set(w.from, []).get(w.from)).push(w); inCount.set(w.to, (inCount.get(w.to) || 0) + 1); }
     const q = (v) => '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n') + '"';
-    const ports = (n) => { const d = reg && reg[n.type]; if (!d) return { inputs: [{ id: 'in' }], outputs: [{ id: 'out' }] }; try { return root.VXRT.ports(d, Object.assign(root.VXRT.paramDefaults(d), n.params || {})); } catch { return { inputs: [{ id: 'in' }], outputs: [{ id: 'out' }] }; } };
+    const ports = (n) => { const d = reg && reg[n.type]; if (!d) return { inputs: [{ id: 'in' }], outputs: [{ id: 'out' }] }; try { return root.VXRT.ports(d, Object.assign(root.VXRT.paramDefaults(d), n.params || {}), n); } catch { return { inputs: [{ id: 'in' }], outputs: [{ id: 'out' }] }; } };
     const defIn = (n) => (ports(n).inputs[0] || { id: 'in' }).id, defOut = (n) => (ports(n).outputs[0] || { id: 'out' }).id;
     const settings = (n) => {
       const d = reg && reg[n.type]; const keys = d ? new Set((d.params || []).map((x) => x.key)) : null; const dflt = d ? root.VXRT.paramDefaults(d) : {}; const parts = [];
@@ -363,27 +378,36 @@
     };
     const out = []; const line = (ind, t) => out.push(' '.repeat(ind) + t);
     const clause = (n, via) => { let t = 'block ' + n.type; const st = settings(n); if (st) t += ' ' + st; if (via && via !== defIn(n)) t += ' from ' + via; return t; };
-    /** writes the chain that starts at node `id` (entered through input `via`) */
-    function emit(id, via, ind, path) {
-      const n = nodes.get(id); if (!n) return;
-      if (path.has(id)) { line(ind, `# loops back to “${n.type}” (a loop cannot be written in VXScript)`); lossy.push('a loop back to “' + n.type + '”'); return; }
-      const next = new Set(path); next.add(id); const ws = outW.get(id) || [];
-      if ((inCount.get(id) || 0) > 1) lossy.push(`“${n.type}” receives several paths; each path is written out separately (the copies run separately)`);
-      if (ws.length === 0) { line(ind, clause(n, via)); return; }
-      if (ws.length === 1) { const w = ws[0]; line(ind, clause(n, via) + (w.out !== defOut(n) ? ' out ' + w.out : '')); emit(w.to, w.in, ind, next); return; }
-      line(ind, clause(n, via) + ':');
-      for (const w of ws) { line(ind + 4, `on ${w.out}:`); emit(w.to, w.in, ind + 8, next); }
+    const hasInside = (n) => n.type === 'bundle' && n.graph && (n.graph.nodes || []).length;
+    /** writes one graph (a behaviour, or the inside of a bundle) at indent `base` */
+    function writeGraph(g, base) {
+      const nodes = new Map((g.nodes || []).map((n) => [n.id, n])); const outW = new Map(), inCount = new Map();
+      for (const w of g.wires || []) { if (!nodes.has(w.from) || !nodes.has(w.to)) continue; (outW.get(w.from) || outW.set(w.from, []).get(w.from)).push(w); inCount.set(w.to, (inCount.get(w.to) || 0) + 1); }
+      const bundleBody = (n, ind) => { line(ind, 'inside:'); writeGraph(n.graph, ind + 4); };
+      /** writes the chain that starts at node `id` (entered through input `via`) */
+      function emit(id, via, ind, path) {
+        const n = nodes.get(id); if (!n) return;
+        if (path.has(id)) { line(ind, `# loops back to “${n.type}” (a loop cannot be written in VXScript)`); lossy.push('a loop back to “' + n.type + '”'); return; }
+        const next = new Set(path); next.add(id); const ws = outW.get(id) || [];
+        if ((inCount.get(id) || 0) > 1) lossy.push(`“${n.type}” receives several paths; each path is written out separately (the copies run separately)`);
+        if (hasInside(n)) { line(ind, clause(n, via) + ':'); bundleBody(n, ind + 4); for (const w of ws) { line(ind + 4, `on ${w.out}:`); emit(w.to, w.in, ind + 8, next); } return; }
+        if (ws.length === 0) { line(ind, clause(n, via)); return; }
+        if (ws.length === 1) { const w = ws[0]; line(ind, clause(n, via) + (w.out !== defOut(n) ? ' out ' + w.out : '')); emit(w.to, w.in, ind, next); return; }
+        line(ind, clause(n, via) + ':');
+        for (const w of ws) { line(ind + 4, `on ${w.out}:`); emit(w.to, w.in, ind + 8, next); }
+      }
+      const roots = (g.nodes || []).filter((n) => !inCount.get(n.id)).sort((a, b) => ((a.y || 0) - (b.y || 0)) || ((a.x || 0) - (b.x || 0)));
+      for (const n of roots) {
+        const ws = outW.get(n.id) || []; let head = 'when block ' + n.type; const st = settings(n); if (st) head += ' ' + st;
+        if (hasInside(n)) { line(base, head + ':'); bundleBody(n, base + 4); for (const w of ws) { line(base + 4, `on ${w.out}:`); emit(w.to, w.in, base + 8, new Set([n.id])); } }
+        else if (ws.length <= 1) { const w = ws[0]; if (w && w.out !== defOut(n)) head += ' out ' + w.out; line(base, head + ':'); if (w) emit(w.to, w.in, base + 4, new Set([n.id])); }
+        else { line(base, head + ':'); for (const w of ws) { line(base + 4, `on ${w.out}:`); emit(w.to, w.in, base + 8, new Set([n.id])); } }
+        if (!base) out.push('');
+      }
+      return roots.length;
     }
     const lines = ['behavior ' + q((beh && beh.name) || 'Behavior'), ''];
-    const roots = (g.nodes || []).filter((n) => !inCount.get(n.id));
-    const sorted = roots.slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    for (const n of sorted) {
-      const ws = outW.get(n.id) || []; const at = out.length; let head = 'when block ' + n.type; const st = settings(n); if (st) head += ' ' + st;
-      if (ws.length <= 1) { const w = ws[0]; if (w && w.out !== defOut(n)) head += ' out ' + w.out; out.push(head + ':'); if (w) emit(w.to, w.in, 4, new Set([n.id])); }
-      else { out.push(head + ':'); for (const w of ws) { line(4, `on ${w.out}:`); emit(w.to, w.in, 8, new Set([n.id])); } }
-      out.push('');
-    }
-    if (!sorted.length) lines.push('# This behaviour has no blocks yet.');
+    if (!writeGraph(g, 0)) lines.push('# This behaviour has no blocks yet.');
     const text = lines.concat(out).join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
     return { text, lossy: [...new Set(lossy)] };
   }

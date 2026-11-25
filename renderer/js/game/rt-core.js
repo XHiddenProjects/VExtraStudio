@@ -148,7 +148,7 @@
       this.data = data; this.opts = opts; this.settings = Object.assign({ width: 960, height: 540, bg: '#10131a', pixelArt: false, title: 'Game', id: 'game' }, data.settings || {});
       this.vars = {}; this.lists = {}; this.objects = []; this.byId = new Map(); this.time = 0; this.dt = 0; this.paused = false; this.running = false; this.frame = 0;
       this.sceneIndex = 0; this.scene = null; this.bus = new Map(); this.sceneCleanups = []; this.updating = new Set(); this.pending = []; this.fps = 60; this.timeScale = 1;
-      this.gravity = { x: 0, y: 980, z: -20 }; this.debug = !!opts.debug; this.stats = { objects: 0, nodes: 0 }; this.msgQueue = [];
+      this.gravity = { x: 0, y: 980, z: -20 }; this.debug = !!(opts.debug || (this.settings && this.settings.debug)); this.stats = { objects: 0, nodes: 0 }; this.msgQueue = [];
       this.audio = new AudioEngine(this); this.storagePrefix = 'vx:' + (this.settings.id || 'game') + ':';
       this.guiItems = new Set(); this.sendDepth = 0; this.unlocked = new Set();
     }
@@ -290,7 +290,9 @@
 
     /* ----- main loop ----- */
     tick(now) {
-      let dt = Math.min(0.05, (now - this._last) / 1000); this._last = now; this.fps = this.fps * 0.95 + (1 / Math.max(dt, 0.0001)) * 0.05;
+      const raw = now - this._last; let dt = Math.min(0.05, raw / 1000); this._last = now; this.frameMs = raw;
+      /* live FPS: real frames counted over the last half second (not the clamped, smoothed step) */
+      if (!this._fpsT) { this._fpsT = now; this._fpsN = 0; } this._fpsN++; if (now - this._fpsT >= 500) { this.fps = this._fpsN * 1000 / (now - this._fpsT); this._fpsT = now; this._fpsN = 0; }
       if (this.holding) { VXRT.render(this); return; }
       this.realDt = dt; if (this.paused) { if (this.pending.length) { const p = this.pending.splice(0); for (const fn of p) { try { fn(); } catch (e) { this.log('error', e.message); } } } VXRT.render(this); return; }
       dt *= this.timeScale; this.dt = dt; this.time += dt; this.frame++;

@@ -119,7 +119,7 @@
     M.update = () => { touch.style.display = enabled() && (matchMedia('(pointer:coarse)').matches) ? 'block' : 'none'; };
     M.update();
     /* FPS counter: shown with debug mode (game settings, the Play bar's debug button) or the player's own switch */
-    M.timer = setInterval(() => { const on = !!(g.showFps || g.debug); badge.style.display = on ? 'block' : 'none'; if (on) badge.textContent = Math.round(g.fps || 0) + ' FPS' + (g.fpsCap ? ' (cap ' + g.fpsCap + ')' : '') + (g.paused ? ' · paused' : ''); }, 250);
+    M.timer = setInterval(() => { const on = !!(g.showFps || g.debug); badge.style.display = on ? 'block' : 'none'; if (on) { let t = Math.round(g.fps || 0) + ' FPS' + (g.fpsCap ? ' (cap ' + g.fpsCap + ')' : '') + (g.paused ? ' · paused' : ''); if (g.debug) t += ' · ' + (g.frameMs ? g.frameMs.toFixed(1) : '0.0') + ' ms · ' + ((g.objects && g.objects.length) | 0) + ' objects'; badge.textContent = t; } }, 200);
   };
   V.destroyMenu = function (g) {
     const M = g.menu; if (!M) return; clearInterval(M.timer); window.removeEventListener('keydown', M.onKey, true); document.removeEventListener('pointerlockchange', M.onLock); g.menu = null;

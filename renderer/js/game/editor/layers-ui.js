@@ -11,7 +11,7 @@
     hidden(o) { return !!this.state[this.of(o)].hide; }, locked(o) { return !!this.state[this.of(o)].lock; },
     name: (id) => (LIST.find((l) => l[0] === id) || LIST[1])[1],
     /** a small overlay that shows "Cursor X, Y" and the selected object's position in the corner of a viewport */
-    readout(host) { const el = h('div', { class: 'vp-pos' }); host.append(el); let cur = '', sel = ''; const draw = () => { el.textContent = ''; el.append(h('span', { class: 'c' }, cur || 'Cursor –'), sel ? h('span', { class: 's' }, sel) : null); }; draw(); return { el, cursor(t) { cur = t; draw(); }, selected(t) { sel = t; draw(); } }; },
+    readout(host) { const el = h('div', { class: 'vp-pos' }); host.append(el); let cur = '', sel = ''; const draw = () => { el.textContent = ''; el.append(h('span', { class: 'c' }, cur || 'Cursor –')); if (sel) el.append(h('span', { class: 's' }, sel)); }; draw(); return { el, cursor(t) { cur = t; draw(); }, selected(t) { sel = t; draw(); } }; },
   };
 
   /* ------------------------------------------------------------------ the UI layer editor */

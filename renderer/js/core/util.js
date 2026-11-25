@@ -2,6 +2,16 @@
 (function () {
   const VX = (window.VX = window.VX || {});
 
+  /* The browser's append()/prepend() turn null, undefined and false into the TEXT "null", "undefined" and "false", and arrays into "[object HTMLDivElement]".
+     Every part of the UI builds elements with conditional pieces (cond ? el : null), so make them behave like the h() helper: skip empty pieces, flatten lists. */
+  for (const m of ['append', 'prepend']) {
+    for (const C of [Element, DocumentFragment]) {
+      const native = C.prototype[m]; if (!native || native.__vx) continue;
+      const clean = (list) => { const out = []; for (const k of list) { if (k === null || k === undefined || k === false) continue; if (Array.isArray(k)) out.push(...clean(k)); else out.push(k); } return out; };
+      const wrapped = function (...kids) { return native.apply(this, clean(kids)); }; wrapped.__vx = true; C.prototype[m] = wrapped;
+    }
+  }
+
   /** Hooks let plugins react to / veto app actions. run(): listeners may throw an error made with vx.hooks.block(msg) to stop the action. filter(): each listener may return a changed value. */
   VX.hooks = (() => {
     const map = new Map(); const list = (n) => map.get(n) || [];

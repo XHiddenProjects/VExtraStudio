@@ -243,7 +243,7 @@
     pages: [{ id: uid(), title: 'Home', slug: 'home', access: 'public', inNav: true, blocks: [{ ...newBlock('hero') }, newBlock('text')] }, (() => { const f = newBlock('form'); f.p.collection = 'messages'; return { id: uid(), title: 'Contact', slug: 'contact', access: 'public', inNav: true, blocks: [newBlock('heading'), f] }; })()],
   });
   const fileOf = (p) => (p.slug === 'home' ? 'index.html' : p.slug + '.html');
-  const usesAuth = (site) => site.pages.some((p) => p.access === 'members' || JSON.stringify(p.blocks).match(/"type":"(signup|login|account)"|"vis":"(members|guests)"/)) || (site.collections || []).some((c) => c.submit === 'members');
+  const usesAuth = (site) => site.pages.some((p) => p.access === 'members' || p.slug === 'login' || p.slug === 'signup' || JSON.stringify(p.blocks).match(/"type":"(signup|login|account)"|"vis":"(members|guests)"/)) || (site.collections || []).some((c) => c.submit === 'members');
   const hasType = (list, t) => (list || []).some((b) => b.type === t || (b.cols || []).some((c) => hasType(c, t)));
 
   /** problems the owner should fix before publishing: [{level:'error'|'warn', text}] */
@@ -419,14 +419,17 @@ const lb=$('#vx-listen');if(lb&&window.VXTTS&&VXTTS.supported()){lb.hidden=false
 
   function pageHtml(site, page, ctx) {
     const nav = site.nav || {}; const pages = site.pages; const auth = usesAuth(site);
-    const links = pages.filter((p) => p.inNav && p.access !== 'admin').map((p) => `<a href="${p.slug === 'home' ? '/' : '/' + esc(p.slug) + '.html'}"${p.id === page.id ? ' aria-current="page"' : ''}>${esc(p.title)}</a>`).join('');
-    const body = (page.blocks || []).map((b) => blockHtml(b, ctx)).join('\n');
+    const ownLogin = pages.some((p) => p.slug === 'login' && p.inNav && p.access !== 'admin'); /* a Log in page the author put in the menu is the login link – no second one is added */
+    const links = pages.filter((p) => p.inNav && p.access !== 'admin').map((p) => `<a${auth && p.slug === 'login' ? ' id="vx-authlink"' : ''} href="${p.slug === 'home' ? '/' : '/' + esc(p.slug) + '.html'}"${p.id === page.id ? ' aria-current="page"' : ''}>${esc(p.title)}</a>`).join('');
+    let body = (page.blocks || []).map((b) => blockHtml(b, ctx)).join('\n');
+    /* a page called login / signup always shows its form, even when the author only typed a heading */
+    for (const m of ['login', 'signup']) if (auth && page.slug === m && !ctx.editing && !hasType(page.blocks, m)) body += '\n' + authForm(m, site, {});
     const listen = site.a11y && site.a11y.listen && ctx.tts;
     const popup = auth && site.security.authPopup !== 'off' && page.slug !== 'login' && page.slug !== 'signup' && !ctx.editing;
     return `<!doctype html>
 <html lang="${esc(site.lang || 'en')}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(page.title)} – ${esc(site.name)}</title>${page.desc ? `<meta name="description" content="${esc(page.desc)}">` : ''}${page.image && /^(https:\/\/|\/)/i.test(page.image) ? `<meta property="og:image" content="${esc(page.image)}">` : ''}<meta property="og:title" content="${esc(page.title)}"><link rel="icon" href="data:,"><link rel="stylesheet" href="/styles.css"></head><body>
 ${site.a11y && site.a11y.skipLink !== false ? '<a class="vx-skip" href="#main">Skip to the content</a>' : ''}
-${nav.show !== false ? `<header class="vx-nav"><nav class="in" aria-label="Main"><b>${esc(nav.brand || site.name)}</b>${links}${auth ? '<a id="vx-authlink" href="/login.html">Log in</a>' : ''}</nav></header>` : ''}
+${nav.show !== false ? `<header class="vx-nav"><nav class="in" aria-label="Main"><b>${esc(nav.brand || site.name)}</b>${links}${auth && !ownLogin ? '<a id="vx-authlink" href="/login.html">Log in</a>' : ''}</nav></header>` : ''}
 <main id="main">
 ${body}
 </main>

@@ -68,6 +68,7 @@
     c.append(h('div', { class: 'card' }, h('div', { style: 'display:flex;gap:12px;align-items:center' }, h('div', { class: 'avatar lg' }, u.username[0].toUpperCase()), h('div', { style: 'flex:1;min-width:0' }, h('b', {}, u.displayName), h('div', { style: 'color:var(--muted)' }, '@' + u.username))),
       h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn sm', onclick: () => account() }, 'Manage account'), h('button', { class: 'btn sm', onclick: async () => { await C.logout(); redraw(); } }, 'Sign out'))));
 
+    c.append(h('button', { class: 'btn block', style: 'margin:8px 0 0', title: 'Computers, tickets and software deployment', onclick: () => VX.helpdesk && VX.helpdesk.open() }, VX.icon('monitor', 14), 'Helpdesk'));
     /* publishing */
     c.append(h('div', { class: 'group-title' }, 'Published'));
     const sites = h('div', {}, h('div', { class: 'empty' }, 'Loading…')); c.append(sites);

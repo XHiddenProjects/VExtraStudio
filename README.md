@@ -39,7 +39,8 @@ Your own projects and games are never deleted. The same clean-up of app data is 
 ## Write a plugin
 Drop a `.js` file in the plugins folder (Plugins panel → Open folder) with a `/** @vx-plugin {...} */` manifest and an optional `/** @vx-docs ... */` block. See `plugins/` for examples and Docs → Plugins → Plugin API.
 
-## What's new in 4.4.2 / 4.4.1 / 4.4.0
+## What's new in 4.5.0 / 4.4.x
+- **4.5.0:** agentless **Helpdesk** (inventory, deployment, tickets; Windows/macOS/Linux), **music library and studio**, beginner tour, VXScript bundles, live debug FPS, two-axis tilt and shake, wrapped layer bar.
 - **4.4.2:** game stack-overflow fix; site login/sign-up popup; custom validation and regex presets for forms; code highlighting; map address search; automatic identifiers; Code view is VXScript-only.
 - **4.4.1:** fixes a start-up error ("Origin header is not a valid URL") by retrying the first native calls.
 - **Website builder (no code):** drag blocks, design a database (forms, lists, members), set security, then *Export & host* – a folder with a dependency-free Node.js server and a hosting guide. See the *Website builder* docs page.

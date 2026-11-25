@@ -13,7 +13,7 @@
 | 3.11.x  | ⚠️ please upgrade to 4.4.x |
 | 3.10.x and older | ❌ please upgrade |
 
-Current version: **4.4.2** (see `VERSION`). This policy was last reviewed for 4.4.2.
+Current version: **4.5.0** (see `VERSION`). This policy was last reviewed for 4.5.0.
 
 ## Reporting a vulnerability
 
@@ -50,6 +50,13 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 ## v3.0.0 additions (still apply in 3.1.0)
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
+
+## v4.5.0 notes
+- **Helpdesk threat model.** Network scanning is limited to private ranges (at most a /22, 2048 addresses per scan, rate limited) and is only probing/ARP. Management (devices, sign-ins, packages, deploy, actions, tickets admin) is refused unless the request comes from the Vextra app on the computer that runs the server (the same check as hosting); signed-in users can only raise and read their own tickets and never see internal notes.
+- **Sign-ins** are encrypted with AES-256-GCM using a random key in `helpdesk/vault.key` (mode 0600). This keeps passwords out of backups and the JSON file; it does not protect against someone who controls the server computer. Prefer key files over passwords. Secrets are write-only through the API.
+- **No injection:** scripts reach a device through ssh's standard input, never the command line; host names and user names that could be read as ssh options are refused; package names, versions, service names are validated and quoted; URLs must be https and installers need a SHA-256 that is verified before running; custom scripts are admin-only and flagged. SSH host keys are trusted on first use (`StrictHostKeyChecking=accept-new`) into the helpdesk's own known_hosts file.
+- **Every change** (scan, add/remove device, deploy, action, sign-in, settings, ticket status) is written to an audit log. CSV exports neutralise spreadsheet formulas.
+- Music/audio: recording asks for the microphone permission each time and nothing is uploaded.
 
 ## v4.4.2 notes
 - **Form patterns:** custom regular expressions are rejected if longer than 200 characters, invalid, or shaped like nested repeats (`(a+)+`); the exported server evaluates them in a `vm` context with a 50 ms timeout and always re-validates what the browser checked.

@@ -305,3 +305,11 @@ input[type=checkbox], input[type=radio] { flex: 0 0 auto; width: 18px; height: 1
 .frow .hint { white-space: pre-line; }
 
 .term-shell{max-width:190px;height:24px;font-size:12px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0 6px}
+
+/* ---- first-run tour ---- */
+.tour { position: fixed; inset: 0; z-index: 9000; } .tour-shade { position: absolute; inset: 0; }
+.tour-spot { position: absolute; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(5, 8, 14, .72); border: 2px solid var(--accent); pointer-events: none; transition: all .2s ease; display: none; }
+.tour-card { position: absolute; background: var(--bg2, #161b26); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); }
+.tour-card h3 { margin: 4px 0 6px; font-size: 15px; } .tour-card p { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--muted); } .tour-n { font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.tour-b { display: flex; align-items: center; gap: 6px; } .tour-b .sp { flex: 1; }
+@media (prefers-reduced-motion: reduce) { .tour-spot { transition: none; } }

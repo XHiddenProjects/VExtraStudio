@@ -218,6 +218,14 @@ Create a sprite, pick a size (8×8 up to 128×128) and paint: pencil, eraser, fi
 
 Design sound effects without any files: choose a wave (square, saw, triangle, sine, noise), set frequency sweep, volume envelope (attack, decay), vibrato and length, or start from presets (jump, coin, hit, explosion, laser, power-up). Press **Play** to hear it. Record music loops with the step sequencer. Import MP3/WAV/OGG as well.
 
+## Music – library and studio
+
+In **Assets → Sounds** two buttons open the music tools. Everything is composed and synthesized on your computer – nothing is downloaded.
+- **🎼 Music library** – twelve styles (orchestral, rock, synthwave, electronic, chiptune, ambient, jazz, lo-fi, folk, horror, epic, piano). Choose length, mood and key, press **Preview**, 🎲 for a new variation, **Add to project** for a loopable Sound, or **Edit** to open the tune in the studio.
+- **🎹 Music studio** – each genre comes with a full **kit of instruments** (strings, brass, woodwinds, harp and timpani; distorted and clean guitars, bass and drums; synth leads, pads and drum machine; 8-bit pulse waves…). Edit notes on the **piano roll** or the **drum grid** (click to add or remove; arrow keys and Enter also work), set BPM, scale, volume, pan, mute and solo per track, swap instruments, or add more.
+- **Audio clips** – **Import audio…** a file, **Record voice** from the microphone, or take a sound already in the project. Set each clip's start, skip (trim), length, volume and fades, then **Mix down to Sounds** to merge the instruments and clips into one sound.
+- Quality (Small 22 kHz mono, Standard, High) sets the size of the sound stored in your project; the studio shows the estimate. **Save song** keeps the editable song in the project.
+
 ## 3D models – model builder
 
 - **Voxel models** – paint cubes in a 3D grid with a colour palette. Perfect for characters and props.
@@ -225,6 +233,16 @@ Design sound effects without any files: choose a wave (square, saw, triangle, si
 - **OBJ import** – bring in \`.obj\` meshes or \`.glb\` / \`.gltf\` models (colours, textures, normal and emissive maps, transparency – scaled to fit a unit cube). **.glb / .gltf keep their skeleton, skin, animation clips and morph targets, and Draco / Meshopt compressed files load too.** FBX, Collada (.dae), STL, PLY and 3MF are converted to .glb when you import them – see *3D models from other tools* below.
 
 Then use the model in 3D scenes with the **Model** object type.
+
+## Helpdesk – inventory and deployment
+
+**Cloud → Helpdesk** (also in the command menu) is an agentless IT helpdesk for the computers on your own network. Nothing is installed on them.
+- **Find devices:** *Scan network* looks at the private network(s) this computer is on (probing common ports and reading the ARP table). Only private ranges up to a /22 can be scanned. Found devices wait in *Discovered* until you add them to the inventory.
+- **Manage over SSH:** devices are managed with the OpenSSH client that comes with Windows 10/11, macOS and Linux. Windows devices need *OpenSSH Server*. Save a **sign-in** (password, pasted key or key file; secrets are encrypted and never shown again), pick it for the device and run an **inventory**: system, CPU, memory, disks, addresses, serial number and installed software. Export it as CSV.
+- **Deploy packages:** define a package per system (winget or Chocolatey id, MSI with SHA-256, apt/dnf/yum/zypper name, Homebrew name, macOS pkg with SHA-256, or your own script), pick devices, run a **dry run** (connection check) and then **Deploy**. Every device reports its own result.
+- **Quick actions:** system summary, disk space, busiest processes, failed services, network settings, pending updates; restart a service, flush DNS and restart need an extra confirmation.
+- **Tickets:** priorities with SLA due times, status, assignee, internal notes and a linked device. Signed-in Vextra users can raise and follow their own tickets.
+- **Safety:** management only works from the Vextra app on the computer that runs the server, every change is in the audit log, and the server runs on Windows, macOS and Linux.
 
 ## Automatic updates
 Settings → About shows when a new version exists; **Install and restart** downloads it, verifies its signature and installs it.
@@ -548,7 +566,7 @@ A block's output can now be wired back to its own input; the signal arrives on t
 
 **Where am I?** The bottom-left corner of the viewport shows the cursor position (2D: world X, Y; 3D: ground X, Z) and the selected object's position and size.
 
-**Edit UI layout.** Press **Edit UI layout** to see the game screen with every Label and Bar block of the scene. Drag one to move it, or click it and set the *Anchor* and exact *X / Y* in the bar at the top. Snap is 4 px (hold Alt to move freely); **Reset** returns to the block's own values. The layout is saved with the scene and also works for blocks created by code behaviours.
+**Edit UI layout.** Press **✎ Edit layout** on the UI layer chip to see the game screen with every Label and Bar block of the scene. Drag one to move it, or click it and set the *Anchor* and exact *X / Y* in the bar at the top. Snap is 4 px (hold Alt to move freely); **Reset** returns to the block's own values. The layout is saved with the scene and also works for blocks created by code behaviours.
 
 **Behaviours instead of object scripts.** Logic now lives in behaviours (Logic tab). Older projects with scripts inside objects are converted automatically.`);
 
@@ -1007,6 +1025,18 @@ ${code(`when start:
                 show toast "Brave!"
         on changed:
             play sound snd_click`)}
+### Bundles: a block with blocks inside (like a function)
+A **bundle** groups blocks behind its own inputs and outputs. In VXScript write it as \`block bundle\` with an **\`inside:\`** section – the lines in it are ordinary \`when …:\` rules; \`when block bundleInput name=IN:\` is where a signal comes **in** and \`block bundleOutput name=OUT\` is where it goes **out**. Under the bundle, \`on OUT:\` continues from that output:
+${code(`when key space pressed:
+    block bundle name="Hit" from in1:
+        inside:
+            when block bundleInput name=in1:
+                add velocity y -300
+                block bundleOutput name=done
+        on done:
+            score += 1`)}
+Bundles can sit inside bundles. **Edit as VXScript** writes every bundle this way and reads it back exactly, so nothing inside a bundle is lost. A bundle that starts its own flow (it has a trigger inside) is written as \`when block bundle name="Auto":\` with an \`inside:\` section.
+
 ### As a trigger: \`when block\`
 ${code(`when block timer interval=3 repeat=false:
     show toast "Time's up"`)}

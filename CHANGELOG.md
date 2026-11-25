@@ -2,11 +2,25 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.4.2] — current
+## [4.5.0] — current
+
+### Added
+- **Helpdesk (agentless):** *Cloud → Helpdesk*. Finds computers on your private network, keeps an inventory (system, hardware, disks, addresses, software; CSV export) over SSH, deploys packages (winget, Chocolatey, MSI, apt/dnf/yum/zypper, Homebrew, pkg or custom script) with dry run and per-device results, runs quick diagnostics, and includes a ticket system with SLA times, internal notes and linked devices. The server runs on Windows, macOS and Linux.
+- **Music library and studio** (Assets → Sounds): twelve genres of loopable background music, instrument kits per genre, piano roll and drum grid, audio clips from files or the microphone, and mix-down to a project sound.
+- **Beginner tour** (Next / Back / Skip) shown once in Simple mode; replay with *Take the tour*.
+- **VXScript bundles** are written and read with an `inside:` section, like a function; nothing inside a bundle is lost any more.
+
+### Changed
+- **Layer bar** wraps instead of overlapping the sidebar, and *Edit UI layout* is now a button on the UI layer chip.
+- **Debug mode** shows the overlay while playing and the FPS is live (frames counted over half a second, with frame time and object count).
+- **Tilt** has two axes with gravity split like a real accelerometer; **Shake** jolts the frame and sends strong readings before the shake event.
 
 ### Fixed
-- **Vextra Cloud sign-in popup** showed "[object HTMLDivElement]" / "null" under the password box and had narrow inputs; the form now renders cleanly.
-- **Games: "Maximum call stack size exceeded"** after the game had run for a while. The anti-cheat variable guard wrapped `g.vars` in a new proxy every frame; proxies are now reused and never stacked.
+- **Anti-cheat reports blocked by the Content-Security-Policy** (`connect-src`) when the server is a local or http address; the address written into the exported game is now allowed.
+- **The word "null" (and "[object …]") appearing in the interface** – `append()` is now safe for empty and list values everywhere.
+- **Login/Sign-up pages:** a page you made called Login no longer adds a second "Log in" link and always shows its form.
+
+## [4.4.2]
 
 ### Added
 - **Site login / sign-up popup:** every page gets one shared popup (set in Site → *Login / sign-up popup*: link, on page load, or off), plus automatic Login and Sign-up pages that use the same form – nothing to clone twice. The password placeholder shows the minimum ("At least 10 characters").
@@ -19,6 +33,10 @@ All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://
 
 ### Changed
 - **Game Code view shows VXScript only** (no JavaScript API script). *Edit as VXScript* replaces *Convert to code*; older script-mode behaviours still load and are marked *legacy script*.
+
+### Fixed
+- **Vextra Cloud sign-in popup** showed "[object HTMLDivElement]" / "null" under the password box and had narrow inputs; the form now renders cleanly.
+- **Games: "Maximum call stack size exceeded"** after the game had run for a while. The anti-cheat variable guard wrapped `g.vars` in a new proxy every frame; proxies are now reused and never stacked.
 
 ## [4.4.1]
 
