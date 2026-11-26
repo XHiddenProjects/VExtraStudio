@@ -68,7 +68,7 @@
     }
     vpNow() { return this.vp[this.is3d ? '3d' : '2d']; }
     onShow() { this.fitSoon(); this.applyCodeLook(); if (this.pendingLayoutFit) { this.pendingLayoutFit = false; setTimeout(() => { const v = this.vpNow(); v && v.fit && v.fit(); }, 60); } }
-    dispose() { this.offs && this.offs.forEach((f) => f && f()); Object.values(this.vp).forEach((v) => v && v.dispose && v.dispose()); this.graph && this.graph.dispose && this.graph.dispose(); this.playPanel && this.playPanel.dispose(); this.docs && this.docs.dispose && this.docs.dispose(); }
+    dispose() { if (this._layDoc) document.removeEventListener('click', this._layDoc); if (this._moreDoc) document.removeEventListener('click', this._moreDoc); this.offs && this.offs.forEach((f) => f && f()); Object.values(this.vp).forEach((v) => v && v.dispose && v.dispose()); this.graph && this.graph.dispose && this.graph.dispose(); this.playPanel && this.playPanel.dispose(); this.docs && this.docs.dispose && this.docs.dispose(); }
 
     togglePanel(side) { const hid = this.root.classList.contains('hide-' + side); this._pan[side] = hid ? 'show' : 'hide'; this._panSticky = true; this.autoPanels(); }
     autoPanels() {
@@ -117,21 +117,51 @@
     }
     liveUpdate() { this.opts.onChange && this.opts.onChange(); this.updateInspectorValues(); }
     renderViewTools() {
-      const t = this.viewTools; t.textContent = ''; const v = this.vpNow(), b = (l, fn, cls, title) => h('button', { class: 'btn sm ' + (cls || ''), title: title || '', onclick: fn }, l);
-      if (this.view === 'scene' && v) {
-        const L = VX.layers, bar = h('span', { class: 'layer-bar', title: 'Layers: Background → World → UI' });
-        for (const [id, nm, ic, tip] of L.list) { if (id === 'ui' && this.is3d) continue; const st = L.state[id]; bar.append(h('span', { class: 'lb' + (L.active === id ? ' on' : '') }, h('button', { class: 'nm', title: tip + '\nClick: new objects are added to this layer', onclick: () => { L.active = id; this.renderViewTools(); } }, ic + ' ' + nm), h('button', { title: st.hide ? 'Show layer' : 'Hide layer in the editor', onclick: () => { st.hide = !st.hide; this.refreshView(); this.renderViewTools(); } }, st.hide ? '🚫' : '👁'), h('button', { title: st.lock ? 'Unlock layer' : 'Lock layer (cannot be picked)', onclick: () => { st.lock = !st.lock; this.renderViewTools(); } }, st.lock ? '🔒' : '🔓'), id === 'ui' ? h('button', { class: 'ed' + (this.uiEdit ? ' on' : ''), title: 'Edit UI layout – drag labels, bars, joysticks and buttons to where you want them on screen', 'aria-pressed': String(!!this.uiEdit), onclick: () => { this.uiEdit = !this.uiEdit; this.uil.show(this.uiEdit); if (this.uiEdit) L.active = 'ui'; this.renderViewTools(); } }, '✎ Edit layout') : null)); }
-        this.__layerBar = bar;
-        if (this.is3d) { for (const [k, l, ti] of [['translate', '✥ Move', 'W'], ['rotate', '⟳ Rotate', 'E'], ['scale', '⤢ Scale', 'R']]) t.append(b(l, () => { v.setTool(k); this.renderViewTools(); }, v.tool === k ? 'on' : '', ti)); t.append(b('Snap', () => { v.setSnap(!v.snap); this.renderViewTools(); }, v.snap ? 'on' : '', 'Snap to 0.5 / 15° / 0.25'), b('Grid', () => { v.setGrid(!v.showGrid); this.renderViewTools(); }, v.showGrid ? 'on' : ''), b('Focus', () => v.focusSelection(), '', 'F'), b('Reset view', () => v.fit())); }
-        else t.append(b('Snap', () => { v.snap = !v.snap; this.renderViewTools(); }, v.snap ? 'on' : '', 'Snap to grid (hold Alt to bypass)'), b('Grid', () => { v.showGrid = !v.showGrid; v.render(); this.renderViewTools(); }, v.showGrid ? 'on' : ''), b('Colliders', () => { v.showColliders = !v.showColliders; v.render(); this.renderViewTools(); }, v.showColliders ? 'on' : ''), b('Camera', () => { v.showCam = !v.showCam; v.render(); this.renderViewTools(); }, v.showCam ? 'on' : ''), b('Fit', () => v.fit(), '', 'Fit the game area'), b('Focus', () => v.focusSelection(), '', 'F'));
-        t.append(bar);
+      const t = this.viewTools; t.textContent = ''; const v = this.vpNow();
+      const tog = (l, on, fn, title) => h('button', { type: 'button', class: 'vt' + (on ? ' on' : ''), title: title || '', 'aria-pressed': String(!!on), onclick: fn }, l);
+      const ic = (l, fn, title) => h('button', { type: 'button', class: 'vt ic', title, 'aria-label': title, onclick: fn }, l);
+      if (this.view !== 'scene' || !v) return;
+      const L = VX.layers, groups = [];
+      if (this.is3d) {
+        groups.push(h('div', { class: 'vt-grp', role: 'group', 'aria-label': 'Transform tool' }, [['translate', '✥', 'Move (W)'], ['rotate', '⟳', 'Rotate (E)'], ['scale', '⤢', 'Scale (R)']].map(([k, l, ti]) => tog(l, v.tool === k, () => { v.setTool(k); this.renderViewTools(); }, ti))));
+        groups.push(h('div', { class: 'vt-grp', role: 'group', 'aria-label': 'View options' }, tog('Snap', v.snap, () => { v.setSnap(!v.snap); this.renderViewTools(); }, 'Snap to 0.5 / 15° / 0.25'), tog('Grid', v.showGrid, () => { v.setGrid(!v.showGrid); this.renderViewTools(); }, 'Show the grid')));
+        groups.push(h('div', { class: 'vt-grp' }, ic('◎', () => v.focusSelection(), 'Focus the selection (F)'), ic('⤾', () => v.fit(), 'Reset the view')));
+      } else {
+        groups.push(h('div', { class: 'vt-grp', role: 'group', 'aria-label': 'View options' },
+          tog('Snap', v.snap, () => { v.snap = !v.snap; this.renderViewTools(); }, 'Snap to grid (hold Alt to bypass)'), tog('Grid', v.showGrid, () => { v.showGrid = !v.showGrid; v.render(); this.renderViewTools(); }, 'Show the grid'),
+          tog('Colliders', v.showColliders, () => { v.showColliders = !v.showColliders; v.render(); this.renderViewTools(); }, 'Show collision shapes'), tog('Camera', v.showCam, () => { v.showCam = !v.showCam; v.render(); this.renderViewTools(); }, 'Show the camera frame')));
+        groups.push(h('div', { class: 'vt-grp' }, ic('⤢', () => v.fit(), 'Fit the game area'), ic('◎', () => v.focusSelection(), 'Focus the selection (F)')));
       }
+      /* layers live in one popover instead of a row of chips */
+      const cur = L.list.find((x) => x[0] === L.active) || L.list[0];
+      const menu = h('div', { class: 'vt-menu' + (this._layOpen ? ' open' : ''), role: 'dialog', 'aria-label': 'Layers' });
+      for (const [id, nm, icn, tip] of L.list) {
+        if (id === 'ui' && this.is3d) continue; const st = L.state[id];
+        menu.append(h('div', { class: 'vt-lay' + (L.active === id ? ' on' : '') },
+          h('button', { type: 'button', class: 'nm', title: tip + '\nNew objects are added to this layer', onclick: () => { L.active = id; this.renderViewTools(); } }, icn + ' ' + nm),
+          h('button', { type: 'button', class: 'ic', title: st.hide ? 'Show layer' : 'Hide layer in the editor', 'aria-label': (st.hide ? 'Show ' : 'Hide ') + nm, onclick: () => { st.hide = !st.hide; this.refreshView(); this.renderViewTools(); } }, st.hide ? '🚫' : '👁'),
+          h('button', { type: 'button', class: 'ic', title: st.lock ? 'Unlock layer' : 'Lock layer (cannot be picked)', 'aria-label': (st.lock ? 'Unlock ' : 'Lock ') + nm, onclick: () => { st.lock = !st.lock; this.renderViewTools(); } }, st.lock ? '🔒' : '🔓')));
+      }
+      if (!this.is3d) menu.append(h('button', { type: 'button', class: 'vt-edit' + (this.uiEdit ? ' on' : ''), title: 'Drag labels, bars, joysticks and buttons to where you want them on screen', 'aria-pressed': String(!!this.uiEdit), onclick: () => { this.uiEdit = !this.uiEdit; this.uil.show(this.uiEdit); if (this.uiEdit) L.active = 'ui'; this._layOpen = false; this.renderViewTools(); } }, '✎ ' + (this.uiEdit ? 'Finish editing the UI layout' : 'Edit UI layout')));
+      const pop = h('div', { class: 'vt-pop' }, h('button', { type: 'button', class: 'vt wide' + (this._layOpen ? ' on' : ''), 'aria-haspopup': 'dialog', 'aria-expanded': String(!!this._layOpen), title: 'Layers: Background → World → UI', onclick: (e) => { e.stopPropagation(); this._layOpen = !this._layOpen; this.renderViewTools(); } }, '▤ ' + cur[1] + ' ▾'), menu);
+      groups.push(pop);
+      if (this.uiEdit && !this.is3d) groups.push(h('button', { type: 'button', class: 'vt on', title: 'Stop editing the UI layout', onclick: () => { this.uiEdit = false; this.uil.show(false); this.renderViewTools(); } }, '✎ Editing UI · Done'));
+      t.append(...groups);
+      if (!this._layDoc) { this._layDoc = (e) => { if (this._layOpen && !(e.target.closest && e.target.closest('.vt-pop'))) { this._layOpen = false; this.renderViewTools(); } }; document.addEventListener('click', this._layDoc); }
     }
     toolbar() {
       const b = (l, fn, cls, title) => h('button', { class: 'btn sm ' + (cls || ''), title: title || '', onclick: fn }, l);
+      /* rarely used actions live in one menu so the bar stays calm */
+      const moreMenu = () => {
+        const items = [['🛡 Anti-cheat', () => VX.anticheatUI.open(this.project, () => this.commit && this.commit(true)), 'Protect scores and saves from cheating'], ['⏳ Loading page', () => this.loadingPage(), 'The screen players see while the game loads'], ['📖 Blocks docs', () => this.opts.openDocs && this.opts.openDocs('logic'), 'Learn what every block does'], ['📦 Store export', () => { const c = window.VXHost && VXHost.commands.get('store-export.package'); c ? c.run() : VX.ui.toast('Enable the “Store Export” plugin (Plugins panel) to package for Steam, Google Play and the App Store.', 'warn'); }, 'Package for Steam / Google Play / App Store']];
+        const menu = h('div', { class: 'vt-menu tb-more', role: 'menu' }, items.map(([l, fn, tip]) => h('button', { type: 'button', role: 'menuitem', class: 'tb-mi', title: tip, onclick: () => { menu.classList.remove('open'); fn(); } }, l)));
+        const mb = h('button', { type: 'button', class: 'btn sm', 'aria-haspopup': 'menu', title: 'Anti-cheat, loading page, docs and store export', onclick: (e) => { e.stopPropagation(); menu.classList.toggle('open'); } }, '⋯ More');
+        this._moreDoc = () => menu.classList.remove('open'); document.addEventListener('click', this._moreDoc); return h('span', { class: 'vt-pop' }, mb, menu);
+      };
       return [b([VX.icon('undo', 14), 'Undo'], () => this.undo(), '', 'Ctrl+Z'), b([VX.icon('redo', 14), 'Redo'], () => this.redo(), '', 'Ctrl+Shift+Z'), h('span', { class: 'sep' }),
         h('span', { class: 'tag' }, this.project.settings.title), h('span', { class: 'spacer' }),
-        b('⚙ Game settings', () => this.gameSettings()), b('🛡 Anti-cheat', () => VX.anticheatUI.open(this.project, () => this.commit && this.commit(true))), b('⏳ Loading page', () => this.loadingPage()), b('📖 Blocks docs', () => this.opts.openDocs && this.opts.openDocs('logic')), b('⬇ Export HTML', () => this.exportHTML()), b('🌐 Publish', () => VX.cloudUI && VX.cloudUI.publish(), '', 'Host it on a public URL'), b('📦 Store export', () => { const c = window.VXHost && VXHost.commands.get('store-export.package'); c ? c.run() : VX.ui.toast('Enable the “Store Export” plugin (Plugins panel) to package for Steam, Google Play and the App Store.', 'warn'); }, 'adv', 'Package for Steam / Google Play / App Store'), b([VX.icon('play', 13), 'Play'], () => this.play(), 'primary', 'Run the game')];
+        b('⚙ Game settings', () => this.gameSettings()), b('⬇ Export HTML', () => this.exportHTML()), b('🌐 Publish', () => VX.cloudUI && VX.cloudUI.publish(), '', 'Host it on a public URL'), moreMenu(),
+        b([VX.icon('play', 13), 'Play'], () => this.play(), 'primary tb-play', 'Run the game')];
     }
     play() { this.setView('play'); }
     /** Logic tab ▶ Live: runs the game in a small box and shows each block's latest values on the blocks. */
@@ -148,7 +178,7 @@
     liveBtnSync() { if (this.liveBtn) { this.liveBtn.textContent = this.liveBox ? '■ Stop live' : '▶ Live'; this.liveBtn.classList.toggle('on', !!this.liveBox); } }
     ensurePlay() {
       if (this.playPanel) return;
-      this.playPanel = new VX.PlayPanel({ project: () => this.project, onLog: (l, t) => VX.bottom && VX.bottom.log && VX.bottom.log(l, t, 'game'), onStop: () => this.setView('scene') }); this.playView.append(this.playPanel.el);
+      this.playPanel = new VX.PlayPanel({ project: () => this.project, onLog: (l, t) => VX.bottom && VX.bottom.log && VX.bottom.log(l, t, 'game'), onStop: () => this.setView('scene'), onBusy: (b) => { const tb = this.tabBtns && this.tabBtns[3]; if (tb) { tb.disabled = b; tb.classList.toggle('busy', b); } for (const x of this.root.querySelectorAll('.tb-play')) x.disabled = b; } }); this.playView.append(this.playPanel.el);
     }
     async exportHTML() {
       try { const name = (this.project.settings.title || 'game').replace(/[^\w.-]+/g, '_') + '.html'; const html = await VX.gameExport.toHTML(this.project); if (window.native && native.saveAs) { const r = await native.saveAs(name, html); if (r) VX.ui.toast('Exported ' + (r.split ? r.split(/[\\/]/).pop() : name), 'ok'); } else VX.download(name, html, 'text/html'); const xr = VX.gameExport.xrKinds(this.project); if (xr.vr || xr.ar) setTimeout(() => VX.ui.toast((xr.vr && xr.ar ? 'VR + AR' : xr.vr ? 'VR' : 'AR') + ' game: WebXR only works on https (or localhost). Host the file with 🌐 Publish, or use 📦 Store export for Meta Quest, Android and Steam packages.', 'info'), 600); } catch (e) { VX.ui.toast('Export failed: ' + e.message, 'error'); }

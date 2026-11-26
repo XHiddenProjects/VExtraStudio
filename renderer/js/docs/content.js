@@ -110,7 +110,7 @@ Drag from the **Create** panel onto the viewport, or click an item to add it at 
 
 ## Playing
 
-Press **Play** (F5). The game runs in the editor with a console. Use the **device simulator** to test phone/tablet sizes, tilt and shake. Edit and press Play again – the editor never changes your scene while playing.
+Press **Play** (F5): a loading bar shows while the game starts, and Play / Restart stay locked until it is ready. The game runs in the editor with a console. Use the **device simulator** to test phone/tablet sizes, tilt and shake – the two **tilt** sliders visibly tilt the preview and show the readings (m/s² and degrees) the game receives, **Level** resets them, and **Shake** jolts the view and sends a shake without moving it off centre. Games read the tilt through the *Accelerometer* block or the browser's \`deviceorientation\` / \`devicemotion\` events. Edit and press Play again – the editor never changes your scene while playing.
 
 ## 2D vs 3D
 
@@ -220,11 +220,16 @@ Design sound effects without any files: choose a wave (square, saw, triangle, si
 
 ## Music – library and studio
 
-In **Assets → Sounds** two buttons open the music tools. Everything is composed and synthesized on your computer – nothing is downloaded.
-- **🎼 Music library** – twelve styles (orchestral, rock, synthwave, electronic, chiptune, ambient, jazz, lo-fi, folk, horror, epic, piano). Choose length, mood and key, press **Preview**, 🎲 for a new variation, **Add to project** for a loopable Sound, or **Edit** to open the tune in the studio.
-- **🎹 Music studio** – each genre comes with a full **kit of instruments** (strings, brass, woodwinds, harp and timpani; distorted and clean guitars, bass and drums; synth leads, pads and drum machine; 8-bit pulse waves…). Edit notes on the **piano roll** or the **drum grid** (click to add or remove; arrow keys and Enter also work), set BPM, scale, volume, pan, mute and solo per track, swap instruments, or add more.
-- **Audio clips** – **Import audio…** a file, **Record voice** from the microphone, or take a sound already in the project. Set each clip's start, skip (trim), length, volume and fades, then **Mix down to Sounds** to merge the instruments and clips into one sound.
-- Quality (Small 22 kHz mono, Standard, High) sets the size of the sound stored in your project; the studio shows the estimate. **Save song** keeps the editable song in the project.
+Everything is composed and synthesized on your computer – nothing is downloaded.
+- **🎼 Music library** – open **Assets → Sounds → ✨ Defaults… → Music library** (next to *Sound effects*). Thirteen styles (orchestral, rock, synthwave, electronic, chiptune, ambient, jazz, lo-fi, folk, horror, epic, piano, choral). Choose length, mood and key, press **Preview**, 🎲 for a new variation, **Add to project** for a loopable Sound, or **Edit** to open the tune in the studio.
+- **🎹 Music studio** (button in **Assets → Sounds**) – a small workspace: **transport** (play/stop with Space, loop, time, level meter, undo/redo), **track strips** on the left (name, instrument, mute, solo, volume, pan, duplicate, remove) and the **piano roll** (or drum grid) on the right.
+  - Click to add a note, drag to move it, drag its right edge to change its length, **Ctrl-drag** to select several, right-click or Delete to remove, arrow keys to nudge (Shift+↑/↓ = octave), Ctrl+D to duplicate, Ctrl+A to select all, Ctrl+Z / Ctrl+Y to undo and redo. Click a piano key to hear it. Click the ruler to move the play position; Ctrl + wheel zooms.
+  - **Quantize**, **transpose**, **Humanize**, **Re-compose** and a **velocity lane** (drag a bar) shape the notes; set BPM, bars, key and scale at the top.
+  - **Kit** + **New tune from kit** replaces the tracks with a fresh tune in a genre's style and keeps your audio clips.
+- **Choir** – the instrument list has a **Choir** group: *Soprano, Mezzo-soprano, Contralto (Alto), Countertenor, Tenor, Baritone, Bass*. Each voice has its natural range and vowel colour, vibrato, breath and a choice of **Solo / 2 / 3 / 4 / 6 singers**; pick the vowel (ah, eh, ee, oh, oo). The **Choral** genre gives you all seven voices plus an organ pad.
+- **Vocals from text** – type lyrics into a voice track, or press **🎤 Vocals from text…** to pick a voice and text. Each syllable is sung on one note (hello → he-llo); **🎤 Sing the lyrics** writes a singable melody in your key and replaces that track's notes, and you can then edit every note. Consonants add small bursts and hums and vowels glide, but it is *singing*, not a speech engine – it will not read words out loud.
+- **Audio clips** – **Import audio…** a file, **Record** your voice from the microphone (at the play position), or take a sound already in the project. Clips show their waveform: drag to place (and to another lane), drag the edges to trim, **Split** at the play position, set volume and fades, then **Mix down to Sounds** to merge everything into one sound, or **WAV file** to download it.
+- Quality (Small 22 kHz mono, Standard, High) sets the size of the sound stored in your project; the studio shows the estimate. **Save** keeps the editable song in the project.
 
 ## 3D models – model builder
 
@@ -239,7 +244,9 @@ Then use the model in 3D scenes with the **Model** object type.
 **Cloud → Helpdesk** (also in the command menu) is an agentless IT helpdesk for the computers on your own network. Nothing is installed on them.
 - **Find devices:** *Scan network* looks at the private network(s) this computer is on (probing common ports and reading the ARP table). Only private ranges up to a /22 can be scanned. Found devices wait in *Discovered* until you add them to the inventory.
 - **Manage over SSH:** devices are managed with the OpenSSH client that comes with Windows 10/11, macOS and Linux. Windows devices need *OpenSSH Server*. Save a **sign-in** (password, pasted key or key file; secrets are encrypted and never shown again), pick it for the device and run an **inventory**: system, CPU, memory, disks, addresses, serial number and installed software. Export it as CSV.
-- **Deploy packages:** define a package per system (winget or Chocolatey id, MSI with SHA-256, apt/dnf/yum/zypper name, Homebrew name, macOS pkg with SHA-256, or your own script), pick devices, run a **dry run** (connection check) and then **Deploy**. Every device reports its own result.
+- **Deploy packages:** define a package per system (winget or Chocolatey id, MSI with SHA-256, apt/dnf/yum/zypper name, Homebrew name, macOS pkg with SHA-256, your own script, or an **uploaded file**), pick devices, run a **dry run** (connection check) and then **Deploy**. Every device reports its own result.
+- **Upload files and run them:** under **Deploy → Files** upload an installer, script or any file (up to 200 MB). Make a package of type *Upload a file*: choose the file, the folder on the device, and whether to *only copy*, *copy and run* or *copy, run and delete*. After the copy the device's SHA-256 must equal the uploaded file's or the copy is removed and nothing runs. The file is started by its type (.sh .py .ps1 .exe .msi .pkg .deb .rpm .bat .zip …) with your arguments and, on macOS/Linux, optional sudo. Running a file executes code on the devices, so only use files you trust.
+- **Where is it?** The **monitor icon in the left activity bar**, the **Cloud** panel (works before you sign in) and the command menu (*Helpdesk*).
 - **Quick actions:** system summary, disk space, busiest processes, failed services, network settings, pending updates; restart a service, flush DNS and restart need an extra confirmation.
 - **Tickets:** priorities with SLA due times, status, assignee, internal notes and a linked device. Signed-in Vextra users can raise and follow their own tickets.
 - **Safety:** management only works from the Vextra app on the computer that runs the server, every change is in the audit log, and the server runs on Windows, macOS and Linux.

@@ -53,7 +53,7 @@
   function render(c) {
     const TABS = [['dash', 'Dashboard'], ['devices', 'Devices'], ['deploy', 'Deploy'], ['tickets', 'Tickets'], ['settings', 'Sign-ins & settings']];
     let cur = 'dash', gen = 0; const timers = new Set();
-    const st = { status: null, devices: [], creds: [], actions: [], packages: [], jobs: [], tickets: [], pendingTicket: null };
+    const st = { files: [], maxFile: 0, status: null, devices: [], creds: [], actions: [], packages: [], jobs: [], tickets: [], pendingTicket: null };
     const root = h('div', { class: 'page hd-page' });
     const head = h('div', { class: 'hd-head' }, h('h1', {}, 'Helpdesk'), h('p', { class: 'lead' }, 'Inventory, remote help and software deployment for the computers on your network. Nothing is installed on them – they are managed over SSH.'));
     const tabBar = h('div', { class: 'hd-tabs', role: 'tablist', 'aria-label': 'Helpdesk sections' });
@@ -87,6 +87,7 @@
     const loadDevices = async () => { st.devices = arr((await api('GET', '/devices')).devices); return st.devices; };
     const loadCreds = async () => { st.creds = arr((await api('GET', '/creds')).creds); return st.creds; };
     const loadActions = async () => { if (!st.actions.length) st.actions = arr((await api('GET', '/actions')).actions); return st.actions; };
+    const loadFiles = async () => { const r = await api('GET', '/files'); st.files = arr(r.files); st.maxFile = +r.max || 0; return st.files; };
     const loadPackages = async () => { st.packages = arr((await api('GET', '/packages')).packages); return st.packages; };
     const credName = (id) => { const x = st.creds.find((k) => k.id === id); return x ? t(x.name) + ' (' + t(x.user) + ')' : 'None chosen'; };
     const devName = (id) => { const d = st.devices.find((x) => x.id === id); return d ? t(d.name) : ''; };
@@ -214,14 +215,34 @@
     }
 
     /* ================================================================== DEPLOY */
-    const TYPES = { windows: [['winget', 'winget (Windows package manager)'], ['choco', 'Chocolatey'], ['msi', 'MSI installer from a link'], ['script', 'Custom PowerShell script']], mac: [['brew', 'Homebrew'], ['pkg', 'PKG installer from a link'], ['script', 'Custom shell script']], linux: [['os-package', 'System package (apt, dnf, yum, zypper)'], ['script', 'Custom shell script']] };
+    const TYPES = { windows: [['winget', 'winget (Windows package manager)'], ['choco', 'Chocolatey'], ['msi', 'MSI installer from a link'], ['script', 'Custom PowerShell script'], ['file', 'Upload a file (copy it to the device, optionally run it)']], mac: [['brew', 'Homebrew'], ['pkg', 'PKG installer from a link'], ['script', 'Custom shell script'], ['file', 'Upload a file (copy it to the device, optionally run it)']], linux: [['os-package', 'System package (apt, dnf, yum, zypper)'], ['script', 'Custom shell script'], ['file', 'Upload a file (copy it to the device, optionally run it)']] };
     async function viewDeploy(p, myGen) {
       p.append(empty('Loading…'));
-      await Promise.all([loadStatus(), loadDevices(), loadPackages()]); if (myGen !== gen) return;
+      await Promise.all([loadStatus(), loadDevices(), loadPackages(), loadFiles()]); if (myGen !== gen) return;
       const pkgBox = h('div', { class: 'hd-pk' }), editor = h('div', { class: 'hd-box hidden' }), runBox = h('div', { class: 'hd-box' }), jobsBox = h('div', { class: 'hd-box' }), jobView = h('div', { class: 'hd-box hidden', 'aria-live': 'polite' });
       const drawPk = () => { pkgBox.textContent = ''; if (!st.packages.length) { pkgBox.append(empty('No packages yet. Create one to install software on your devices.')); return; }
-        for (const pk of st.packages) pkgBox.append(h('div', { class: 'hd-card row' }, h('div', { class: 'grow' }, h('b', {}, t(pk.name)), pk.desc ? h('div', { class: 'hd-sub' }, t(pk.desc)) : null, h('div', {}, Object.entries(pk.targets || {}).map(([o, x]) => tag(osName(o) + ': ' + t(x.type), x.type === 'script' ? 'warn' : '')))),
+        for (const pk of st.packages) pkgBox.append(h('div', { class: 'hd-card row' }, h('div', { class: 'grow' }, h('b', {}, t(pk.name)), pk.desc ? h('div', { class: 'hd-sub' }, t(pk.desc)) : null, h('div', {}, Object.entries(pk.targets || {}).map(([o, x]) => tag(osName(o) + ': ' + (x.type === 'file' ? (x.after && x.after !== 'none' ? 'file + run' : 'file copy') : t(x.type)), x.type === 'script' || (x.type === 'file' && x.after && x.after !== 'none') ? 'warn' : '')))),
           h('div', { class: 'hd-actions' }, btn('Edit', () => openEditor(pk), 'sm', { 'aria-label': 'Edit ' + t(pk.name) }), btn('Delete', async () => { if (!(await VX.ui.confirm('Delete the package “' + t(pk.name) + '”? Installed copies on devices are not removed.', 'Delete', { danger: true }))) return; try { await api('DELETE', '/packages/' + pk.id); await loadPackages(); drawPk(); drawRun(); } catch (e) { toastErr(e); } }, 'sm danger', { 'aria-label': 'Delete ' + t(pk.name) })))); };
+      /* ---- uploaded files: kept on the computer that runs the server and copied to devices on deployment ---- */
+      const fileBox = h('div', { class: 'hd-box' });
+      const sizeText = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
+      const readB64 = (blob) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1] || ''); fr.onerror = () => rej(new Error('Could not read the file')); fr.readAsDataURL(blob); });
+      /** sends a file in 3 MB pieces; progress(0–1). Resolves the stored file. */
+      async function uploadFile(file, progress) {
+        if (!/^[A-Za-z0-9][A-Za-z0-9 ._()+-]{0,99}$/.test(file.name) || /\.\./.test(file.name)) throw new Error('Rename “' + file.name + '” first: file names may only contain letters, digits, spaces and . _ ( ) + -');
+        if (st.maxFile && file.size > st.maxFile) throw new Error('“' + file.name + '” is ' + sizeText(file.size) + ' – files can be up to ' + sizeText(st.maxFile) + '.');
+        const { id } = await api('POST', '/files', { name: file.name, size: file.size }); const CH = 3 * 1048576; let i = 0;
+        for (let off = 0; off < file.size; off += CH, i++) { await api('POST', '/files/' + id + '/chunk', { index: i, data: await readB64(file.slice(off, off + CH)) }); progress && progress(Math.min(1, (off + CH) / file.size)); }
+        return (await api('POST', '/files/' + id + '/done')).file;
+      }
+      function pickAndUpload(onDone) {
+        const inp = h('input', { type: 'file', multiple: true, style: 'display:none', onchange: async () => { const list = [...inp.files]; inp.remove(); for (const f of list) { const bar_ = bar(0, 'Uploading ' + f.name), row = h('div', { class: 'hd-up', role: 'status' }, h('span', {}, 'Uploading ' + f.name + '…'), bar_); fileBox.append(row); try { await uploadFile(f, (k) => { bar_.setAttribute('aria-valuenow', Math.round(k * 100)); bar_.firstChild.style.width = k * 100 + '%'; }); VX.ui.toast('Uploaded ' + f.name, 'ok'); } catch (e) { toastErr(e); } row.remove(); } await loadFiles(); drawFiles(); onDone && onDone(); } });
+        document.body.append(inp); inp.click();
+      }
+      function drawFiles() {
+        fileBox.replaceChildren(h('div', { class: 'hd-dhead' }, h('h2', {}, 'Files'), btn('Upload files…', () => pickAndUpload(), 'primary sm')), h('p', { class: 'hd-sub' }, 'Upload an installer, script or any file once, then create a package of type “Upload a file” to copy it to your devices and, if you like, run it. Files stay on this computer and are checked against their SHA-256 fingerprint after every copy.'),
+          st.files.length ? h('table', { class: 'hd-table' }, h('caption', { class: 'sr' }, 'Uploaded files'), h('thead', {}, h('tr', {}, ['File', 'Size', 'SHA-256', ''].map((x) => h('th', { scope: 'col' }, x)))), h('tbody', {}, st.files.map((f) => h('tr', {}, h('td', { 'data-l': 'File' }, t(f.name)), h('td', { 'data-l': 'Size' }, sizeText(f.size)), h('td', { 'data-l': 'SHA-256', class: 'mono' }, t(f.sha256).slice(0, 16) + '…'), h('td', {}, btn('Delete', async () => { if (!(await VX.ui.confirm('Delete the uploaded file “' + t(f.name) + '”?', 'Delete', { danger: true }))) return; try { await api('DELETE', '/files/' + f.id); await loadFiles(); drawFiles(); } catch (e) { toastErr(e); } }, 'sm danger', { 'aria-label': 'Delete ' + t(f.name) })))))) : empty('No files yet.'));
+      }
       /* ---- package editor ---- */
       function openEditor(pk) {
         const err = errBox(), name = input({ value: pk ? t(pk.name, '') : '', maxlength: 60 }), desc = input({ value: pk ? t(pk.desc, '') : '', maxlength: 300 }); const parts = {};
@@ -232,7 +253,11 @@
             if (v === 'script') fields.append(notice('warn', 'Custom scripts run exactly as written', 'The script is sent to each device and runs with the rights of the sign-in you choose. Only paste scripts you have read and trust.'), fld('Script', scr));
             else if (v === 'msi' || v === 'pkg') fields.append(fld('Download link', url, 'Must start with https://'), fld('SHA-256 checksum', sha, 'Required. The device downloads the installer and only runs it when its SHA-256 fingerprint equals this value, so a changed or tampered file is never installed. Get it from the publisher, or compute it yourself from a file you trust: ' + (v === 'msi' ? 'PowerShell Get-FileHash file.msi -Algorithm SHA256' : 'shasum -a 256 file.pkg') + '.'));
             else fields.append(fld(v === 'os-package' ? 'Package name' : 'Package id', id, v === 'winget' ? 'The winget id, as shown by “winget search”.' : v === 'choco' ? 'The Chocolatey package name.' : v === 'brew' ? 'The Homebrew formula or cask name.' : 'The package name used by apt, dnf, yum or zypper.'), v === 'winget' || v === 'choco' ? fld('Version', ver, 'Optional. Leave empty for the newest.') : null); };
-          ty.onchange = draw; draw(); parts[o] = { ty, id, ver, url, sha, scr };
+          const fsel = select([['', st.files.length ? 'Choose a file…' : 'No files uploaded yet'], ...st.files.map((f) => [f.id, t(f.name) + ' (' + sizeText(f.size) + ')'])], cur.fileId || ''), dest = input({ value: t(cur.dest, ''), placeholder: 'default: ' + (o === 'windows' ? 'C:/ProgramData/VextraDeploy' : '/tmp/vextra-deploy'), class: 'mono' }), after = select([['none', 'Only copy the file'], ['run', 'Copy, then run it'], ['run-delete', 'Copy, run it, then delete the copy']], cur.after || 'none'), fargs = input({ value: t(cur.args, ''), placeholder: o === 'windows' ? 'e.g. /S  (silent install)' : 'e.g. --yes', maxlength: 300 }), sudo = h('input', { type: 'checkbox', checked: !!cur.sudo });
+          const fdraw = () => { const run = after.value !== 'none'; fieldsFile.textContent = ''; fieldsFile.append(h('div', { class: 'hd-row' }, h('div', { class: 'grow' }, fld('File', fsel, 'Uploaded on this page, under Files.')), btn('Upload…', () => pickAndUpload(() => { const v = fsel.value; fsel.replaceChildren(...[['', 'Choose a file…'], ...st.files.map((f) => [f.id, t(f.name) + ' (' + sizeText(f.size) + ')'])].map(([a, b]) => h('option', { value: a }, b))); fsel.value = v || (st.files[0] && st.files[0].id) || ''; }), 'sm')), fld('Folder on the device', dest, 'Letters, digits and . _ - / \ : only (no spaces).'), fld('After copying', after), run ? fld('Arguments', fargs, 'Added to the command exactly as typed. The file is started according to its type (.sh .py .ps1 .exe .msi .pkg .deb .rpm .bat .zip …).') : null, run && o !== 'windows' ? h('label', { class: 'hd-chk' }, sudo, ' Run with administrator rights (sudo)') : null, run ? notice('warn', 'The file runs on every selected device', 'It runs with the rights of the sign-in you choose. Only upload and run files you trust.') : null); };
+          const fieldsFile = h('div', { class: 'hd-tf' }); after.onchange = fdraw;
+          const drawBase = draw; const draw2 = () => { if (ty.value === 'file') { fields.textContent = ''; fields.append(fieldsFile); fdraw(); } else drawBase(); };
+          ty.onchange = draw2; draw2(); parts[o] = { ty, id, ver, url, sha, scr, fsel, dest, after, fargs, sudo };
           return h('fieldset', { class: 'hd-fs' }, h('legend', {}, osName(o)), fld('Installer type', ty), fields);
         };
         const secs = ['windows', 'mac', 'linux'].map(sec);
@@ -241,6 +266,7 @@
           for (const o of ['windows', 'mac', 'linux']) { const x = parts[o], ty = x.ty.value; if (!ty) continue; const L = osName(o) + ': ';
             if (ty === 'script') { if (!x.scr.value.trim()) return showErr(err, L + 'the script is empty.', x.scr); targets[o] = { type: ty, script: x.scr.value }; }
             else if (ty === 'msi' || ty === 'pkg') { if (!/^https:\/\/[^\s'"`$;|&<>]+$/i.test(x.url.value.trim())) return showErr(err, L + 'type a download link that starts with https:// (no spaces or special characters).', x.url); if (!/^[a-fA-F0-9]{64}$/.test(x.sha.value.trim())) return showErr(err, L + 'the SHA-256 checksum must be exactly 64 hexadecimal characters (0-9, a-f). It is required so only the exact installer you trust can run.', x.sha); targets[o] = { type: ty, url: x.url.value.trim(), sha256: x.sha.value.trim() }; }
+            else if (ty === 'file') { if (!x.fsel.value) return showErr(err, L + 'choose an uploaded file (or upload one first).', x.fsel); const dv = x.dest.value.trim(); if (dv && (!/^[A-Za-z0-9_.\/:\\-]{1,200}$/.test(dv) || dv.split(/[\\/]/).includes('..'))) return showErr(err, L + 'the folder may only contain letters, digits and . _ - / \\ : (no spaces, no “..”).', x.dest); if (/[\r\n]/.test(x.fargs.value)) return showErr(err, L + 'the arguments must be on one line.', x.fargs); targets[o] = { type: 'file', fileId: x.fsel.value, dest: dv, after: x.after.value, args: x.fargs.value.trim(), sudo: x.sudo.checked }; }
             else { if (!/^[A-Za-z0-9][A-Za-z0-9._+:@/-]{0,99}$/.test(x.id.value.trim())) return showErr(err, L + 'type a valid ' + (ty === 'os-package' ? 'package name' : 'package id') + ' (letters, digits and . _ + : @ / -).', x.id); if (x.ver.value.trim() && !/^[A-Za-z0-9._+:~-]{1,40}$/.test(x.ver.value.trim())) return showErr(err, L + 'the version may only contain letters, digits and . _ + : ~ -', x.ver); targets[o] = { type: ty, id: x.id.value.trim(), version: x.ver.value.trim() }; } }
           if (!Object.keys(targets).length) return showErr(err, 'Choose an installer for at least one system.');
           try { await api('POST', '/packages', { name: name.value.trim(), desc: desc.value.trim(), targets }); if (pk) await api('DELETE', '/packages/' + pk.id).catch(() => {}); /* the server stores packages as new entries, so an edit replaces the old one */ VX.ui.toast('Package saved', 'ok'); editor.classList.add('hidden'); await loadPackages(); drawPk(); drawRun(); } catch (e) { showErr(err, e.message); }
@@ -265,7 +291,7 @@
         const selected = () => mdev.filter((d) => chosen.has(d.id) && !blocked(d));
         const start = async (dry, b) => {
           hideErr(err); const ds = selected(); if (!ds.length) return showErr(err, 'Choose at least one device first.');
-          if (!dry) { const ok = await VX.ui.confirm(h('div', {}, h('p', {}, 'Install ', h('b', {}, t(pk().name)), ' on ', h('b', {}, ds.length + ' device' + (ds.length === 1 ? '' : 's')), '? This changes these computers:'), h('ul', { class: 'hd-ul' }, ds.map((d) => h('li', {}, t(d.name) + ' – ' + t(d.host) + ' (' + osName(d.os) + ')' + ((pk().targets || {})[d.os] ? '' : ' – no installer for this system, will be skipped')))), Object.values(pk().targets || {}).some((x) => x.type === 'script') ? h('p', { class: 'hd-warn' }, 'This package contains a custom script.') : null, h('p', {}, 'Tip: run “Check connection” first. Everything is written to the audit log.')), 'Deploy now', { title: 'Confirm deployment', danger: true }); if (!ok) return; }
+          if (!dry) { const ok = await VX.ui.confirm(h('div', {}, h('p', {}, 'Install ', h('b', {}, t(pk().name)), ' on ', h('b', {}, ds.length + ' device' + (ds.length === 1 ? '' : 's')), '? This changes these computers:'), h('ul', { class: 'hd-ul' }, ds.map((d) => h('li', {}, t(d.name) + ' – ' + t(d.host) + ' (' + osName(d.os) + ')' + ((pk().targets || {})[d.os] ? '' : ' – no installer for this system, will be skipped')))), Object.values(pk().targets || {}).some((x) => x.type === 'script') ? h('p', { class: 'hd-warn' }, 'This package contains a custom script.') : null, Object.values(pk().targets || {}).some((x) => x.type === 'file' && x.after && x.after !== 'none') ? h('p', { class: 'hd-warn' }, 'This copies an uploaded file to each device and runs it there.') : null, h('p', {}, 'Tip: run “Check connection” first. Everything is written to the audit log.')), 'Deploy now', { title: 'Confirm deployment', danger: true }); if (!ok) return; }
           await busy(b, dry ? 'Checking…' : 'Starting…', async () => { try { const r = await api('POST', '/deploy', { packageId: pkId, deviceIds: ds.map((d) => d.id), dryRun: dry ? true : undefined, confirm: dry ? undefined : true }); VX.ui.toast(dry ? 'Check started' : 'Deployment started', 'ok'); await loadJobs(); watch(r.job.id); } catch (e) { showErr(err, e.message); } });
         };
         const dry = btn('Check connection (dry run)', (e) => start(true, e.currentTarget)), dep = btn('Deploy…', (e) => start(false, e.currentTarget), 'primary');
@@ -283,8 +309,8 @@
           if (j.status === 'queued' || j.status === 'running') return false; loadJobs().catch(() => {}); return true; };
         while (!(await tick())) await VX.sleep(1500);
       }
-      p.replaceChildren(h('section', { class: 'hd-box' }, h('div', { class: 'hd-dhead' }, h('h2', {}, 'Packages'), btn('New package', () => openEditor(null), 'primary sm')), pkgBox), editor, runBox, jobView, jobsBox);
-      drawPk(); drawRun(); drawJobs(); await loadJobs().catch(() => {});
+      p.replaceChildren(fileBox, h('section', { class: 'hd-box' }, h('div', { class: 'hd-dhead' }, h('h2', {}, 'Packages'), btn('New package', () => openEditor(null), 'primary sm')), pkgBox), editor, runBox, jobView, jobsBox);
+      drawFiles(); drawPk(); drawRun(); drawJobs(); await loadJobs().catch(() => {});
       const live = () => st.jobs.some((j) => j.status === 'running' || j.status === 'queued'); if (live()) { const a = st.jobs.find((j) => j.status === 'running' || j.status === 'queued'); watch(a.id); }
       poll(() => { if (live()) loadJobs().catch(() => {}); }, 3000, myGen);
     }

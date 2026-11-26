@@ -85,7 +85,9 @@
     I.listen(window, 'message', (e) => {
       const d = e.data; const ch = g.opts && g.opts.channel; if (!d || d.vx !== 'sim' || e.source !== window.parent || window.parent === window || !ch || d.token !== ch.token) return; // only the editor that started this game may drive it
       if (d.type === 'shake') { const f = (d.value && +d.value.force) || 20; I.motion.shake = f; I.emit('shake', { force: f }); setTimeout(() => { I.motion.shake = 0; }, 400); }
-      if (d.type === 'tilt') { Object.assign(I.motion, d.value || {}); }
+      if (d.type === 'tilt') { const v = d.value || {}; Object.assign(I.motion, v); I.motion.sim = true; delete I.motion.burst;
+        /* also raise the real browser events, so scripts that listen for deviceorientation / devicemotion see the simulated device */
+        try { window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: v.ax || 0, gamma: v.ay || 0, absolute: false })); if (!v.burst) window.dispatchEvent(new DeviceMotionEvent('devicemotion', { accelerationIncludingGravity: { x: v.x || 0, y: v.y || 0, z: v.z || 0 }, interval: 16 })); } catch { /* old webview */ } }
       if (d.type === 'key') { const k = d.key; if (d.down) { if (!I.keys.has(k)) I.pressed.add(k); I.keys.add(k); I.emit('keydown', { key: k, code: k }); } else { I.keys.delete(k); I.released.add(k); I.emit('keyup', { key: k, code: k }); } }
       if (d.type === 'pause') g.pause(d.value); if (d.type === 'restart') g.restart(); if (d.type === 'live') { g.liveOn = !!d.value; clearInterval(g._liveT); if (g.liveOn) g._liveT = setInterval(() => VXRT.liveFlush(g), 140); } if (d.type === 'debug') g.debug = !!d.value; if (d.type === 'mute') { g.audio.muted = !!d.value; g.audio.ensure(); }
     });

@@ -21,11 +21,13 @@
     folk: { bpm: [86, 124], modes: ['major', 'mixolydian', 'dorian'], prog: 'pop', drums: { 36: 'x.......x.......', 54: 'x.x.x.x.x.x.x.x.', 37: '....x.......x...' }, bass: 'halves', chord: 'strum', arp: 'eighth', lead: 'mid', density: 0.65 },
     horror: { bpm: [50, 78], modes: ['phrygian', 'minor'], prog: 'dark', drums: { 35: 'x...............', 41: '........x.......' }, bass: 'whole', chord: 'whole', arp: 'sparse', lead: 'sparse', density: 0.3 },
     epic: { bpm: [84, 118], modes: ['minor', 'dorian'], prog: 'epic', drums: { 36: 'x...x...x...x...', 35: 'x...............', 41: '..x...x...x...x.', 49: 'x...............' }, bass: 'eighths', chord: 'whole', arp: 'eighth', lead: 'long', density: 0.7 },
+    choral: { bpm: [56, 84], modes: ['minor', 'major', 'dorian'], prog: 'sad', drums: {}, bass: 'whole', chord: 'whole', arp: 'sparse', lead: 'long', density: 0.5 },
     piano: { bpm: [60, 100], modes: ['major', 'minor', 'lydian'], prog: 'sad', drums: {}, bass: 'whole', chord: 'arpeggio', arp: 'eighth', lead: 'mid', density: 0.6 },
   };
   const ROLE = { strings: 'chord', pad: 'chord', warmpad: 'chord', supersaw: 'chord', choir: 'chord', piano: 'chord', epiano: 'chord', acguitar: 'chord', cleanguitar: 'chord', distguitar: 'chord', drone: 'drone',
     rockbass: 'bass', synthbass: 'bass', subbass: 'bass', upright: 'bass', triangle8: 'bass', pluck: 'arp', pulse25: 'arp', harp: 'arp', pizzicato: 'arp', vibes: 'arp', fmbell: 'arp', whisper: 'fx', vinyl: 'fx',
-    synthlead: 'lead', flute: 'lead', clarinet: 'lead', sax: 'lead', fiddle: 'lead', whistle: 'lead', pulse50: 'lead', pulse12: 'lead', brass: 'lead', timpani: 'perc' };
+    synthlead: 'lead', flute: 'lead', clarinet: 'lead', sax: 'lead', fiddle: 'lead', whistle: 'lead', pulse50: 'lead', pulse12: 'lead', brass: 'lead', timpani: 'perc', v_soprano: 'lead', v_mezzo: 'part', v_contralto: 'part', v_countertenor: 'part', v_tenor: 'part', v_baritone: 'part', v_bass: 'part' };
+  const PART = { v_mezzo: 0, v_contralto: 1, v_countertenor: 2, v_tenor: 0, v_baritone: 1, v_bass: 0 };
   const roleOf = (inst) => (/^drums-/.test(inst) ? 'drums' : ROLE[inst] || 'lead');
   const rng32 = (a) => { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -77,6 +79,7 @@
         let d = deg(b) + 7 + (rnd() < 0.5 ? 0 : 2); for (const [s, len] of cells) { if (rnd() > P.density + 0.2) continue; const move = [-2, -1, -1, 0, 1, 1, 2][Math.floor(rnd() * 7)]; d = clamp(d + move, deg(b) + 2, deg(b) + 11); const targ = [0, 2, 4][Math.floor(rnd() * 3)]; add(t0 + s + (s % 1 ? sw : 0), len * 0.92, pitch(rnd() < 0.35 ? deg(b) + targ + 7 : d), 0.65 + rnd() * 0.25); }
         continue;
       }
+      if (role === 'part') { const m = c[PART[tr.inst] == null ? 0 : PART[tr.inst]], nx = chord(b + 1)[PART[tr.inst] || 0]; if (b % 2 === 0 && P.density < 0.6) add(t0, 4, m, 0.62); else { add(t0, 2, m, 0.6); add(t0 + 2, 2, rnd() < 0.5 ? m : nx, 0.58); } continue; }
       if (role === 'perc') { add(t0, 1.5, root - 12, 0.9); if (P.density > 0.6) add(t0 + 2, 1, root - 12 + 7, 0.7); continue; }
       if (role === 'fx') { if (tr.inst === 'vinyl') add(t0, 4, 60, 0.5); else if (rnd() < 0.5) add(t0 + rnd() * 2, 2, root + 24, 0.4); }
     }
@@ -91,7 +94,7 @@
     const mode = SCALES[o.mode] ? o.mode : P.modes[Math.floor(rnd() * P.modes.length)], key = o.key == null ? Math.floor(rnd() * 12) : ((o.key % 12) + 12) % 12;
     const bars = clamp(Math.round(o.bars || 8), 2, 64);
     const song = { genre, seed, bpm, bars, key, mode, name: kit.name, tracks: [], clips: [], fx: JSON.parse(JSON.stringify(kit.fx || {})) };
-    for (const [name, inst, vol, pan] of kit.tracks) { const tr = { name, inst, vol, pan, mute: false, solo: false, notes: [] }; fillTrack(song, tr, rnd); song.tracks.push(tr); }
+    for (const [name, inst, vol, pan, ex] of kit.tracks) { const tr = Object.assign({ name, inst, vol, pan, mute: false, solo: false, notes: [] }, ex || {}); fillTrack(song, tr, rnd); song.tracks.push(tr); }
     return song;
   }
   const regenTrack = (song, tr, seed) => fillTrack(song, tr, rng32((seed == null ? Math.floor(Math.random() * 1e9) : seed) >>> 0));
@@ -115,7 +118,9 @@
     const anySolo = song.tracks.some((t) => t.solo), spb = secPerBeat(song);
     for (const tr of song.tracks) {
       if (tr.mute || (anySolo && !tr.solo)) continue; const g = ctx.createGain(); g.gain.value = tr.vol == null ? 0.8 : tr.vol; let node = g; if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = clamp(tr.pan || 0, -1, 1); g.connect(p); node = p; } node.connect(master);
-      for (const n of tr.notes) { const t = n.t * spb; if (t >= len) continue; K.play(tr.inst, ctx, g, t, n.d * spb, n.m, n.v); }
+      const sy = tr.lyrics && K.syllables ? K.syllables(tr.lyrics) : null, sylFor = (t2, i) => (sy && sy.length ? sy[i % sy.length] : null);
+      const sorted = sy ? tr.notes.slice().sort((a, b) => a.t - b.t) : tr.notes;
+      for (let ni = 0; ni < sorted.length; ni++) { const n = sorted[ni]; const t = n.t * spb; if (t >= len) continue; K.play(tr.inst, ctx, g, t, n.d * spb, n.m, n.v, K.INSTRUMENTS[tr.inst] && K.INSTRUMENTS[tr.inst].voice ? { track: tr, syl: sylFor(tr, ni) } : undefined); }
     }
     for (const c of song.clips || []) {
       if (!c.data || c.mute) continue; let b; try { b = await decodeClip(ctx, c.data); } catch { continue; }
@@ -136,7 +141,7 @@
     const chans = []; for (let c = 0; c < ch; c++) chans.push(buf.getChannelData(c)); let o = 44; for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const v = clamp(chans[c][i], -1, 1); data.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); o += 2; }
     const bytes = new Uint8Array(data.buffer); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return 'data:audio/wav;base64,' + btoa(bin);
   }
-  const api = { GENRES: Object.keys(G), PROFILES: G, MODES, SCALES, roleOf, compose, regenTrack, renderSong, toWavDataURL, lengthSec, decodeClip };
+  const api = { SCALES, GENRES: Object.keys(G), PROFILES: G, MODES, SCALES, roleOf, compose, regenTrack, renderSong, toWavDataURL, lengthSec, decodeClip };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.VXMusicGen = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

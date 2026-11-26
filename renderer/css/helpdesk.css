@@ -72,3 +72,4 @@
   .hd-disk { grid-template-columns: minmax(0, 1fr); } .hd-osrow { grid-template-columns: 70px minmax(0, 1fr) 30px; }
 }
 @media (max-width: 520px) { .hd-page { padding: 16px 12px 40px; } .hd-bar-row > * { flex: 1 1 100%; } }
+.hd-up { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; font-size: 12px; } .hd-chk { display: flex; align-items: center; gap: 6px; margin: 6px 0; } .hd-row { display: flex; gap: 8px; align-items: flex-end; } .hd-row .grow { flex: 1; min-width: 0; }

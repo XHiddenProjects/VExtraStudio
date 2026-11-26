@@ -87,7 +87,7 @@
 
   /* ---------- head / pointer simulation shared by the VR and AR fallbacks ---------- */
   function simHead(g, v) {
-    const I = g.input, m = I.motion; const tilt = ('ontouchstart' in window) && (m.ax || m.ay || m.az);
+    const I = g.input, m = I.motion; const tilt = (('ontouchstart' in window) || m.sim) && (m.ax || m.ay || m.az || m.sim);
     if (tilt) { if (v.sim.yaw0 === undefined) v.sim.yaw0 = m.az || 0; v.head.yaw = v.sim.yaw0 - (m.az || 0); v.head.pitch = U.clamp((m.ax || 0) - 90, -85, 85); v.head.roll = m.ay || 0; return; }
     const r = (g.activeCanvas || g.container).getBoundingClientRect(); const mx = r.width ? (I.mouse.cx || r.width / 2) / r.width - 0.5 : 0, my = r.height ? (I.mouse.cy || r.height / 2) / r.height - 0.5 : 0;
     const kx = (I.isDown('arrowright') ? 1 : 0) - (I.isDown('arrowleft') ? 1 : 0), ky = (I.isDown('arrowup') ? 1 : 0) - (I.isDown('arrowdown') ? 1 : 0);

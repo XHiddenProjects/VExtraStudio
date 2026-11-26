@@ -13,7 +13,7 @@
 | 3.11.x  | ⚠️ please upgrade to 4.4.x |
 | 3.10.x and older | ❌ please upgrade |
 
-Current version: **4.5.0** (see `VERSION`). This policy was last reviewed for 4.5.0.
+Current version: **4.6.0** (see `VERSION`). This policy was last reviewed for 4.6.0.
 
 ## Reporting a vulnerability
 
@@ -50,6 +50,13 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 ## v3.0.0 additions (still apply in 3.1.0)
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
+
+## v4.6.0 notes
+- **File deployment (Helpdesk).** Uploads are admin-only (same rule as the rest of the Helpdesk: only the Vextra app on the server computer), stored under `helpdesk/files/` (directory mode 0700) with the SHA-256 computed on the server, limited to 200 MB, and uploaded in ordered chunks that are refused if they are out of order, oversized or incomplete. File names are restricted to letters, digits, spaces and `. _ ( ) + -` (no `..`, no slashes), and the target folder to `A–Z a–z 0–9 . _ - / \ :` without `..` or spaces, so neither can reach another path or act as an option.
+- **Copy then verify.** Files are copied with `scp` using the same sign-in and host-key handling as ssh (password via the askpass helper, never on a command line). After the copy the device reports the file's SHA-256; if it differs from the uploaded file the copy is **deleted and nothing is run**. A dry run copies nothing.
+- **Running a file is code execution on the device.** It happens only for packages that say so, only after the Deploy confirmation (which says the file will be run), with the rights of the chosen sign-in, and it is written to the audit log. The *Arguments* field is inserted as typed (so installers get their switches); it is limited to one line of 300 characters and is admin-only. Paths are always quoted. Only upload and run files you trust. A file that a package uses cannot be deleted.
+- **Voices and lyrics** run entirely in the app (Web Audio); lyrics are never sent anywhere. Lyrics are limited to 600 characters per track, and numeric fields in the studio are range-checked.
+- The simulated tilt/shake messages are still accepted only from the editor window that started the game (token + origin check); the game's browser motion events are only raised from those messages.
 
 ## v4.5.0 notes
 - **Helpdesk threat model.** Network scanning is limited to private ranges (at most a /22, 2048 addresses per scan, rate limited) and is only probing/ARP. Management (devices, sign-ins, packages, deploy, actions, tickets admin) is refused unless the request comes from the Vextra app on the computer that runs the server (the same check as hosting); signed-in users can only raise and read their own tickets and never see internal notes.

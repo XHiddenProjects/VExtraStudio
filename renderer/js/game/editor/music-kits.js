@@ -63,6 +63,7 @@
     folk: { name: 'Folk', fx: { reverb: { time: 1.2, wet: 0.16 } }, tracks: [['Acoustic guitar', 'acguitar', 0.8, -0.25], ['Fiddle', 'fiddle', 0.6, 0.25], ['Tin whistle', 'whistle', 0.45, 0.35], ['Bass', 'upright', 0.75, 0], ['Hand percussion', 'drums-folk', 0.7, 0]] },
     horror: { name: 'Horror', fx: { reverb: { time: 4, wet: 0.5 } }, tracks: [['Drone', 'drone', 0.8, 0], ['Strings', 'strings', 0.5, -0.3], ['Bell', 'fmbell', 0.4, 0.35], ['Piano', 'piano', 0.45, -0.1], ['Whispers', 'whisper', 0.45, 0.2], ['Heartbeat', 'drums-horror', 0.8, 0]] },
     epic: { name: 'Epic / Cinematic', fx: { reverb: { time: 3.2, wet: 0.35 } }, tracks: [['Strings', 'strings', 0.7, -0.2], ['Brass', 'brass', 0.7, 0.2], ['Choir', 'choir', 0.5, 0], ['Piano', 'piano', 0.4, -0.3], ['Sub bass', 'subbass', 0.8, 0], ['Taiko & percussion', 'drums-epic', 0.9, 0]] },
+    choral: { name: 'Choral', fx: { reverb: { time: 3.6, wet: 0.4 } }, tracks: [['Soprano', 'v_soprano', 0.8, -0.3, { vowel: 'a', ens: 3 }], ['Mezzo-soprano', 'v_mezzo', 0.7, -0.15, { vowel: 'o', ens: 3 }], ['Contralto', 'v_contralto', 0.75, 0.1, { vowel: 'o', ens: 3 }], ['Countertenor', 'v_countertenor', 0.6, 0.2, { vowel: 'a', ens: 2 }], ['Tenor', 'v_tenor', 0.8, 0.3, { vowel: 'u', ens: 3 }], ['Baritone', 'v_baritone', 0.75, -0.2, { vowel: 'o', ens: 3 }], ['Bass', 'v_bass', 0.85, 0, { vowel: 'o', ens: 3 }], ['Organ pad', 'warmpad', 0.35, 0]] },
     piano: { name: 'Piano', fx: { reverb: { time: 2.2, wet: 0.3 } }, tracks: [['Piano', 'piano', 0.8, -0.1], ['Piano melody', 'piano', 0.7, 0.1], ['Pad', 'warmpad', 0.4, 0], ['Strings', 'strings', 0.35, 0.2]] },
   };
 
@@ -305,13 +306,97 @@
   }
   for (const k of Object.keys(KITMAPS)) I[k] = drumPlay(k);
 
+
+  /* ------------------------------------------------------------------ human voices (formant synthesis)
+     A glottal-style harmonic source (steeper roll-off when soft, brighter when loud) is sent through five parallel formant filters tuned
+     to real vowel measurements for each voice class, with natural vibrato that fades in, slow pitch drift, a small pitch scoop into each
+     note, breath noise and a few singers per voice for the choir. Lyrics are sung one syllable per note: vowels glide, consonants add
+     bursts of noise or a hum. It is an approximation of singing – it will not read words out loud like a speech engine. */
+  const FM = {  // per vowel: 5 centre frequencies (Hz), 5 levels (dB), 5 bandwidths (Hz)
+    soprano: { a: [800, 1150, 2900, 3900, 4950, 0, -6, -32, -20, -50, 80, 90, 120, 130, 140], e: [350, 2000, 2800, 3600, 4950, 0, -20, -15, -40, -56, 60, 100, 120, 150, 200], i: [270, 2140, 2950, 3900, 4950, 0, -12, -26, -26, -44, 60, 90, 100, 120, 120], o: [450, 800, 2830, 3800, 4950, 0, -11, -22, -22, -50, 40, 80, 100, 120, 120], u: [325, 700, 2700, 3800, 4950, 0, -16, -35, -40, -60, 50, 60, 170, 180, 200] },
+    alto: { a: [800, 1150, 2800, 3500, 4950, 0, -4, -20, -36, -60, 80, 90, 120, 130, 140], e: [400, 1600, 2700, 3300, 4950, 0, -24, -30, -35, -60, 60, 80, 120, 150, 200], i: [350, 1700, 2700, 3700, 4950, 0, -20, -30, -36, -60, 50, 100, 120, 150, 200], o: [450, 800, 2830, 3500, 4950, 0, -9, -16, -28, -55, 70, 80, 100, 130, 135], u: [325, 700, 2530, 3500, 4950, 0, -12, -30, -40, -64, 50, 60, 170, 180, 200] },
+    ct: { a: [660, 1120, 2750, 3000, 3350, 0, -6, -23, -24, -38, 80, 90, 120, 130, 140], e: [440, 1800, 2700, 3000, 3300, 0, -14, -18, -20, -20, 70, 80, 100, 120, 120], i: [270, 1850, 2900, 3350, 3590, 0, -24, -24, -36, -36, 40, 90, 100, 120, 120], o: [430, 820, 2700, 3000, 3300, 0, -10, -26, -22, -34, 40, 80, 100, 120, 120], u: [370, 630, 2750, 3000, 3400, 0, -20, -23, -30, -34, 40, 60, 100, 120, 120] },
+    tenor: { a: [650, 1080, 2650, 2900, 3250, 0, -6, -7, -8, -22, 80, 90, 120, 130, 140], e: [400, 1700, 2600, 3200, 3580, 0, -14, -12, -14, -20, 70, 80, 100, 120, 120], i: [290, 1870, 2800, 3250, 3540, 0, -15, -18, -20, -30, 40, 90, 100, 120, 120], o: [400, 800, 2600, 2800, 3000, 0, -10, -12, -12, -26, 40, 80, 100, 120, 120], u: [350, 600, 2700, 2900, 3300, 0, -20, -17, -14, -26, 40, 60, 100, 120, 120] },
+    bass: { a: [600, 1040, 2250, 2450, 2750, 0, -7, -9, -9, -20, 60, 70, 110, 120, 130], e: [400, 1620, 2400, 2800, 3100, 0, -12, -9, -12, -18, 40, 80, 100, 120, 120], i: [250, 1750, 2600, 3050, 3340, 0, -30, -16, -22, -28, 60, 90, 100, 120, 120], o: [400, 750, 2400, 2600, 2900, 0, -11, -21, -20, -40, 40, 80, 100, 120, 120], u: [350, 600, 2400, 2675, 2950, 0, -20, -32, -28, -36, 40, 80, 100, 120, 120] },
+  };
+  /** the seven classical voice types: range (MIDI), formant set and how far the formants are scaled (smaller = bigger voice) */
+  const VOICES = {
+    soprano: { name: 'Soprano', lo: 60, hi: 84, set: 'soprano', fs: 1, vib: 5.6, gain: 1 },
+    mezzo: { name: 'Mezzo-soprano', lo: 57, hi: 81, set: 'alto', fs: 1.05, vib: 5.4, gain: 1 },
+    contralto: { name: 'Contralto (Alto)', lo: 53, hi: 77, set: 'alto', fs: 1, vib: 5.2, gain: 1.05 },
+    countertenor: { name: 'Countertenor', lo: 52, hi: 76, set: 'ct', fs: 1, vib: 5.3, gain: 1.05 },
+    tenor: { name: 'Tenor', lo: 48, hi: 72, set: 'tenor', fs: 1, vib: 5.2, gain: 1.1 },
+    baritone: { name: 'Baritone', lo: 45, hi: 69, set: 'tenor', fs: 0.93, vib: 5, gain: 1.15 },
+    bass: { name: 'Bass', lo: 40, hi: 64, set: 'bass', fs: 1, vib: 4.8, gain: 1.25 },
+  };
+  const VOWELS = ['a', 'e', 'i', 'o', 'u'];
+  const NASAL = [250, 1000, 2200, 3000, 3600, 0, -14, -30, -36, -40, 60, 120, 150, 180, 200];
+  for (const [k, v] of Object.entries(VOICES)) def('v_' + k, v.name, 'Choir', 'tone', v.lo, v.hi, { voice: k });
+  function voiceWave(c, vel) {
+    const p = vel < 0.45 ? 1.7 : vel < 0.75 ? 1.35 : 1.05, key = 'vw' + p, s = S(c); if (s.cache[key]) return s.cache[key];
+    const N = 40, re = new Float32Array(N + 1), im = new Float32Array(N + 1); for (let n = 1; n <= N; n++) im[n] = Math.pow(n, -p);
+    return (s.cache[key] = c.createPeriodicWave(re, im));
+  }
+  const dbA = (d) => Math.pow(10, d / 20);
+  /** consonant sound at time t: kind plos | fric | nasal | liq (nasal and liquid shape the vowel instead – see sing) */
+  function consonant(c, o, t, kind, voiced, vel, f0) {
+    if (kind === 'plos') { const nz = NS(c, t, t + 0.06), bp = F(c, 'bandpass', 1500 + rnd(c) * 2500, 0.8), pg = PERC(c, t, vel * 0.5, 0.002, 0.035); nz.connect(bp); bp.connect(pg.g); pg.g.connect(o); }
+    else if (kind === 'fric') { const nz = NS(c, t, t + 0.12), hp = F(c, 'highpass', 4200, 0.6), bp = F(c, 'bandpass', 6500, 0.7), pg = PERC(c, t, vel * 0.32, 0.012, 0.085); nz.connect(hp); hp.connect(bp); bp.connect(pg.g); pg.g.connect(o); }
+    if (voiced && f0) { const b = O(c, 'sine', f0, t, t + 0.07), g = PERC(c, t, vel * 0.12, 0.006, 0.05); b.connect(g.g); g.g.connect(o); }
+  }
+  function sing(c, o, t, dur, m, vel, voice, ex) {
+    ex = ex || {}; const V = VOICES[voice], tr = ex.track || {}, syl = ex.syl || null, set = FM[V.set];
+    const n = Math.max(1, Math.min(8, Math.round(tr.ens == null ? 3 : tr.ens))), vowels = syl ? syl.v : [VOWELS.includes(tr.vowel) ? tr.vowel : 'a'], f0 = mtof(m);
+    const kind = syl ? syl.k : '', lead = kind === 'plos' ? 0.04 : kind === 'fric' ? 0.075 : kind === 'nasal' ? 0.07 : kind === 'liq' ? 0.06 : 0, vs = t + Math.min(lead, dur * 0.4);
+    const glide = { w: 'u', y: 'i', r: 'o', l: 'e', j: 'i' }[syl && syl.g] || null;
+    if (kind === 'plos' || kind === 'fric') consonant(c, o, t, kind, syl.vd, vel, f0);
+    const atk = syl ? 0.035 : 0.09 + 0.05 * (1 - vel), body = Math.max(0.05, dur - (vs - t));
+    for (let k = 0; k < n; k++) {
+      const jt = n > 1 ? rnd(c) * 0.03 : 0, ts = vs + jt, det = n > 1 ? (rnd(c) * 2 - 1) * 14 : (rnd(c) * 2 - 1) * 4, gv = V.gain * (n > 1 ? 1.2 / Math.sqrt(n) : 1.15);
+      const { g, end } = ADSR(c, ts, body, vel * 0.32 * gv, atk, 0.1, 0.92, 0.12 + 0.06 * rnd(c)); g.connect(o);
+      const osc = c.createOscillator(); osc.setPeriodicWave(voiceWave(c, vel)); osc.detune.value = det; const scoop = syl || rnd(c) < 0.5 ? 0.975 : 1;
+      osc.frequency.setValueAtTime(f0 * scoop, ts); if (scoop < 1) osc.frequency.exponentialRampToValueAtTime(f0, ts + 0.07); osc.start(ts); osc.stop(end + 0.05);
+      vib(c, ts, end, [osc], V.vib - 0.5 + rnd(c), (n > 1 ? 16 : 28) * (0.7 + 0.5 * rnd(c)), 0.18 + 0.2 * rnd(c)); vib(c, ts, end, [osc], 1.7 + rnd(c) * 1.2, 5, 0);
+      const bodyLp = F(c, 'lowpass', Math.max(500, f0 * 4), 0.4), bg = G(c, 0.5); osc.connect(bodyLp); bodyLp.connect(bg); bg.connect(g);
+      const dur2 = Math.max(0.06, end - ts);
+      for (let i = 0; i < 5; i++) {
+        const pick = (vw, j) => (vw[j] * V.fs), v1 = set[vowels[0]], v2 = vowels[1] ? set[vowels[1]] : null, start = (kind === 'nasal' ? NASAL : glide ? set[glide] : v1);
+        let fc = pick(v1, i), bw = v1[10 + i]; if (i === 0 && f0 > fc * 0.85) fc = Math.min(f0 * 1.04, 1100); /* formant tuning: high notes lift the first formant to the pitch */
+        const bp = F(c, 'bandpass', fc, Math.min(25, fc / bw)), fg = G(c, dbA(v1[5 + i]) * 1.4);
+        if (start !== v1) { const sf = pick(start, i); bp.frequency.setValueAtTime(sf, ts); bp.frequency.setValueAtTime(sf, ts + 0.012); bp.frequency.linearRampToValueAtTime(fc, ts + (kind === 'nasal' ? 0.09 : 0.07)); } else bp.frequency.setValueAtTime(fc, ts);
+        if (v2) { const f2 = pick(v2, i); bp.frequency.setValueAtTime(fc, ts + dur2 * 0.4); bp.frequency.linearRampToValueAtTime(i === 0 && f0 > f2 * 0.85 ? Math.min(f0 * 1.04, 1100) : f2, ts + dur2 * 0.78); }
+        osc.connect(bp); bp.connect(fg); fg.connect(g);
+      }
+      const nz = NS(c, ts, end), nb = F(c, 'bandpass', 2400 + rnd(c) * 800, 0.8), ng = G(c, 0.018 + 0.02 * (1 - vel)); nz.connect(nb); nb.connect(ng); ng.connect(g);
+    }
+    if (syl && syl.co && dur > 0.3) consonant(c, o, t + dur - 0.07, /^[ptkbdgc]/.test(syl.co) ? 'plos' : /^[mn]/.test(syl.co) ? 'nasal' : 'fric', false, vel * 0.7, 0);
+  }
+  for (const k of Object.keys(VOICES)) I['v_' + k] = (c, o, t, dur, m, v, ex) => sing(c, o, t, dur, m, v, k, ex);
+
+  /** Splits lyrics into sung syllables: [{ text, v:[vowel, (vowel2)], k:onset kind, g:glide, vd:voiced, co:coda }] */
+  function syllables(text) {
+    const out = [], words = String(text == null ? '' : text).toLowerCase().replace(/[^a-z' ]+/g, ' ').replace(/'/g, '').split(/\s+/).filter(Boolean);
+    const nucleus = (vg) => { const d = { ee: ['i'], ea: ['i'], ie: ['a', 'i'], ei: ['e', 'i'], oo: ['u'], ou: ['a', 'u'], ow: ['a', 'u'], ai: ['e', 'i'], ay: ['e', 'i'], oi: ['o', 'i'], oy: ['o', 'i'], au: ['o'], aw: ['o'], oa: ['o'], eu: ['e', 'u'], ew: ['e', 'u'], ue: ['u'], ey: ['e', 'i'], ye: ['a', 'i'], io: ['i', 'o'], ia: ['i', 'a'] }[vg.slice(0, 2)]; if (d) return d; const ch = vg[0]; return [ch === 'y' ? 'i' : ch === 'u' ? 'a' : ch]; };
+    for (const w of words) {
+      let parts = w.match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]+$)?/g) || [];
+      const used = parts.join('').length; if (used < w.length) { if (parts.length) parts[parts.length - 1] += w.slice(used); else parts = [w]; }
+      if (parts.length > 1 && /^[^aeiouy]*e$/.test(parts[parts.length - 1]) && !/le$/.test(w)) { const last = parts.pop(); parts[parts.length - 1] += last; }
+      for (const p of parts) {
+        const mm = /^([^aeiouy]*)([aeiouy]*)(.*)$/.exec(p) || [p, '', 'a', ''], on = mm[1], vg = mm[2] || 'a', co = mm[3];
+        const k = !on ? '' : /^(sh|ch|th|h|f|s|x|z|v)/.test(on) ? 'fric' : /^(p|t|k|b|d|g|c|q)/.test(on) ? 'plos' : /^(m|n)/.test(on) ? 'nasal' : /^(l|r|w|y|j)/.test(on) ? 'liq' : 'plos';
+        out.push({ text: p, v: nucleus(vg), k, g: k === 'liq' ? on[0] : '', vd: /^(z|v|b|d|g)/.test(on), co });
+      }
+    }
+    return out;
+  }
+
   /** Schedules one note (or drum hit) of instrument `id` on `ctx`, connected to `out`. t / dur in seconds. */
-  function play(id, ctx, out, t, dur, midi, vel) {
+  function play(id, ctx, out, t, dur, midi, vel, extra) {
     const fn = I[id]; if (!fn) return false;
-    fn(ctx, out, t, Math.max(0.03, dur), midi, Math.max(0.05, Math.min(1, vel === undefined ? 0.8 : vel)));
+    fn(ctx, out, t, Math.max(0.03, dur), midi, Math.max(0.05, Math.min(1, vel === undefined ? 0.8 : vel)), extra);
     return true;
   }
-  const api = { INSTRUMENTS, KITS, KITMAPS, ROW_NAMES, play, seed, mtof, mulberry32, noteName, NOTE_NAMES };
+  const api = { INSTRUMENTS, VOICES, VOWELS, syllables, KITS, KITMAPS, ROW_NAMES, play, seed, mtof, mulberry32, noteName, NOTE_NAMES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.VXMusicKits = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

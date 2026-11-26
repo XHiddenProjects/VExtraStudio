@@ -7,14 +7,14 @@
   /* ---------- activity bar ---------- */
   const BUILTIN = [
     { id: 'explorer', icon: 'files', title: 'Explorer (Ctrl+Shift+E)' }, { id: 'search', icon: 'search', title: 'Search in files (Ctrl+Shift+F)' },
-    { id: 'create', icon: 'create', title: 'Create – drag items onto the canvas' }, { id: 'library', icon: 'library', title: 'Library – templates & games' }, { id: 'cloud', icon: 'cloud', title: 'Account, sharing & publishing' }, '-',
+    { id: 'create', icon: 'create', title: 'Create – drag items onto the canvas' }, { id: 'library', icon: 'library', title: 'Library – templates & games' }, { id: 'cloud', icon: 'cloud', title: 'Account, sharing & publishing' }, { id: 'helpdesk', icon: 'monitor', title: 'Helpdesk – computers, tickets and software deployment', action: () => VX.helpdesk && VX.helpdesk.open() }, '-',
     { id: 'plugins', icon: 'plugin', title: 'Plugins', adv: true }, { id: 'themes', icon: 'theme', title: 'Themes', adv: true },
   ];
   SB.renderActivity = function () {
     const bar = $('#activity'); bar.textContent = '';
     const add = (v) => {
       if (v === '-') return bar.append(h('div', { class: 'act-sep adv' }));
-      bar.append(h('button', Object.assign({ class: 'act' + (v.adv ? ' adv' : '') + (SB.current === v.id ? ' active' : ''), title: v.title, 'data-view': v.id }, v.state ? { 'data-state': v.state } : {}, { onclick: () => (SB.current === v.id && !$('#sidebar').classList.contains('collapsed') ? SB.collapse(true) : SB.show(v.id)) }), VX.icon(v.icon)));
+      bar.append(h('button', Object.assign({ class: 'act' + (v.adv ? ' adv' : '') + (SB.current === v.id ? ' active' : ''), title: v.title, 'data-view': v.id }, v.state ? { 'data-state': v.state } : {}, { onclick: () => (v.action ? v.action() : SB.current === v.id && !$('#sidebar').classList.contains('collapsed') ? SB.collapse(true) : SB.show(v.id)) }), VX.icon(v.icon)));
     };
     const all = [...BUILTIN.filter((v) => v !== '-'), ...[...VXHost.panels.values()].map((p) => ({ id: 'panel:' + p.id, icon: p.icon, title: p.title + ' (plugin)', state: VXHost.panelState.get(p.id) }))];
     const ord = VX.app.settings.activityOrder || []; const rank = (v) => { const i = ord.indexOf(v.id); return i < 0 ? 1000 + all.indexOf(v) : i; }; all.sort((a, b) => rank(a) - rank(b));

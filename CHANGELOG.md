@@ -2,7 +2,29 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.5.0] — current
+## [4.6.0] — current
+
+### Added
+- **Choir and human voices** (Music studio → Choir): Soprano, Mezzo-soprano, Contralto (Alto), Countertenor, Tenor, Baritone and Bass. Each voice is formant-synthesised from real vowel measurements, with vibrato that fades in, slow pitch drift, a small scoop into each note, breath noise and a choice of solo, small or large choir. A new **Choral** genre writes a part for every voice.
+- **Vocals from text:** type lyrics on any voice track (or use *Vocals from text…*) and each syllable is sung on its own note; *Sing the lyrics* writes a singable melody in the song's key and range. Vowels glide, consonants add bursts or hums. It is singing, not a speech engine.
+- **Music studio rebuilt as a workspace:** transport with play/stop, loop, live time and level meter; track strips with mute, solo, volume, pan, duplicate and instrument pick; zoomable piano roll with ruler, piano keys you can click to hear, drag to move, drag the edge to resize, Ctrl-drag to select, right-click to delete and a velocity lane; undo/redo, quantize, transpose, humanize, select all, duplicate; audio-clip timeline with waveforms, trim, split at the play position, fades, volume; record from the microphone or import files; export a `.wav`.
+- **Helpdesk file deployment:** upload files to the server (chunked, SHA-256 recorded) and create an *Upload a file* package that copies the file to devices over scp, verifies the checksum, and can then run it according to its type (.sh .py .ps1 .exe .msi .pkg .deb .rpm .bat .zip …), with arguments and optional sudo, then optionally delete the copy.
+- **Helpdesk** has its own icon in the left activity bar and is reachable from the Cloud panel before you sign in.
+- **Play loading bar:** a progress bar while the game starts; Play and Restart are locked until it is ready, so a double click cannot start it twice.
+- **Tilt preview:** the device preview tilts with the sliders and shows the readings the game receives (m/s² and degrees); *Level* resets it.
+
+### Changed
+- **Cleaner editor bar:** the view tools are grouped (Snap / Grid / Colliders / Camera, Fit / Focus), the layers and *Edit UI layout* live in one **Layers** menu, and the toolbar's rare actions (Anti-cheat, Loading page, Blocks docs, Store export) are in a **More** menu. Tabs never hide behind the tools; they wrap instead.
+- **Music library** moved to Assets → Sounds → **✨ Defaults… → Music library**, next to Sound effects.
+- Library songs open in the new studio with **Edit**.
+
+### Fixed
+- The big blue block over the piano roll while a song played (the play-position line was sized to the whole roll).
+- **Shake went off centre:** the editor's shake animation replaced the preview's centring transform; it now animates only `translate` / `rotate`, so the frame is exactly centred before, during and after. The *Vibrate* block's desktop shake does the same and no longer clears the game view's transform.
+- **Tilt did nothing** in the simulator (and for VR/AR head simulation on desktop); the game now also receives real `deviceorientation` / `devicemotion` events, and the tilt is shown.
+- No `null`, `undefined`, `NaN` or `[object …]` text in the Scene, Logic, Assets, Play, layer menu, Defaults, Music library and Music studio views (checked in 2D and 3D projects).
+
+## [4.5.0]
 
 ### Added
 - **Helpdesk (agentless):** *Cloud → Helpdesk*. Finds computers on your private network, keeps an inventory (system, hardware, disks, addresses, software; CSV export) over SSH, deploys packages (winget, Chocolatey, MSI, apt/dnf/yum/zypper, Homebrew, pkg or custom script) with dry run and per-device results, runs quick diagnostics, and includes a ticket system with SLA times, internal notes and linked devices. The server runs on Windows, macOS and Linux.

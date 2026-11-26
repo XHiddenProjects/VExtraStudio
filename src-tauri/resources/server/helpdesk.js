@@ -142,12 +142,43 @@ function actionScript(id, osName, param) {
   if (a.param) { if (!okSvc(param)) return { error: 'Type a valid service name' }; return { script: t(param), change: a.change }; }
   return { script: t, change: a.change };
 }
+/* ---- file deployment: a file uploaded to the server is copied to a device with scp (checked with SHA-256) and can then be run -------------- */
+const MAX_FILE = 200 * 1024 * 1024;
+const okName = (s) => /^[A-Za-z0-9][A-Za-z0-9 ._()+-]{0,99}$/.test(String(s || '')) && !/\.\./.test(String(s));
+const okDest = (s) => /^[A-Za-z0-9_.\/:\\-]{1,200}$/.test(String(s || '')) && !String(s).split(/[\\/]/).includes('..');
+const DEST = { windows: 'C:/ProgramData/VextraDeploy', mac: '/tmp/vextra-deploy', linux: '/tmp/vextra-deploy' };
+const AFTER = ['none', 'run', 'run-delete'];
+const okArgs = (s) => String(s == null ? '' : s).length <= 300 && !/[\r\n\0]/.test(String(s == null ? '' : s));
+/** Checks a "file" installer target; returns an error text or ''. */
+function fileTargetError(t, osName, files) {
+  if (!files || !files[t.fileId]) return 'Choose an uploaded file'; if (t.dest && !okDest(t.dest)) return 'The folder on the device may only contain letters, digits and . _ - / \\ :';
+  if (t.after && !AFTER.includes(t.after)) return 'Unknown "after copying" choice'; if (!okArgs(t.args)) return 'The arguments are too long or contain a line break'; if (t.after && t.after !== 'none' && osName === 'mac' && /\.exe$/i.test(files[t.fileId].name)) return 'A .exe file cannot run on macOS'; return '';
+}
+const remoteJoin = (dir, name) => String(dir).replace(/[\\/]+$/, '') + '/' + name;
+/** The command that runs a copied file: chosen from its extension. `p` is the full path on the device. */
+function fileRunScript(osName, p, name, args, sudo) {
+  const ext = (/\.(tar\.gz|tgz|[A-Za-z0-9]+)$/.exec(name.toLowerCase()) || [, ''])[1], a = args ? ' ' + args : ''; const dir = p.replace(/\/[^/]*$/, '');
+  if (osName === 'windows') {
+    if (ext === 'ps1') return `& powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ${pq(p)}${a}; exit $LASTEXITCODE`;
+    if (ext === 'msi') return `$r=Start-Process msiexec.exe -ArgumentList '/i',${pq(p)},'/qn','/norestart'${args ? ',' + pq(args) : ''} -Wait -PassThru; exit $r.ExitCode`;
+    if (ext === 'exe') return `$r=Start-Process -FilePath ${pq(p)}${args ? ' -ArgumentList ' + pq(args) : ''} -Wait -PassThru; exit $r.ExitCode`;
+    if (ext === 'bat' || ext === 'cmd') return `& cmd.exe /c ${pq(p)}${a}; exit $LASTEXITCODE`;
+    if (ext === 'zip') return `Expand-Archive -LiteralPath ${pq(p)} -DestinationPath ${pq(dir + '/' + name.replace(/\.zip$/i, ''))} -Force; "extracted"`;
+    if (ext === 'py') return `& python ${pq(p)}${a}; exit $LASTEXITCODE`;
+    return `& ${pq(p)}${a}; exit $LASTEXITCODE`;
+  }
+  const S = sudo ? 'sudo -n ' : '', P = sq(p);
+  if (ext === 'sh') return `${S}sh ${P}${a}`; if (ext === 'py') return `${S}python3 ${P}${a}`;
+  if (ext === 'deb') return `${S ? S : 'sudo -n '}dpkg -i ${P}`; if (ext === 'rpm') return `${S ? S : 'sudo -n '}rpm -U ${P}`; if (ext === 'pkg' && osName === 'mac') return `sudo -n installer -pkg ${P} -target /`;
+  if (ext === 'zip') return `unzip -o ${P} -d ${sq(dir + '/' + name.replace(/\.zip$/i, ''))}`; if (ext === 'tgz' || ext === 'tar.gz') return `tar xzf ${P} -C ${sq(dir)}`;
+  return `chmod +x ${P} && ${S}${P}${a}`;
+}
 /** Package → the script for one OS. Types: winget / choco / msi (windows), os-package (apt/dnf/yum/zypper, linux), brew / pkg (mac), script (any). */
 function packageScript(pk, osName) {
   const t = (pk && pk.targets && pk.targets[osName]); if (!t) return { error: 'This package has no ' + osName + ' version' };
   const ver = t.version && okVer(t.version) ? t.version : '';
   if (t.type === 'script') { if (!str(t.script, 20000).trim()) return { error: 'The script is empty' }; return { script: str(t.script, 20000), custom: true }; }
-  if (t.type === 'url') return { error: 'Unknown installer type' };
+  if (t.type === 'file') return { error: 'File' };
   if (t.type === 'winget') { if (osName !== 'windows' || !okId(t.id)) return { error: 'Invalid winget id' }; return { script: `winget install --id ${pq(t.id)} --exact --silent --accept-package-agreements --accept-source-agreements${ver ? ' --version ' + pq(ver) : ''}; exit $LASTEXITCODE` }; }
   if (t.type === 'choco') { if (osName !== 'windows' || !okId(t.id)) return { error: 'Invalid Chocolatey id' }; return { script: `choco install ${pq(t.id)} -y --no-progress${ver ? ' --version ' + pq(ver) : ''}; exit $LASTEXITCODE` }; }
   if (t.type === 'msi') {
@@ -168,9 +199,10 @@ function packageScript(pk, osName) {
 module.exports = function Helpdesk(deps) {
   const { DATA, send, fail, readJson, isAdmin, authUser, limited, clientIp } = deps;
   const DIR = path.join(DATA, 'helpdesk'); fs.mkdirSync(DIR, { recursive: true, mode: 0o700 });
+  const FILES = path.join(DIR, 'files'); fs.mkdirSync(FILES, { recursive: true, mode: 0o700 });
   const FILE = path.join(DIR, 'helpdesk.json'), KEYF = path.join(DIR, 'vault.key'), KNOWN = path.join(DIR, 'known_hosts');
   const rid = (n = 6) => crypto.randomBytes(n).toString('hex');
-  let db = { devices: {}, creds: {}, packages: {}, jobs: {}, tickets: {}, audit: [], settings: { sla: { ...SLA_HOURS }, concurrency: 5, scanRanges: [] }, seq: 0 };
+  let db = { devices: {}, creds: {}, packages: {}, files: {}, jobs: {}, tickets: {}, audit: [], settings: { sla: { ...SLA_HOURS }, concurrency: 5, scanRanges: [] }, seq: 0 };
   try { const j = JSON.parse(fs.readFileSync(FILE, 'utf8')); db = Object.assign(db, j); db.settings = Object.assign({ sla: { ...SLA_HOURS }, concurrency: 5, scanRanges: [] }, db.settings); } catch { /* new */ }
   let timer = 0; const flush = () => { clearTimeout(timer); const t = FILE + '.tmp'; fs.writeFileSync(t, JSON.stringify(db), { mode: 0o600 }); fs.renameSync(t, FILE); };
   const dirty = () => { clearTimeout(timer); timer = setTimeout(flush, 200); timer.unref && timer.unref(); };
@@ -185,36 +217,51 @@ module.exports = function Helpdesk(deps) {
   /* ---- running things on a device over SSH ---------------------------------------------------------------------------------- */
   let sshChecked = null;
   const sshBin = () => new Promise((res) => { if (sshChecked !== null) return res(sshChecked); execFile(process.platform === 'win32' ? 'where' : 'which', ['ssh'], { timeout: 4000 }, (e, o) => { sshChecked = e ? '' : String(o).split(/\r?\n/)[0].trim(); res(sshChecked); }); });
+  let scpChecked = null;
+  const scpBin = () => new Promise((res) => { if (scpChecked !== null) return res(scpChecked); execFile(process.platform === 'win32' ? 'where' : 'which', ['scp'], { timeout: 4000 }, (e, o) => { scpChecked = e ? '' : String(o).split(/\r?\n/)[0].trim(); res(scpChecked); }); });
   /** ssh asks this tiny helper for the password; the helper only prints the VX_PW environment variable, so the password is never written to disk or put on a command line. */
   function askpassFiles() {
     const w = process.platform === 'win32', f = path.join(DIR, w ? 'askpass.cmd' : 'askpass.sh');
     fs.writeFileSync(f, w ? '@echo off\r\nsetlocal EnableDelayedExpansion\r\necho !VX_PW!\r\n' : '#!/bin/sh\nprintf \'%s\\n\' "$VX_PW"\n', { mode: 0o700 }); return f;
   }
   /** The real transport. Returns { code, out }. `script` goes in through stdin, so nothing the admin typed is ever part of a command line. */
+  /** the shared part of ssh and scp: host key handling, keep-alives and how to sign in (password through the askpass helper, key from the vault or a path) */
+  function conn(dev, cred) {
+    const opts = ['-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=' + KNOWN, '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=15', '-o', 'LogLevel=ERROR'], auth = [], env = { ...process.env }; let tmpKey = '';
+    if (cred.kind === 'password') { Object.assign(env, { SSH_ASKPASS: askpassFiles(), SSH_ASKPASS_REQUIRE: 'force', DISPLAY: env.DISPLAY || 'vextra:0', VX_PW: unseal(cred.enc) }); auth.push('-o', 'PreferredAuthentications=password,keyboard-interactive', '-o', 'PubkeyAuthentication=no', '-o', 'NumberOfPasswordPrompts=1'); }
+    else {
+      auth.push('-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes'); let kp = cred.keyPath;
+      if (cred.kind === 'key') { tmpKey = path.join(os.tmpdir(), 'vx-' + rid(8)); fs.writeFileSync(tmpKey, unseal(cred.enc).replace(/\r\n/g, '\n').replace(/\n?$/, '\n'), { mode: 0o600 }); kp = tmpKey; }
+      if (kp) auth.push('-i', kp);
+    }
+    return { opts, auth, env, cleanup: () => { if (tmpKey) try { fs.unlinkSync(tmpKey); } catch { /* gone */ } } };
+  }
+  /** Spawns ssh / scp, collects the output (capped) and resolves { code, out }. */
+  function spawnOut(bin, args, env, timeout, stdinText) {
+    return new Promise((resolve) => {
+      const p = spawn(bin, args, { env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }); let out = '', done = false;
+      const add = (b) => { if (out.length < MAX_OUT) out += b.toString('utf8'); };
+      const fin = (code) => { if (done) return; done = true; clearTimeout(t); resolve({ code, out: out.slice(0, MAX_OUT) }); };
+      const t = setTimeout(() => { out += '\n[timed out]'; try { p.kill('SIGKILL'); } catch { /* gone */ } fin(124); }, timeout || 60000);
+      p.stdout.on('data', add); p.stderr.on('data', add); p.on('error', (e) => { out += e.message; fin(127); }); p.on('close', (c) => fin(c == null ? 1 : c));
+      p.stdin.on('error', () => { /* closed early */ }); p.stdin.end(stdinText || '');
+    });
+  }
+  /** The real transport. Returns { code, out }. `script` goes in through stdin, so nothing the admin typed is ever part of a command line. */
   async function sshRun(dev, cred, { script, osName, timeout }) {
     const bin = await sshBin(); if (!bin) return { code: 127, out: 'The OpenSSH client (ssh) was not found on the computer that runs the Vextra server. Windows 10/11: Settings → Apps → Optional features → OpenSSH Client.' };
     if (!okHost(dev.host) || !okUser(cred.user) || cred.user.startsWith('-')) return { code: 126, out: 'Invalid address or user name' };
-    const args = ['-T', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=' + KNOWN, '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=15', '-o', 'LogLevel=ERROR', '-p', String(+dev.port || 22), '-l', cred.user];
-    const env = { ...process.env }; let tmpKey = '';
-    try {
-      if (cred.kind === 'password') { Object.assign(env, { SSH_ASKPASS: askpassFiles(), SSH_ASKPASS_REQUIRE: 'force', DISPLAY: env.DISPLAY || 'vextra:0', VX_PW: unseal(cred.enc) }); args.push('-o', 'PreferredAuthentications=password,keyboard-interactive', '-o', 'PubkeyAuthentication=no', '-o', 'NumberOfPasswordPrompts=1'); }
-      else {
-        args.push('-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes'); let kp = cred.keyPath;
-        if (cred.kind === 'key') { tmpKey = path.join(os.tmpdir(), 'vx-' + rid(8)); fs.writeFileSync(tmpKey, unseal(cred.enc).replace(/\r\n/g, '\n').replace(/\n?$/, '\n'), { mode: 0o600 }); kp = tmpKey; }
-        if (kp) args.push('-i', kp);
-      }
-      args.push(dev.host, osName === 'windows' ? 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command -' : 'sh -s');
-      return await new Promise((resolve) => {
-        const p = spawn(bin, args, { env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }); let out = '', done = false;
-        const add = (b) => { if (out.length < MAX_OUT) out += b.toString('utf8'); };
-        const fin = (code) => { if (done) return; done = true; clearTimeout(t); resolve({ code, out: out.slice(0, MAX_OUT) }); };
-        const t = setTimeout(() => { out += '\n[timed out]'; try { p.kill('SIGKILL'); } catch { /* gone */ } fin(124); }, timeout || 60000);
-        p.stdout.on('data', add); p.stderr.on('data', add); p.on('error', (e) => { out += e.message; fin(127); }); p.on('close', (c) => fin(c == null ? 1 : c));
-        p.stdin.on('error', () => { /* closed early */ }); p.stdin.end(script + '\n');
-      });
-    } finally { if (tmpKey) try { fs.unlinkSync(tmpKey); } catch { /* gone */ } }
+    const c = conn(dev, cred);
+    try { const args = ['-T', ...c.opts, '-p', String(+dev.port || 22), '-l', cred.user, ...c.auth, dev.host, osName === 'windows' ? 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command -' : 'sh -s']; return await spawnOut(bin, args, c.env, timeout, script + '\n'); } finally { c.cleanup(); }
   }
-  let runner = sshRun; /* tests plug in a fake one */
+  /** Copies one local file to the device with scp (same sign-in as ssh). */
+  async function scpPut(dev, cred, { local, remote, timeout }) {
+    const bin = await scpBin(); if (!bin) return { code: 127, out: 'The OpenSSH client (scp) was not found on the computer that runs the Vextra server. Windows 10/11: Settings → Apps → Optional features → OpenSSH Client.' };
+    if (!okHost(dev.host) || !okUser(cred.user) || cred.user.startsWith('-') || !okDest(remote)) return { code: 126, out: 'Invalid address, user name or destination' };
+    const c = conn(dev, cred), host = dev.host.includes(':') ? '[' + dev.host + ']' : dev.host;
+    try { return await spawnOut(bin, ['-q', ...c.opts, '-P', String(+dev.port || 22), ...c.auth, '--', local, cred.user + '@' + host + ':' + remote], c.env, timeout || 20 * 60000, ''); } finally { c.cleanup(); }
+  }
+  let runner = sshRun, putter = scpPut; /* tests plug in fake ones */
   const credOf = (dev) => db.creds[dev.credId];
   async function run(dev, script, osName, timeout) { const cred = credOf(dev); if (!cred) return { code: 125, out: 'No sign-in is chosen for this device' }; return runner(dev, cred, { script, osName: osName || dev.os, timeout }); }
   /** Finds out whether a device runs Windows, macOS or Linux (it can be wrong from the ports alone). */
@@ -257,7 +304,7 @@ module.exports = function Helpdesk(deps) {
   }
 
   /* ---- jobs --------------------------------------------------------------------------------------------------------------------- */
-  const live = new Set();
+  const live = new Set(), uploads = new Map();
   async function runJob(job, work) {
     job.status = 'running'; job.started = Date.now(); dirty(); const ids = Object.keys(job.results); let i = 0, running = 0;
     await new Promise((resolve) => {
@@ -266,6 +313,23 @@ module.exports = function Helpdesk(deps) {
       next();
     });
     const rs = Object.values(job.results); job.status = rs.every((r) => r.status === 'ok') ? 'done' : rs.some((r) => r.status === 'ok') ? 'partial' : 'failed'; job.ended = Date.now(); dirty();
+  }
+  /** copy → verify → (run). The copy is checked against the SHA-256 that was computed when the file was uploaded. */
+  async function deployFile(d, r, t, dry) {
+    const f = db.files[t.fileId]; if (!f) { r.status = 'failed'; r.out = 'The uploaded file no longer exists'; r.code = -1; return; }
+    const dir = t.dest || DEST[d.os], dest = remoteJoin(dir, f.name), local = path.join(FILES, f.id + '.bin'), win = d.os === 'windows', cred = credOf(d); if (!cred) { r.status = 'failed'; r.out = 'No sign-in is chosen for this device'; r.code = 125; return; }
+    const prep = await run(d, win ? `New-Item -ItemType Directory -Force -Path ${pq(dir)} | Out-Null; "connected as " + $env:USERNAME` : `mkdir -p ${sq(dir)} && echo "connected as $(id -un)"`, d.os, 30000);
+    if (prep.code !== 0) { r.status = 'failed'; r.code = prep.code; r.out = prep.out.trim() || 'Could not reach the device'; return; }
+    const will = (t.after === 'run' || t.after === 'run-delete') ? 'and run it' : 'only (it is not run)';
+    if (dry) { r.status = 'ok'; r.code = 0; r.out = prep.out.trim() + `\nReady – “${f.name}” (${Math.round(f.size / 1024)} KB) would be copied to ${dest} ${will}.`; return; }
+    const cp = await putter(d, cred, { local, remote: dest, timeout: 20 * 60000 }); if (cp.code !== 0) { r.status = 'failed'; r.code = cp.code; r.out = 'Copy failed: ' + (cp.out.trim() || 'scp exited with ' + cp.code); return; }
+    const hv = await run(d, win ? `(Get-FileHash -LiteralPath ${pq(dest)} -Algorithm SHA256).Hash` : `sha256sum ${sq(dest)} 2>/dev/null || shasum -a 256 ${sq(dest)}`, d.os, 60000);
+    const got = (/[a-fA-F0-9]{64}/.exec(hv.out) || [''])[0].toLowerCase();
+    if (got !== f.sha256) { await run(d, win ? `Remove-Item -LiteralPath ${pq(dest)} -Force -ErrorAction SilentlyContinue` : `rm -f ${sq(dest)}`, d.os, 20000); r.status = 'failed'; r.code = 3; r.out = 'The copy on the device does not match the uploaded file (checksum ' + (got || 'unreadable') + '), so it was removed and nothing was run.'; return; }
+    if (t.after !== 'run' && t.after !== 'run-delete') { r.status = 'ok'; r.code = 0; r.out = `Copied to ${dest} and verified (SHA-256 ${f.sha256.slice(0, 12)}…).`; return; }
+    const x = await run(d, fileRunScript(d.os, dest, f.name, t.args, !!t.sudo), d.os, 20 * 60000);
+    if (t.after === 'run-delete') await run(d, win ? `Remove-Item -LiteralPath ${pq(dest)} -Force -ErrorAction SilentlyContinue` : `rm -f ${sq(dest)}`, d.os, 20000);
+    r.code = x.code; r.status = x.code === 0 ? 'ok' : 'failed'; r.out = str(`Copied to ${dest} and verified.\n` + x.out, MAX_OUT);
   }
   const newJob = (kind, title, who, ids, extra) => { const j = { id: 'j_' + rid(5), kind, title: str(title, 140), by: who, at: Date.now(), status: 'queued', results: {}, ...extra }; for (const id of ids) j.results[id] = { status: 'queued', code: null, out: '' }; db.jobs[j.id] = j; const keys = Object.keys(db.jobs); if (keys.length > 300) for (const k of keys.slice(0, keys.length - 300)) delete db.jobs[k]; dirty(); return j; };
   const finish = (r, x) => { r.code = x.code; r.out = str(x.out, MAX_OUT); r.status = x.code === 0 ? 'ok' : 'failed'; };
@@ -336,13 +400,25 @@ module.exports = function Helpdesk(deps) {
         db.creds[c.id] = c; audit(who, ip, `Saved sign-in "${c.name}" (${c.kind})`); dirty(); return send(res, 200, { cred: credView(c) }); }
       if (id && m === 'DELETE') { if (!db.creds[id]) return fail(res, 404, 'Not found'); delete db.creds[id]; for (const d of Object.values(db.devices)) if (d.credId === id) d.credId = ''; audit(who, ip, 'Deleted a saved sign-in'); dirty(); return send(res, 200, { ok: true }); }
     }
+    /* --- uploaded files (kept on this computer, copied to devices on deployment) --- */
+    if (a === 'files') {
+      const id = seg[3], sub = seg[4], FD = (x) => path.join(FILES, x + '.bin'), pub = (f) => ({ id: f.id, name: f.name, size: f.size, sha256: f.sha256, created: f.created });
+      if (!id && m === 'GET') return send(res, 200, { files: Object.values(db.files).sort((x, y) => y.created - x.created).map(pub), max: MAX_FILE });
+      if (!id && m === 'POST') { const b = await readJson(req); const name = str(b.name, 100).trim(), size = +b.size; if (!okName(name)) return fail(res, 422, 'The file name may only contain letters, digits, spaces and . _ ( ) + -'); if (!(size >= 0) || size > MAX_FILE) return fail(res, 422, 'Files can be up to ' + Math.round(MAX_FILE / 1048576) + ' MB');
+        const nid = 'f_' + rid(5); fs.writeFileSync(FD(nid) + '.part', ''); uploads.set(nid, { next: 0, size: 0, hash: crypto.createHash('sha256'), name, expect: Math.floor(size) }); return send(res, 200, { id: nid }); }
+      if (id && sub === 'chunk' && m === 'POST') { const u = uploads.get(id); if (!u) return fail(res, 404, 'Start the upload first'); const b = await readJson(req); if (+b.index !== u.next) return fail(res, 409, 'Chunk out of order'); const buf = Buffer.from(String(b.data || ''), 'base64'); if (u.size + buf.length > MAX_FILE || u.size + buf.length > u.expect + 4) { uploads.delete(id); try { fs.unlinkSync(FD(id) + '.part'); } catch { /* gone */ } return fail(res, 413, 'The file is bigger than announced'); }
+        fs.appendFileSync(FD(id) + '.part', buf); u.hash.update(buf); u.size += buf.length; u.next++; return send(res, 200, { received: u.size }); }
+      if (id && sub === 'done' && m === 'POST') { const u = uploads.get(id); if (!u) return fail(res, 404, 'Start the upload first'); uploads.delete(id); if (u.size !== u.expect) { try { fs.unlinkSync(FD(id) + '.part'); } catch { /* gone */ } return fail(res, 422, 'The upload is incomplete (' + u.size + ' of ' + u.expect + ' bytes)'); }
+        fs.renameSync(FD(id) + '.part', FD(id)); const f = { id, name: u.name, size: u.size, sha256: u.hash.digest('hex'), created: Date.now() }; db.files[id] = f; audit(who, ip, `Uploaded the file “${f.name}” (${Math.round(f.size / 1024)} KB)`); dirty(); return send(res, 200, { file: pub(f) }); }
+      if (id && !sub && m === 'DELETE') { const f = db.files[id]; if (!f) return fail(res, 404, 'Not found'); const used = Object.values(db.packages).find((p) => Object.values(p.targets || {}).some((t) => t.type === 'file' && t.fileId === id)); if (used) return fail(res, 409, 'The package “' + used.name + '” still uses this file'); delete db.files[id]; try { fs.unlinkSync(FD(id)); } catch { /* gone */ } audit(who, ip, `Deleted the file “${f.name}”`); dirty(); return send(res, 200, { ok: true }); }
+    }
     /* --- packages and deployment --- */
     if (a === 'packages') {
       const id = seg[3];
       if (!id && m === 'GET') return send(res, 200, { packages: Object.values(db.packages) });
       if (!id && m === 'POST') { const b = await readJson(req); const name = str(b.name, 60).trim(); if (!name) return fail(res, 422, 'Give the package a name'); const targets = {};
-        for (const o of ['windows', 'mac', 'linux']) { const t = b.targets && b.targets[o]; if (!t || !t.type) continue; const probeP = packageScript({ targets: { [o]: t } }, o); if (probeP.error) return fail(res, 422, o + ': ' + probeP.error); targets[o] = { type: t.type, id: str(t.id, 100), version: str(t.version, 40), url: str(t.url, 500), sha256: str(t.sha256, 64), script: str(t.script, 20000) }; }
-        if (!Object.keys(targets).length) return fail(res, 422, 'Add an installer for at least one system'); const p = { id: id || 'p_' + rid(4), name, desc: str(b.desc, 300), targets, created: Date.now() }; db.packages[p.id] = p; audit(who, ip, 'Saved package ' + name + (Object.values(targets).some((t) => t.type === 'script') ? ' (custom script)' : '')); dirty(); return send(res, 200, { package: p }); }
+        for (const o of ['windows', 'mac', 'linux']) { const t = b.targets && b.targets[o]; if (!t || !t.type) continue; if (t.type === 'file') { const fe = fileTargetError(t, o, db.files); if (fe) return fail(res, 422, o + ': ' + fe); targets[o] = { type: 'file', fileId: str(t.fileId, 40), dest: str(t.dest, 200), after: AFTER.includes(t.after) ? t.after : 'none', args: str(t.args, 300), sudo: t.sudo === true }; continue; } const probeP = packageScript({ targets: { [o]: t } }, o); if (probeP.error) return fail(res, 422, o + ': ' + probeP.error); targets[o] = { type: t.type, id: str(t.id, 100), version: str(t.version, 40), url: str(t.url, 500), sha256: str(t.sha256, 64), script: str(t.script, 20000) }; }
+        if (!Object.keys(targets).length) return fail(res, 422, 'Add an installer for at least one system'); const p = { id: id || 'p_' + rid(4), name, desc: str(b.desc, 300), targets, created: Date.now() }; db.packages[p.id] = p; audit(who, ip, 'Saved package ' + name + (Object.values(targets).some((t) => t.type === 'script') ? ' (custom script)' : Object.values(targets).some((t) => t.type === 'file' && t.after !== 'none') ? ' (uploaded file that runs)' : '')); dirty(); return send(res, 200, { package: p }); }
       if (id && m === 'DELETE') { delete db.packages[id]; audit(who, ip, 'Deleted a package'); dirty(); return send(res, 200, { ok: true }); }
     }
     if (a === 'deploy' && m === 'POST') {
@@ -350,7 +426,7 @@ module.exports = function Helpdesk(deps) {
       if (!ids.length) return fail(res, 422, 'Choose at least one device'); if (b.dryRun !== true && b.confirm !== true) return fail(res, 422, 'Confirm the deployment first');
       for (const i of ids) { const d = db.devices[i]; if (!d.credId) return fail(res, 422, `“${d.name}” has no sign-in chosen`); if (!INV[d.os]) return fail(res, 422, `“${d.name}”: run an inventory first so the system type is known`); }
       const job = newJob('deploy', (b.dryRun ? 'Check: ' : 'Deploy: ') + pk.name, who, ids, { dryRun: !!b.dryRun, packageId: pk.id }); audit(who, ip, `${b.dryRun ? 'Dry run of' : 'Deployed'} “${pk.name}” to ${ids.length} device(s)`);
-      runJob(job, async (d, r) => { const s = packageScript(pk, d.os); if (s.error) { r.status = 'skipped'; r.out = s.error; r.code = null; return; }
+      runJob(job, async (d, r) => { const tg = pk.targets && pk.targets[d.os]; if (tg && tg.type === 'file') return deployFile(d, r, tg, !!b.dryRun); const s = packageScript(pk, d.os); if (s.error) { r.status = 'skipped'; r.out = s.error; r.code = null; return; }
         if (b.dryRun) { const t = await run(d, d.os === 'windows' ? '"connected as " + $env:USERNAME' : 'echo "connected as $(id -un)"', d.os, 25000); r.out = (t.code === 0 ? t.out.trim() + '\nReady – the installer would run now.' : t.out.trim()) + (s.custom ? '\nThis package runs a custom script.' : ''); r.status = t.code === 0 ? 'ok' : 'failed'; r.code = t.code; return; }
         finish(r, await run(d, s.script, d.os, 20 * 60000)); });
       return send(res, 200, { job: { id: job.id } });
@@ -377,6 +453,6 @@ module.exports = function Helpdesk(deps) {
     }
     return fail(res, 404, 'Not found');
   }
-  return { handle, flush, _t: { db: () => db, setRunner: (f) => { runner = f; }, seal, unseal, inventoryOf, runScan, scan, probe } };
+  return { handle, flush, _t: { db: () => db, setRunner: (f) => { runner = f; }, setPutter: (f) => { putter = f; }, FILES, seal, unseal, inventoryOf, runScan, scan, probe } };
 };
-Object.assign(module.exports, { parseCidr, localSubnets, parseArp, guessOs, parseInventory, packageScript, actionScript, INV, ACTIONS, sq, pq, csvCell, isPrivate, okHost, okUser, PORTS });
+Object.assign(module.exports, { fileRunScript, fileTargetError, okName, okDest, parseCidr, localSubnets, parseArp, guessOs, parseInventory, packageScript, actionScript, INV, ACTIONS, sq, pq, csvCell, isPrivate, okHost, okUser, PORTS });

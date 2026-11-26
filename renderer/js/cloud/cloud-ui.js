@@ -57,7 +57,9 @@
     if (C.status === 'offline') { const sm = h('div', { class: 'form-error hidden', style: 'margin-top:6px' }); const local = C.isLocal(); c.append(h('div', { class: 'card' }, h('p', {}, local ? 'No Vextra server is running on this computer. Start one with a click – it only accepts connections from this computer and keeps its data in the app folder.' : 'Cannot reach ' + C.base() + '. Check the address in Settings, or start a server on this computer.'),
       h('div', { class: 'row', style: 'display:flex;gap:6px;flex-wrap:wrap' }, local ? h('button', { class: 'btn sm primary', onclick: async (e) => { const b = e.currentTarget; b.disabled = true; b.textContent = 'Starting…'; try { await C.startLocalServer(); redraw(); return; } catch (er) { sm.textContent = er.message; sm.classList.remove('hidden'); } b.disabled = false; b.textContent = '▶ Start local server'; } }, '▶ Start local server') : null, h('button', { class: 'btn sm', onclick: async () => { await C.init(); redraw(); } }, 'Retry')), sm,
       local ? h('label', { class: 'cfgp-check', style: 'display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px' }, (() => { const i = h('input', { type: 'checkbox' }); i.checked = !!VX.app.settings.autoServer; i.onchange = () => { VX.app.set('autoServer', i.checked); }; return i; })(), 'Start it automatically when Vextra opens') : null)); }
+    const hdBtn = () => h('button', { class: 'btn block', style: 'margin:8px 0 0', title: 'Computers, tickets and software deployment', onclick: () => VX.helpdesk && VX.helpdesk.open() }, VX.icon('monitor', 14), 'Helpdesk – computers, tickets, deployment');
     if (!C.user) {
+      c.append(hdBtn());
       c.append(h('div', { class: 'card vx-cloud-auth' }, h('h4', {}, 'Sign in to Vextra Cloud'),
         h('p', { style: 'color:var(--muted);margin-top:0' }, 'An account lets you publish sites and games to a public link, collaborate on projects and keep cloud saves and leaderboards.'),
         h('div', { class: 'row', style: 'display:flex;gap:8px;flex-wrap:wrap' }, h('button', { class: 'btn primary', onclick: () => U.authDialog('login') }, 'Sign in…'), h('button', { class: 'btn', onclick: () => U.authDialog('register') }, 'Create account…'))));
@@ -65,10 +67,11 @@
       return;
     }
     const u = C.user;
+    c.append(hdBtn());
     c.append(h('div', { class: 'card' }, h('div', { style: 'display:flex;gap:12px;align-items:center' }, h('div', { class: 'avatar lg' }, u.username[0].toUpperCase()), h('div', { style: 'flex:1;min-width:0' }, h('b', {}, u.displayName), h('div', { style: 'color:var(--muted)' }, '@' + u.username))),
       h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn sm', onclick: () => account() }, 'Manage account'), h('button', { class: 'btn sm', onclick: async () => { await C.logout(); redraw(); } }, 'Sign out'))));
 
-    c.append(h('button', { class: 'btn block', style: 'margin:8px 0 0', title: 'Computers, tickets and software deployment', onclick: () => VX.helpdesk && VX.helpdesk.open() }, VX.icon('monitor', 14), 'Helpdesk'));
+    
     /* publishing */
     c.append(h('div', { class: 'group-title' }, 'Published'));
     const sites = h('div', {}, h('div', { class: 'empty' }, 'Loading…')); c.append(sites);
