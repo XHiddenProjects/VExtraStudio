@@ -13,7 +13,7 @@
 | 3.11.x  | ⚠️ please upgrade to 4.4.x |
 | 3.10.x and older | ❌ please upgrade |
 
-Current version: **4.6.0** (see `VERSION`). This policy was last reviewed for 4.6.0.
+Current version: **4.7.0** (see `VERSION`). This policy was last reviewed for 4.7.0.
 
 ## Reporting a vulnerability
 
@@ -50,6 +50,14 @@ The repository is scanned by GitHub CodeQL. Values embedded in generated inline 
 ## v3.0.0 additions (still apply in 3.1.0)
 - **Library downloads** (`http_download`): https only, 50 MB cap, archive paths sanitised, user confirmation before anything is written. Templates and games are code: install only from sources you trust.
 - **Process runner** (`run_start`): only `npm`, `npx`, `node`; working directory must be inside a `store-export` folder; arguments limited to `[A-Za-z0-9@./:=,+-_]`; no shell is used. npm packages named in generated `package.json` files run their install scripts as usual.
+
+## v4.7.0 notes
+- **AI voice downloads code and a model once.** The first use loads the `kokoro-js` library (pinned to version 1.2.0) from the jsDelivr CDN and the model weights from Hugging Face, only after an explicit confirmation that names the size and the servers; both are cached by the browser. Text you type is processed on the device and never sent to those servers. If you cannot allow third-party CDNs, do not use *AI voice* – nothing else in Vextra loads remote code. Text is limited to 360 characters.
+- **Service worker (web version only).** The installable web app caches same-origin files of the app itself; it ignores other origins, `/api/` and `/__ext`, is not registered in the desktop app or on localhost, and never stores projects or sign-in data (those stay in the browser's own storage).
+- **Touch bridge.** `touch.js` turns finger gestures on elements marked `data-touch="bridge"` (node graph, 2D scene view) into the same mouse events those editors already handle; it adds no new data paths.
+- **VXSite blocks.** *Embed a web page* accepts `https://` addresses only and renders them in an iframe with `sandbox="allow-scripts allow-popups allow-forms"` (no same-origin access, no top navigation) and `referrerpolicy="no-referrer"`; *Social links*, *Download card*, *Audio player* and the other new blocks pass every address through the same safe-link check (no `javascript:` / `data:`) and escape all text. The site preview no longer shows a second login link.
+- **Saving files.** The new save helper uses the desktop app's Save dialog or the browser's save picker; it never writes anywhere without a user choice (the browser fallback uses the normal download).
+- **Block ports** are display only; hidden ports still run exactly as wired.
 
 ## v4.6.0 notes
 - **File deployment (Helpdesk).** Uploads are admin-only (same rule as the rest of the Helpdesk: only the Vextra app on the server computer), stored under `helpdesk/files/` (directory mode 0700) with the SHA-256 computed on the server, limited to 200 MB, and uploaded in ordered chunks that are refused if they are out of order, oversized or incomplete. File names are restricted to letters, digits, spaces and `. _ ( ) + -` (no `..`, no slashes), and the target folder to `A–Z a–z 0–9 . _ - / \ :` without `..` or spaces, so neither can reach another path or act as an option.

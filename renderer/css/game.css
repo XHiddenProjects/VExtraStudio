@@ -242,3 +242,13 @@ input.n { width: 100%; }
 /* device simulator: the preview tilts with the sliders; shake only animates translate/rotate so the frame stays centred */
 .play-stage { perspective: 1100px; } .play-tilt { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .08s linear; will-change: transform; } .tiltout { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; min-width: 180px; }
 .tb-more { min-width: 210px; } .tb-mi { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); padding: 7px 10px; border-radius: 7px; font-size: 12.5px; cursor: pointer; } .tb-mi:hover, .tb-mi:focus-visible { background: var(--hover); outline: none; }
+
+/* v4.7 – Defaults SFX preview button, Helpdesk button in the Cloud panel */
+.dflt-pv{margin-top:4px;width:100%;justify-content:center}
+.btn.block.hd-open{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;white-space:nowrap}
+.btn.block.hd-open svg{flex:0 0 auto;position:static;margin:0}
+
+/* v4.7 – optional ports list in the block settings */
+.ge-optcol{display:flex;flex-wrap:wrap;gap:2px 12px;margin:4px 0;font-size:12px;align-items:center}
+.ge-optcol b{flex:0 0 100%;font-size:11px;color:var(--muted);font-weight:600}
+.ge-optport{display:inline-flex;align-items:center;gap:4px;cursor:pointer}

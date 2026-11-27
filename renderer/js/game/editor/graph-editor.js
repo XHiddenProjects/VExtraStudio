@@ -25,7 +25,7 @@
     _build() {
       this.paletteEl = h('div', { class: 'ge-pal' }); this.world = h('div', { class: 'ge-world' }); this.svg = document.createElementNS(SVGNS, 'svg'); this.svg.setAttribute('class', 'ge-wires');
       this.band = h('div', { class: 'ge-band hidden' }); this.crumbs = h('div', { class: 'ge-crumbs' }); this.empty = h('div', { class: 'ge-empty' }, 'Drag blocks here from the palette, or double-click to search.');
-      this.canvas = h('div', { class: 'ge-canvas', tabindex: '0' }, this.world, this.band, this.crumbs, this.empty); this.world.append(this.svg);
+      this.canvas = h('div', { class: 'ge-canvas', tabindex: '0', 'data-touch': 'bridge' }, this.world, this.band, this.crumbs, this.empty); this.world.append(this.svg);
       this.sideEl = h('div', { class: 'ge-side' });
       const rz = (el, dir) => { const r = h('div', { class: 'ge-rz', title: 'Drag to resize' }); r.addEventListener('pointerdown', (e) => { e.preventDefault(); r.setPointerCapture(e.pointerId); const sx = e.clientX, w0 = el.getBoundingClientRect().width; r.classList.add('on'); const mv = (ev) => { el.style.width = VX.clamp(w0 + (ev.clientX - sx) * dir, 140, 640) + 'px'; }; const up = () => { r.classList.remove('on'); r.removeEventListener('pointermove', mv); r.removeEventListener('pointerup', up); try { localStorage.setItem('vx.ge.' + dir, el.style.width); } catch { /* private mode */ } }; r.addEventListener('pointermove', mv); r.addEventListener('pointerup', up); }); r.addEventListener('dblclick', () => { el.style.width = ''; }); try { const w = localStorage.getItem('vx.ge.' + dir); if (w) el.style.width = w; } catch { /* ignore */ } return r; };
       const root = h('div', { class: 'ge' }, this.paletteEl, rz(this.paletteEl, 1), this.canvas, rz(this.sideEl, -1), this.sideEl);
@@ -70,7 +70,24 @@
     }
 
     /* ---------------- nodes ---------------- */
-    ports(n) { const def = VXRT.blocks[n.type]; if (!def) return { inputs: [{ id: 'in', label: 'in' }], outputs: [{ id: 'out', label: 'out' }], missing: true }; return VXRT.ports(def, Object.assign(VXRT.paramDefaults(def), n.params || {}), n); }
+    /** every port of a block, optional ones included */
+    allPorts(n) { const def = VXRT.blocks[n.type]; if (!def) return { inputs: [{ id: 'in', label: 'in' }], outputs: [{ id: 'out', label: 'out' }], missing: true }; return VXRT.ports(def, Object.assign(VXRT.paramDefaults(def), n.params || {}), n); }
+    /** ports shown on the canvas: optional ones only when wired or switched on in the block's settings */
+    ports(n) {
+      const full = this.allPorts(n); if (full.missing || !(full.inputs.some((x) => x.opt) || full.outputs.some((x) => x.opt))) return full;
+      const ws = this.graph.wires || [], sh = new Set(n.show || []);
+      const vis = (x, side) => !x.opt || sh.has(side + ':' + x.id) || ws.some((w) => (side === 'in' ? w.to === n.id && (w.in || 'in') === x.id : w.from === n.id && (w.out || 'out') === x.id));
+      return { inputs: full.inputs.filter((x) => vis(x, 'in')), outputs: full.outputs.filter((x) => vis(x, 'out')) };
+    }
+    /** settings section: tick the optional inputs / outputs you want on the block */
+    portsField(n, touch) {
+      const full = this.allPorts(n), opt = [].concat(full.inputs.filter((x) => x.opt).map((x) => ['in', x]), full.outputs.filter((x) => x.opt).map((x) => ['out', x])); if (!opt.length) return null;
+      const ws = this.graph.wires || [], wired = (side, id) => ws.some((w) => (side === 'in' ? w.to === n.id && (w.in || 'in') === id : w.from === n.id && (w.out || 'out') === id));
+      const row = (side, x) => { const key = side + ':' + x.id, isW = wired(side, x.id), on = isW || (n.show || []).includes(key); const cb = h('input', { type: 'checkbox', checked: on, disabled: this.readOnly || isW, title: isW ? 'In use – it has a wire' : '' }); cb.onchange = () => { const set = new Set(n.show || []); if (cb.checked) set.add(key); else set.delete(key); n.show = set.size ? [...set] : undefined; touch(); this.render(); }; return h('label', { class: 'ge-optport' }, cb, ' ', x.label || x.id); };
+      const ins = opt.filter((o) => o[0] === 'in'), outs = opt.filter((o) => o[0] === 'out');
+      return h('div', { class: 'ge-ports-set' }, h('div', { class: 'group-title', style: 'margin-top:12px' }, 'Ports'), h('div', { style: 'font-size:11px;color:var(--muted);margin-bottom:4px' }, 'Tick the extra inputs / outputs you want on this block. Unticked ones stay hidden to keep it small.'),
+        ins.length ? h('div', { class: 'ge-optcol' }, h('b', {}, 'Inputs'), ins.map(([sd, x]) => row(sd, x))) : null, outs.length ? h('div', { class: 'ge-optcol' }, h('b', {}, 'Outputs'), outs.map(([sd, x]) => row(sd, x))) : null);
+    }
     nodeHeight(n) { if (n.collapsed) return HEAD; const p = this.ports(n); return HEAD + Math.max(p.inputs.length, p.outputs.length, 1) * ROW + this.summary(n).length * 15 + 8; }
     summary(n) { const def = VXRT.blocks[n.type]; if (!def) return ['Missing block type “' + n.type + '”']; const d = VXRT.paramDefaults(def); const out = []; for (const p of def.params || []) { const v = (n.params || {})[p.key]; if (v === undefined || JSON.stringify(v) === JSON.stringify(d[p.key])) continue; out.push(`${p.label}: ${String(Array.isArray(v) ? v.join(',') : v).slice(0, 22)}`); if (out.length >= 3) break; } if (n.type === 'bundle') out.push(((n.graph && n.graph.nodes.length) || 0) + ' blocks inside – double-click'); return out; }
     addBlockCenter(type) { const r = this.canvas.getBoundingClientRect(); const p = this.toWorld(r.left + r.width / 2, r.top + r.height / 2); this.addBlock(type, p.x - NODE_W / 2 + (Math.random() - 0.5) * 60, p.y - 30 + (Math.random() - 0.5) * 60); }
@@ -202,6 +219,7 @@
       let timer; const commit = () => { clearTimeout(timer); timer = setTimeout(() => this._snap(), 400); };
       const shown = (p) => !p.showIf || [].concat(p.showIf.in || p.showIf.is).includes(((n.params || {})[p.showIf.key] ?? VXRT.paramDefaults(def)[p.showIf.key]));
       for (const p of def.params || []) { if (!shown(p)) continue; const val = (n.params || {})[p.key] ?? VXRT.paramDefaults(def)[p.key]; s.append(this._paramField(p, val, (v) => { (n.params ||= {})[p.key] = v; touch(); commit(); if (n.type === 'bundleInput' || n.type === 'bundleOutput') this.render(); else if ((def.params || []).some((q) => q.showIf && q.showIf.key === p.key)) this.drawSide(); }, n)); }
+      { const pf = this.portsField(n, touch); if (pf) s.append(pf); }
       if (n.label !== undefined || true) s.append(VX.ui.field('Label', (() => { const i = h('input', { value: n.label || '', placeholder: 'optional name' }); i.onchange = () => { n.label = i.value || undefined; touch(); this._snap(); this.ctx.onChange && this.ctx.onChange(this.root); }; return i; })(), 'A custom title for this block on the canvas'));
       s.append(h('div', { style: 'margin-top:12px;display:flex;gap:6px' }, h('button', { class: 'btn sm', disabled: this.readOnly, onclick: () => this.duplicate() }, 'Duplicate'), h('button', { class: 'btn sm danger', disabled: this.readOnly, onclick: () => this.deleteSel() }, 'Delete')));
     }

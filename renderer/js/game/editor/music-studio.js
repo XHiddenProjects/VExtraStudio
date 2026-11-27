@@ -19,7 +19,7 @@
       A, async toAsset(song, name) {
         const gen = MG(), q = QUALITY[S.quality]; say('Mixing down…'); const buf = await gen.renderSong(song, { sampleRate: q.sampleRate, mono: q.mono, loop: S.loop }); const data = gen.toWavDataURL(buf);
         if (data.length > 6e6) VX.ui.toast('This track is ' + fmtSize(data.length) + ' – it will make the project file large. Try the Small quality or fewer bars.', 'warn');
-        const a = { id: uid('snd'), name: (name || song.name || 'Music').slice(0, 60) + (S.loop ? ' (loop)' : ''), kind: 'sample', data, loop: !!S.loop, music: true }; A.sounds[a.id] = a; ctx.onChange(); ctx.refresh && ctx.refresh(); say(''); VX.ui.toast('“' + a.name + '” added to Sounds (' + fmtSize(data.length) + ')', 'success'); return a;
+        const a = { id: uid('snd'), name: (name || song.name || 'Music').slice(0, 60) + (S.loop ? ' (loop)' : ''), kind: 'sample', data, loop: !!S.loop, music: true }; A.sounds[a.id] = a; ctx.onChange(); ctx.refresh && ctx.refresh(); say(''); VX.ui.toast('“' + a.name + '” added to this project → Assets → Sounds (' + fmtSize(data.length) + ', stored inside the project file)', 'success'); return a;
       },
       sizeNote(song) { const q = QUALITY[S.quality], sec = MG().lengthSec(song); return fmtSize(sec * q.sampleRate * (q.mono ? 1 : 2) * 2 * 1.37); },
     };

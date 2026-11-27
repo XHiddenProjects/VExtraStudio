@@ -1,23 +1,21 @@
-/** @vx-plugin {"id":"block-extras","name":"Block Extras","version":"1.1.0","description":"Extra logic blocks: Coin Flip, Clamp, Wrap, Map Range, Round, Random Pick, Counter, Cooldown, Alternate, Sequencer, In Range, Random Color, Stopwatch, Smooth and Typewriter."} */
+/** @vx-plugin {"id":"block-extras","name":"Block Extras","version":"1.2.0","description":"Extra logic blocks that Vextra Studio does not already have: Clamp, Wrap, Map Range, Round, Counter, Cooldown, Random Color, Stopwatch, Smooth and Typewriter."} */
 /** @vx-docs
  * ## Using Block Extras
  * Open a game, switch to **Logic** and look for the **Plugins** category in the block palette.
  *
- * - **Coin Flip** – every time it receives a signal it sends `heads` or `tails` out of the matching port.
  * - **Clamp** – limits a number between *Min* and *Max*.
  * - **Wrap** – loops a number around a range (angles, endless scrolling).
  * - **Map Range** – converts a number from one range to another (health 0–100 → bar 0–1).
  * - **Round** – rounds, floors or ceils to a number of decimals.
- * - **Random Pick** – sends a random line of your list (and its position).
  * - **Counter** – counts up / down with reset and a target that fires `reached`.
  * - **Cooldown** – lets a signal through, then ignores new ones for a few seconds.
- * - **Alternate** – sends the signal to `a`, then `b`, then `a` again…
- * - **Sequencer** – steps through `step1`…`step4` one signal at a time.
- * - **In Range** – `inside` or `outside` a minimum and maximum.
  * - **Random Color** – a random bright colour as `#rrggbb` text.
  * - **Stopwatch** – counts seconds (start / stop / reset).
  * - **Smooth** – glides toward the latest number instead of jumping.
  * - **Typewriter** – types text out one letter at a time.
+ *
+ * ### Already built in
+ * Coin Flip, Alternate, Sequencer, In Range and Random Pick were removed in 1.2.0 because Vextra Studio already has them: **Random** (Chance mode), **Toggle Switch**, **Router** (Round robin), **Filter** (Between) and **List Order** (Random item).
  *
  * ### Demo videos
  * Every block above has a short demo clip in its documentation page. For your own plugin blocks add `demo: { video: 'https://example.com/clip.webm', caption: 'What it shows' }` (an https or local `.webm` / `.mp4` link) and the clip appears in **Docs → Blocks** and on your plugin's page.
@@ -26,11 +24,6 @@
  * Blocks registered with `vx.game.registerBlock` must be **self-contained**: their functions are copied as text into exported games, so they cannot use variables from the plugin file. Use only what the function receives:
  * `onInput(node, port, value, game)` – `node.p` holds the settings, `game.send(node, 'port', value)` sends a signal.
  */
-vx.game.registerBlock({
-  id: 'coinflip', label: 'Coin Flip', cat: 'plugins', desc: 'Sends a signal out of "heads" or "tails" at random.',
-  inputs: ['in'], outputs: ['heads', 'tails'], params: [{ key: 'bias', label: 'Chance of heads (0–1)', type: 'number', def: 0.5 }],
-  onInput(n, port, v, g) { const p = parseFloat(n.p.bias); g.send(n, Math.random() < (Number.isFinite(p) ? p : 0.5) ? 'heads' : 'tails', 1); },
-});
 vx.game.registerBlock({
   id: 'clampnum', label: 'Clamp', cat: 'plugins', desc: 'Limits a number to a range.',
   inputs: ['in'], outputs: ['out'], params: [{ key: 'min', label: 'Min', type: 'number', def: 0 }, { key: 'max', label: 'Max', type: 'number', def: 1 }],
@@ -54,11 +47,6 @@ vx.game.registerBlock({
   onInput(n, port, v, g) { const k = Math.pow(10, Math.max(0, Math.min(8, parseInt(n.p.decimals) || 0))); const f = n.p.mode === 'floor' ? Math.floor : n.p.mode === 'ceil' ? Math.ceil : Math.round; g.send(n, 'out', f((parseFloat(v) || 0) * k) / k); },
 });
 vx.game.registerBlock({
-  id: 'randompick', label: 'Random Pick', cat: 'plugins', desc: 'Sends one random line from your list to "out" and its position (1, 2, 3…) to "index". Great for random messages, names or colours.',
-  inputs: ['in'], outputs: ['out', 'index'], params: [{ key: 'items', label: 'Items (one per line)', type: 'multiline', def: 'Nice!\nGreat!\nAmazing!' }, { key: 'noRepeat', label: 'Never the same twice in a row', type: 'bool', def: true }],
-  onInput(n, port, v, g) { const L = String(n.p.items || '').split('\n').map((x) => x.trim()).filter(Boolean); if (!L.length) return; let i = Math.floor(Math.random() * L.length); if (n.p.noRepeat && L.length > 1 && i === n.st.last) i = (i + 1 + Math.floor(Math.random() * (L.length - 1))) % L.length; n.st.last = i; g.send(n, 'index', i + 1); g.send(n, 'out', L[i]); },
-});
-vx.game.registerBlock({
   id: 'counter', label: 'Counter', cat: 'plugins', desc: 'Counts signals. "in" / "up" add Step, "down" subtracts, "reset" goes back to Start. "reached" fires once when the Target is hit (leave Target empty for none).',
   inputs: ['in', 'up', 'down', 'reset'], outputs: ['out', 'reached'], params: [{ key: 'start', label: 'Start', type: 'number', def: 0 }, { key: 'step', label: 'Step', type: 'number', def: 1 }, { key: 'target', label: 'Target (optional)', type: 'text', def: '' }],
   init(n) { n.st.v = parseFloat(n.p.start) || 0; },
@@ -68,21 +56,6 @@ vx.game.registerBlock({
   id: 'cooldown', label: 'Cooldown', cat: 'plugins', desc: 'Lets a signal through, then ignores new ones for a number of seconds (shooting speed, button spam). Ignored signals leave through "blocked".',
   inputs: ['in'], outputs: ['out', 'blocked'], params: [{ key: 'seconds', label: 'Wait (seconds)', type: 'number', def: 1 }],
   onInput(n, port, v, g) { const w = parseFloat(n.p.seconds); if (n.st.until !== undefined && g.time < n.st.until) { g.send(n, 'blocked', v); return; } n.st.until = g.time + (Number.isFinite(w) ? w : 1); g.send(n, 'out', v); },
-});
-vx.game.registerBlock({
-  id: 'alternate', label: 'Alternate', cat: 'plugins', desc: 'Sends each signal to "a", then "b", then "a" again – turn something on and off, or swap two animations.',
-  inputs: ['in', 'reset'], outputs: ['a', 'b'], params: [],
-  onInput(n, port, v, g) { if (port === 'reset') { n.st.b = false; return; } n.st.b = !n.st.b; g.send(n, n.st.b ? 'a' : 'b', v); },
-});
-vx.game.registerBlock({
-  id: 'sequencer', label: 'Sequencer', cat: 'plugins', desc: 'Steps through its outputs: the 1st signal leaves "step1", the 2nd "step2" … then it starts again (or stops at the end).',
-  inputs: ['in', 'reset'], outputs: ['step1', 'step2', 'step3', 'step4', 'done'], params: [{ key: 'loop', label: 'Loop', type: 'bool', def: true }],
-  onInput(n, port, v, g) { if (port === 'reset') { n.st.i = 0; return; } const i = n.st.i || 0; if (i >= 4) return; g.send(n, 'step' + (i + 1), v); n.st.i = i + 1; if (n.st.i >= 4) { g.send(n, 'done', v); if (n.p.loop) n.st.i = 0; } },
-});
-vx.game.registerBlock({
-  id: 'inrange', label: 'In Range', cat: 'plugins', desc: 'Checks whether a number is between Min and Max (both included). Sends the number to "inside" or "outside".',
-  inputs: ['in'], outputs: ['inside', 'outside'], params: [{ key: 'min', label: 'Min', type: 'number', def: 0 }, { key: 'max', label: 'Max', type: 'number', def: 10 }],
-  onInput(n, port, v, g) { const x = parseFloat(v), a = parseFloat(n.p.min), b = parseFloat(n.p.max); g.send(n, x >= (Number.isFinite(a) ? a : 0) && x <= (Number.isFinite(b) ? b : 10) ? 'inside' : 'outside', v); },
 });
 vx.game.registerBlock({
   id: 'randomcolor', label: 'Random Color', cat: 'plugins', desc: 'Sends a random bright colour as text like #3fb950 – feed it to a Colors block.',

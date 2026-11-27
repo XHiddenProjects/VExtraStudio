@@ -22,7 +22,7 @@
     },
     setRoot(path) { S.root = path; VX.emit('root', path); },
     rel: (p) => (S.root ? VX.path.rel(S.root, p) : VX.path.base(p)),
-    version: '4.6.0',
+    version: '4.7.0',
   });
   /* file classification */
   const IMG = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg', 'avif']);

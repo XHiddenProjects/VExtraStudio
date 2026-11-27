@@ -26,7 +26,24 @@
   };
   VXRT.unregisterBlock = (id) => { delete blocks[id]; };
   const portList = (spec, p, node) => (typeof spec === 'function' ? spec(p || {}, node) : spec || []).map((x) => (typeof x === 'string' ? { id: x, label: x } : x));
-  VXRT.ports = (def, params, node) => ({ inputs: portList(def.inputs, params, node), outputs: portList(def.outputs, params, node) });
+  /** Full port list of a block (the editor hides the ones marked `opt` until they are wired or switched on in the block's settings).
+      Blocks that send an OBJECT get one output per key: def.keys = { out: { keys: ['year', …], show: ['year'] } } adds an output called "year" that carries obj.year. */
+  VXRT.ports = (def, params, node) => {
+    const r = { inputs: portList(def.inputs, params, node), outputs: portList(def.outputs, params, node) };
+    if (def.keys) for (const port of Object.keys(def.keys)) { const K = def.keys[port]; for (const k of K.keys) if (!r.outputs.some((o) => o.id === k)) r.outputs.push({ id: k, label: k, key: port, opt: !(K.show || []).includes(k) }); }
+    return r;
+  };
+  /** Gives a block (already registered) one output per key of the object it sends. Keys that already have their own output are left alone. */
+  VXRT.setKeys = function (id, table) {
+    const d = blocks[id]; if (!d) return; d.keys = table; d.keyOuts = {};
+    const fixed = Array.isArray(d.outputs) ? d.outputs.map((x) => (typeof x === 'string' ? x : x.id)) : [];
+    for (const port of Object.keys(table)) d.keyOuts[port] = table[port].keys.filter((k) => !fixed.includes(k));
+  };
+  /** Marks existing ports of a block as optional: { in: ['c', 'd'], out: ['error'] } – hidden on the canvas until used. */
+  VXRT.optPorts = function (id, spec) {
+    const d = blocks[id]; if (!d) return; const mark = (list, ids) => (Array.isArray(list) ? list.map((x) => { const o = typeof x === 'string' ? { id: x, label: x } : x; return ids.includes(o.id) ? Object.assign({}, o, { opt: true }) : x; }) : list);
+    if (spec.in) d.inputs = mark(d.inputs, spec.in); if (spec.out) d.outputs = mark(d.outputs, spec.out);
+  };
   VXRT.paramDefaults = (def) => { const o = {}; for (const p of def.params || []) o[p.key] = p.def !== undefined ? p.def : p.type === 'bool' ? false : p.type === 'number' ? 0 : ''; return o; };
 
   /** Rename blocks that changed meaning (switch in v2 -> caseSwitch; clip/motionAnim -> animation) so old projects keep working. Safe to call repeatedly. */
@@ -88,12 +105,21 @@
   };
   VXRT.liveFlush = (g) => { const ch = g.opts && g.opts.channel; if (!g._live || !ch || window.parent === window) return; try { window.parent.postMessage({ vx: 'live', token: ch.token, data: g._live }, ch.origin); } catch { /* ignore */ } g._live = {}; };
   VXRT.send = function (g, node, port, value) {
-    if (node.dead) return; if (g.liveOn) liveRec(g, node, port, value); const targets = node.out[port]; if (!targets) return;
-    if (g.sendDepth > 60) { if (!g._depthWarned) { g._depthWarned = true; g.log('warn', 'Signal loop detected (depth > 60) – check for a cycle without a delay.'); } return; }
-    g.sendDepth++;
-    try { for (const t of targets) { if (t.node.dead) continue; if (t.self) { (g.selfQ ||= []).push([t, value]); continue; } try { t.node.def.onInput && t.node.def.onInput(t.node, t.port, value, g); } catch (e) { g.nodeError(t.node, e); } } } finally { g.sendDepth--; }
+    if (node.dead) return; if (g.liveOn) liveRec(g, node, port, value); const targets = node.out[port];
+    if (targets) {
+      if (g.sendDepth > 60) { if (!g._depthWarned) { g._depthWarned = true; g.log('warn', 'Signal loop detected (depth > 60) – check for a cycle without a delay.'); } return; }
+      g.sendDepth++;
+      try { for (const t of targets) { if (t.node.dead) continue; if (t.self) { (g.selfQ ||= []).push([t, value]); continue; } try { t.node.def.onInput && t.node.def.onInput(t.node, t.port, value, g); } catch (e) { g.nodeError(t.node, e); } } } finally { g.sendDepth--; }
+    }
+    if (value && typeof value === 'object' && node.def.keyOuts && node.def.keyOuts[port]) VXRT.fanKeys(g, node, port, value);
+  };
+  /** An object left `port`: every key that has its own output sends its value there too. */
+  VXRT.fanKeys = function (g, node, port, obj) {
+    const ko = node.def.keyOuts && node.def.keyOuts[port]; if (!ko || !obj || typeof obj !== 'object') return;
+    for (const k of ko) if (k in obj && (node.out[k] || g.liveOn)) VXRT.send(g, node, k, obj[k]);
   };
   VXRT.Game.prototype.send = function (node, port, value) { VXRT.send(this, node, port, value); };
+  VXRT.Game.prototype.sendKeys = function (node, port, obj) { VXRT.fanKeys(this, node, port, obj); };
   VXRT.Game.prototype.listen = function (node, off) { node.cleanups.push(off); return off; };
 
   VXRT.instantiateBehavior = function (g, owner, b) {

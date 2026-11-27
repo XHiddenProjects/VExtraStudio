@@ -86,12 +86,12 @@ const presence = {}; // pid -> user -> {file, at}
 /* ------------------------------------------------------------------ routes */
 async function api(req, res, url, ip) {
   const m = req.method, p = url.pathname, seg = p.split('/').filter(Boolean); // ['api', ...]
-  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.6.0', time: Date.now(), register: ALLOW_REGISTER, minPassword: MIN_PASSWORD, invite: HOST_.requireInvite(req) });
+  if (p === '/api/health') return send(res, 200, { ok: true, name: 'vextra-server', version: '4.7.0', time: Date.now(), register: ALLOW_REGISTER, minPassword: MIN_PASSWORD, invite: HOST_.requireInvite(req) });
 
   /* --- hosting (this computer only) --- */
   if (p.startsWith('/api/host')) {
     if (!HOST_.isAdmin(req)) return fail(res, 403, 'Hosting can only be changed from the Vextra app on the computer that runs this server');
-    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.6.0' });
+    if (p === '/api/host' && m === 'GET') return send(res, 200, { ...HOST_.status(), version: '4.7.0' });
     if (m !== 'POST') return fail(res, 405, 'Use POST');
     const b = await readJson(req);
     try {

@@ -77,6 +77,18 @@
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   };
 
+  /** Saves a file and tells the person WHERE it went. Desktop: the system "Save as" dialog (full path is shown afterwards).
+      Browser: the save picker when the browser has one, otherwise the browser's Downloads folder. Returns the location text, or null if cancelled. */
+  VX.saveFile = async (name, blob, opts = {}) => {
+    const safe = String(name || 'file').replace(/[\\/:*?"<>|]+/g, '_'), tell = (where) => { if (VX.ui && VX.ui.toast) VX.ui.toast('Saved ' + safe + ' → ' + where, 'success'); return where; };
+    try {
+      if (window.native && window.native.isDesktop && window.native.saveBinary) { const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(r.error); r.readAsDataURL(blob); }); const p = await window.native.saveBinary(safe, b64); return p ? tell(p) : null; }
+      if (window.showSaveFilePicker) { const ext = (/\.[A-Za-z0-9]+$/.exec(safe) || ['.bin'])[0]; const hnd = await window.showSaveFilePicker({ suggestedName: safe, types: [{ description: opts.label || 'File', accept: { [blob.type || 'application/octet-stream']: [ext] } }] }); const w = await hnd.createWritable(); await w.write(blob); await w.close(); return tell('the folder you picked (' + hnd.name + ')'); }
+    } catch (e) { if (e && e.name === 'AbortError') return null; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = safe; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+    return tell('your browser’s Downloads folder (your browser decides – check its download list)');
+  };
+
   /* tiny event bus */
   const L = {};
   VX.on = (ev, cb) => { (L[ev] ||= new Set()).add(cb); return () => L[ev].delete(cb); };

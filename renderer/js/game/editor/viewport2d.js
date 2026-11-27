@@ -6,7 +6,7 @@
   class Viewport2D {
     constructor(ctx) {
       this.ctx = ctx; this.scene = null; this.sel = []; this.view = { x: 0, y: 0, z: 1 }; this.grid = 32; this.snap = true; this.showGrid = true; this.showCam = true; this.showColliders = true; this.tool = 'move';
-      this.canvas = h('canvas', { class: 'vp-canvas', tabindex: '0' }); this.g = this.canvas.getContext('2d'); this.el = h('div', { class: 'vp' }, this.canvas); this.env = null; this.pos = VX.layers.readout(this.el);
+      this.canvas = h('canvas', { class: 'vp-canvas', tabindex: '0', 'data-touch': 'bridge' }); this.g = this.canvas.getContext('2d'); this.el = h('div', { class: 'vp' }, this.canvas); this.env = null; this.pos = VX.layers.readout(this.el);
       this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(this.el);
       this.canvas.addEventListener('mousedown', (e) => this._down(e)); this.canvas.addEventListener('wheel', (e) => { e.preventDefault(); const r = this.canvas.getBoundingClientRect(); this.zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 0.89); }, { passive: false });
       this.canvas.addEventListener('keydown', (e) => this._key(e)); this.canvas.addEventListener('mousemove', (e) => this._hoverCursor(e));

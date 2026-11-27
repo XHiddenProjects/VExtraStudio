@@ -36,7 +36,7 @@
     const num = (label, get, set, min, max, step, w) => h('label', { class: 'daw-f' }, label, h('input', { type: 'number', min, max, step: step || 1, value: get(), style: w ? 'width:' + w + 'px' : '', 'aria-label': label, onchange: (e) => { const v = +e.target.value; if (!isFinite(v) || v < min || v > max) { e.target.value = get(); say(label + ' must be between ' + min + ' and ' + max, true); return; } say(''); set(v); commit(); } }));
     const saved = Object.values(A.music);
     const top = h('div', { class: 'daw-top' },
-      h('div', { class: 'daw-grp' }, h('button', { class: 'btn sm', title: 'Back to the start (Home)', onclick: () => { stop(); S.pos = 0; drawAll(); } }, '⏮'), playBtn, h('label', { class: 'chk', title: 'Loop the song' }, h('input', { type: 'checkbox', checked: S.loop, onchange: (e) => { S.loop = e.target.checked; if (D.play) D.play.src.loop = S.loop; } }), ' Loop'), timeEl, meter, renderEl),
+      h('div', { class: 'daw-grp' }, h('button', { class: 'btn sm', title: 'Back to the start (Home)', onclick: () => { stop(); S.pos = 0; drawAll(); } }, '⏮'), playBtn, h('label', { class: 'chk', title: 'Loop the song' }, h('input', { type: 'checkbox', checked: S.loop, onchange: (e) => { S.loop = e.target.checked; const p = D.play; if (p) { const c = audio(); p.off = (((c.currentTime - p.t0 + p.off) % p.len) + p.len) % p.len; p.t0 = c.currentTime; p.src.loop = S.loop; } } }), ' Loop'), timeEl, meter, renderEl),
       h('div', { class: 'daw-grp' }, num('BPM', () => song().bpm, (v) => { song().bpm = v; drawAll(); }, 40, 220, 1, 62), num('Bars', () => song().bars, (v) => { song().bars = v; rebuildAll(); }, 2, 64, 1, 54),
         h('label', { class: 'daw-f' }, 'Key', h('select', { 'aria-label': 'Key', onchange: (e) => { song().key = +e.target.value; commit(); } }, NOTE.map((n, i) => h('option', { value: i, selected: song().key === i }, n)))),
         h('label', { class: 'daw-f' }, 'Scale', h('select', { 'aria-label': 'Scale', onchange: (e) => { song().mode = e.target.value; commit(); } }, gen.MODES.map((m) => h('option', { value: m, selected: song().mode === m }, m))))),
@@ -55,7 +55,7 @@
       const c = audio(); if (c.state === 'suspended') await c.resume(); const src = c.createBufferSource(); src.buffer = buf; src.loop = !!S.loop;
       const an = c.createAnalyser(); an.fftSize = 512; src.connect(an); an.connect(c.destination); const off = ((S.pos * spb()) % buf.duration + buf.duration) % buf.duration; src.start(0, off);
       const p = D.play = { src, an, t0: c.currentTime, off, len: buf.duration, data: new Uint8Array(an.fftSize), peak: 0 }; playBtn.textContent = '■ Stop'; src.onended = () => { if (D.play === p) { D.play = null; playBtn.textContent = '▶ Play'; cancelAnimationFrame(p.raf); drawAll(); } };
-      const tick = () => { if (D.play !== p) return; let el = c.currentTime - p.t0 + p.off; if (S.loop) el %= p.len; D.beat = el / spb(); drawHeads(); drawMeter(p); p.raf = requestAnimationFrame(tick); }; tick();
+      const tick = () => { if (D.play !== p) return; let el = c.currentTime - p.t0 + p.off; if (S.loop) el %= p.len; else el = Math.min(el, p.len); D.beat = el / spb(); drawHeads(); drawMeter(p); p.raf = requestAnimationFrame(tick); }; tick();
     }
     function drawMeter(p) { const g = meter.getContext('2d'); p.an.getByteTimeDomainData(p.data); let pk = 0; for (const v of p.data) pk = Math.max(pk, Math.abs(v - 128) / 128); p.peak = Math.max(pk, p.peak * 0.92); g.clearRect(0, 0, 90, 10); g.fillStyle = 'rgba(128,128,128,.25)'; g.fillRect(0, 0, 90, 10); const w = Math.min(1, p.peak * 1.2) * 90; g.fillStyle = p.peak > 0.92 ? '#f87171' : p.peak > 0.7 ? '#facc15' : '#4ade80'; g.fillRect(0, 0, w, 10); }
 
@@ -82,7 +82,7 @@
       });
       const add = h('select', { class: 'tr-add', 'aria-label': 'Add an instrument' }, h('option', { value: '' }, '＋ Add instrument…'), Object.entries(groups).map(([g, l]) => h('optgroup', { label: g }, l.map((k) => h('option', { value: k.id }, k.name)))));
       add.onchange = () => { if (!add.value) return; const k = ins[add.value]; const t = { name: k.name, inst: k.id, vol: 0.8, pan: 0, mute: false, solo: false, notes: [] }; if (k.voice) { t.vowel = 'a'; t.ens = 3; } song().tracks.push(t); S.sel = song().tracks.length - 1; if (!k.voice) gen.regenTrack(song(), t); commit(); rebuildAll(); };
-      trackBox.append(h('div', { class: 'tr-actions' }, add, h('button', { class: 'btn sm', title: 'Turn a line of text into sung vocals', onclick: () => vocalsDialog() }, '🎤 Vocals from text…')));
+      trackBox.append(h('div', { class: 'tr-actions' }, add, h('button', { class: 'btn sm', title: 'Turn a line of text into sung vocals', onclick: () => vocalsDialog() }, '🎤 Vocals from text…'), h('button', { class: 'btn sm', title: 'An AI voice reads your text as natural speech and adds it to the timeline', onclick: () => aiVoiceDialog() }, '🤖 AI voice…')));
     }
     /** a simple, singable melody for the lyrics of a voice track: stepwise motion on the song's scale, inside the voice's range */
     function melodyFor(t) {
@@ -90,6 +90,17 @@
       const pitches = []; for (let m = ins.lo; m <= ins.hi; m++) if (sc.includes(((m - s.key) % 12 + 12) % 12)) pitches.push(m); let idx = Math.floor(pitches.length / 2) + Math.floor(r() * 3) - 1, b = 0; const notes = [];
       syl.forEach((sy, i) => { const len = i % 4 === 3 ? 2 : r() < 0.3 ? 0.5 : 1; idx = clamp(idx + [-2, -1, -1, 0, 1, 1, 2][Math.floor(r() * 7)], 2, pitches.length - 3); notes.push({ t: b, d: +(len * 0.92).toFixed(3), m: pitches[idx], v: +(0.7 + r() * 0.2).toFixed(2) }); b += len; if (i % 4 === 3) b += 0.5; });
       t.notes = notes; const need = Math.min(64, Math.max(2, Math.ceil(b / 4))); if (need > s.bars) s.bars = need;
+    }
+    /** AI voice: natural speech from text (Kokoro, runs in the browser) added as an audio clip */
+    async function aiVoiceDialog() {
+      const AI = VX.aiVoice; if (!AI) return say('The AI voice is not available.', true);
+      const v = await VX.ui.form({ title: 'AI voice – text to speech', intro: 'An AI voice reads your text and puts it on the timeline as an audio clip at the play position. It speaks rather than sings – use it for narration, rap-style lines or backing words, and shift the pitch to match your key. It runs on your device; the first time it downloads a ~90 MB voice model.', fields: [{ key: 'text', label: 'Text (up to ' + AI.MAX + ' characters)', type: 'textarea', value: 'Welcome to the show. Let the music begin.', required: true }, { key: 'voice', label: 'Voice', type: 'select', value: 'af_heart', options: AI.VOICES }, { key: 'speed', label: 'Speed', type: 'select', value: '1', options: [['0.8', 'Slow'], ['1', 'Normal'], ['1.15', 'Quick'], ['1.3', 'Fast']] }, { key: 'pitch', label: 'Pitch', type: 'select', value: '0', options: [['-5', 'Lower (−5)'], ['-2', 'A bit lower (−2)'], ['0', 'Natural'], ['2', 'A bit higher (+2)'], ['5', 'Higher (+5)'], ['7', 'Much higher (+7)']] }], submit: 'Generate voice' });
+      if (!v || !String(v.text || '').trim()) return;
+      if (!AI.consented() && !AI.ready()) { const ok = await VX.ui.confirm('The AI voice needs a one-time download of about 90 MB (the open-source Kokoro model, from the jsDelivr and Hugging Face servers). It is stored in this browser and then works offline. Nothing you type is sent anywhere – the voice runs on this device. Download it now?', 'Download and generate', { title: 'Download the voice model?' }); if (!ok) return; AI.remember(); }
+      try {
+        say('Preparing the voice…'); const data = await AI.speak(v.text, { voice: v.voice, speed: +v.speed || 1, pitch: +v.pitch || 0, ctx: audio(), onProgress: (p) => say('Downloading the voice model… ' + p + '%') });
+        await addClip('AI voice – ' + String(v.text).trim().slice(0, 24), data); say('Voice added to the timeline at the play position.');
+      } catch (e) { say('Could not make the voice: ' + (e && e.message ? e.message : 'unknown error') + (AI.ready() ? '' : ' (the first use needs an internet connection)'), true); }
     }
     async function vocalsDialog() {
       const voices = kits.VOICES; const v = await VX.ui.form({ title: 'Vocals from text', intro: 'Type a line of lyrics. Each syllable is sung on its own note by the voice you choose, and you can change every note afterwards. It is sung, not spoken – think of a choir humming the words.', fields: [{ key: 'text', label: 'Lyrics', type: 'textarea', value: 'Hello world, sing with me tonight', required: true }, { key: 'voice', label: 'Voice', type: 'select', value: 'soprano', options: Object.entries(voices).map(([k, x]) => [k, x.name]) }, { key: 'ens', label: 'Singers', type: 'select', value: '1', options: ENS.map(([k, l]) => [String(k), l]) }, { key: 'vowel', label: 'Vowel used between words', type: 'select', value: 'a', options: [['a', 'ah'], ['o', 'oh'], ['u', 'oo']] }], submit: 'Add vocals' });
@@ -255,7 +266,7 @@
 
     /* ---------------- bottom: save / export ---------------- */
     const sz = h('b', {}, ''); const sizeNote = () => { sz.textContent = env.sizeNote(song()); };
-    const download = async () => { try { say('Rendering the WAV file…'); const q = QUALITY[S.quality], b = await gen.renderSong(song(), { sampleRate: q.sampleRate, mono: q.mono, loop: false }); const a = h('a', { href: gen.toWavDataURL(b), download: (S.name || 'song').replace(/[^\w -]+/g, '_') + '.wav' }); document.body.append(a); a.click(); a.remove(); say(''); } catch (e) { say('Could not export: ' + (e && e.message || 'error'), true); } };
+    const download = async () => { try { say('Rendering the WAV file…'); const q = QUALITY[S.quality], b = await gen.renderSong(song(), { sampleRate: q.sampleRate, mono: q.mono, loop: false }); const blob = await (await fetch(gen.toWavDataURL(b))).blob(); const where = await VX.saveFile((S.name || 'song') + '.wav', blob, { label: 'WAV audio' }); say(where ? 'Exported to ' + where : ''); if (!where) say(''); } catch (e) { say('Could not export: ' + (e && e.message || 'error'), true); } };
     const kitSel = h('select', { 'aria-label': 'Genre kit' }, gen.GENRES.map((g) => h('option', { value: g, selected: g === song().genre }, kits.KITS[g].name)));
     const bottom = h('div', { class: 'daw-bottom' },
       h('label', { class: 'daw-f' }, 'Song', h('input', { value: S.name, 'aria-label': 'Song name', oninput: (e) => { S.name = e.target.value; } })),

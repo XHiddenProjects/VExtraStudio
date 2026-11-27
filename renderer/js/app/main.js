@@ -107,6 +107,8 @@
     { const mq = window.matchMedia('(max-width: 860px)'); const fit = () => { if (mq.matches) VX.sidebar.collapse(true); }; mq.addEventListener('change', fit); setTimeout(fit, 700); }
     drag($('#side-resizer'), (e) => { const w = VX.clamp(e.clientX - 52, 180, 560); $('#app').style.setProperty('--sidew', w + 'px'); app.set('sidebarWidth', w); });
     drag($('#bottom-resizer'), (e) => { const w = VX.clamp(innerHeight - e.clientY - 24, 80, innerHeight * 0.7); $('#app').style.setProperty('--bottomh', w + 'px'); app.set('bottomHeight', w); });
+    /* installable offline app in the browser / on phones (not in the desktop app, not on localhost where files change all the time) */
+    try { if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.__TAURI__ && !/^(localhost|127\.)/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch { /* no service workers here */ }
     await VXHost.plugins_.loadAll();
     VX.cloud && VX.cloud.init();
     VX.sidebar.show(app.settings.lastView && VX.sidebar.views[app.settings.lastView] ? app.settings.lastView : 'explorer'); renderStatus();

@@ -30,6 +30,14 @@
   def('whisper', 'Whisper / wind', 'Horror', 'tone', 36, 96); def('vinyl', 'Vinyl crackle', 'Lo-fi', 'tone', 60, 60);
   def('upright', 'Upright bass', 'Jazz', 'tone', 28, 60); def('sax', 'Saxophone', 'Jazz', 'tone', 55, 92);
   def('acguitar', 'Acoustic guitar', 'Folk', 'tone', 40, 88); def('fiddle', 'Fiddle', 'Folk', 'tone', 55, 96); def('whistle', 'Tin whistle', 'Folk', 'tone', 72, 100);
+  // v4.7 – more instruments
+  def('violin', 'Violin', 'Strings', 'tone', 55, 103); def('viola', 'Viola', 'Strings', 'tone', 48, 91); def('cello', 'Cello', 'Strings', 'tone', 36, 81); def('doublebass', 'Double bass (bowed)', 'Strings', 'tone', 28, 67);
+  def('oboe', 'Oboe', 'Woodwinds', 'tone', 58, 91); def('bassoon', 'Bassoon', 'Woodwinds', 'tone', 34, 75); def('piccolo', 'Piccolo', 'Woodwinds', 'tone', 74, 108); def('panflute', 'Pan flute', 'Woodwinds', 'tone', 60, 96); def('recorder', 'Recorder', 'Woodwinds', 'tone', 60, 96);
+  def('trumpet', 'Trumpet', 'Brass', 'tone', 54, 84); def('trombone', 'Trombone', 'Brass', 'tone', 40, 72); def('horn', 'French horn', 'Brass', 'tone', 41, 77); def('tuba', 'Tuba', 'Brass', 'tone', 28, 58);
+  def('xylophone', 'Xylophone', 'Mallets', 'tone', 65, 108); def('marimba', 'Marimba', 'Mallets', 'tone', 45, 96); def('glockenspiel', 'Glockenspiel', 'Mallets', 'tone', 79, 108); def('celesta', 'Celesta', 'Mallets', 'tone', 60, 108);
+  def('musicbox', 'Music box', 'Mallets', 'tone', 60, 108); def('tubularbells', 'Tubular bells', 'Mallets', 'tone', 60, 77); def('kalimba', 'Kalimba (thumb piano)', 'Mallets', 'tone', 55, 91); def('steeldrum', 'Steel drum', 'Mallets', 'tone', 48, 84);
+  def('ukulele', 'Ukulele', 'Plucked', 'tone', 60, 81); def('mandolin', 'Mandolin', 'Plucked', 'tone', 55, 88); def('banjo', 'Banjo', 'Plucked', 'tone', 48, 79); def('sitar', 'Sitar', 'Plucked', 'tone', 48, 84);
+  def('organ', 'Church organ', 'Keys', 'tone', 36, 96); def('accordion', 'Accordion', 'Folk', 'tone', 53, 89); def('harmonica', 'Harmonica', 'Folk', 'tone', 60, 96);
   // drum kits: midi → [voice, options, gain]
   const ROW_NAMES = { 35: 'Deep hit', 36: 'Kick', 37: 'Rim', 38: 'Snare', 39: 'Clap', 41: 'Tom low', 42: 'Hi-hat', 45: 'Tom mid', 46: 'Open hat', 47: 'Tom high', 49: 'Crash', 50: 'Tom 2', 51: 'Ride', 54: 'Tambourine', 70: 'Shaker' };
   const ROW_ORDER = [49, 51, 46, 42, 54, 70, 50, 47, 45, 41, 39, 37, 38, 36, 35];
@@ -45,9 +53,28 @@
     'drums-horror': { 35: ['thump', { f: 75 }, 1.1], 36: ['thump', { f: 90 }, 1], 38: ['snare', { tone: 150, dec: 0.3, nv: 0.4, hp: 900, lp: 3000 }, 0.5], 49: ['metal', {}, 0.8], 70: ['rattle', {}, 0.7], 41: ['tom', { f: 60, dec: 1, timp: 1 }, 1], 45: ['tom', { f: 80, dec: 0.9, timp: 1 }, 1] },
   };
   const DRUM_LABEL = { 'drums-rock': 'Rock drum kit', 'drums-electro': 'Drum machine', 'drums-chip': '8-bit drums', 'drums-orch': 'Orchestral percussion', 'drums-jazz': 'Jazz brush kit', 'drums-lofi': 'Dusty lo-fi kit', 'drums-folk': 'Folk percussion', 'drums-epic': 'Epic taiko kit', 'drums-horror': 'Horror percussion' };
+
+  /* v4.7 world percussion kits – they answer to the usual drum notes (36 / 38 / 42 …) so any drum pattern works, and show their own row names */
+  Object.assign(KITMAPS, {
+    'perc-bongos': { 36: ['membrane', { f: 300, dec: 0.22, slap: 2200 }, 1], 38: ['membrane', { f: 430, dec: 0.16, slap: 3000 }, 1], 41: ['membrane', { f: 300, dec: 0.07, sl: 0.2 }, 0.9], 42: ['membrane', { f: 440, dec: 0.06, sl: 0.2 }, 0.9], 46: ['membrane', { f: 380, dec: 0.3, sl: 0.15 }, 0.9], 37: ['block', { f: 1300, dec: 0.04 }, 0.8] },
+    'perc-congas': { 36: ['membrane', { f: 165, dec: 0.4, drop: 1.25 }, 1], 45: ['membrane', { f: 195, dec: 0.35, drop: 1.25 }, 1], 38: ['membrane', { f: 235, dec: 0.3, drop: 1.25 }, 1], 41: ['membrane', { f: 170, dec: 0.1, sl: 0.6, slap: 2800 }, 1], 42: ['membrane', { f: 240, dec: 0.07, sl: 0.2 }, 0.9], 37: ['block', { f: 1100, dec: 0.05 }, 0.7] },
+    'perc-djembe': { 36: ['membrane', { f: 95, dec: 0.55, drop: 1.5, sl: 0.15 }, 1.1], 38: ['membrane', { f: 200, dec: 0.25, slap: 3000, sl: 0.25 }, 1], 42: ['membrane', { f: 320, dec: 0.1, slap: 4500, sl: 0.8 }, 0.9], 41: ['membrane', { f: 95, dec: 0.12, sl: 0.1 }, 1], 70: ['shaker', {}, 0.8] },
+    'perc-latin': { 36: ['membrane', { f: 165, dec: 0.4, drop: 1.25 }, 1], 38: ['membrane', { f: 330, dec: 0.2, slap: 3500, sl: 0.4 }, 0.9], 45: ['membrane', { f: 235, dec: 0.3, drop: 1.25 }, 1], 47: ['membrane', { f: 410, dec: 0.18, slap: 4000, sl: 0.5 }, 0.9], 50: ['membrane', { f: 300, dec: 0.2, slap: 4000, sl: 0.5 }, 0.9], 37: ['block', { f: 2500, dec: 0.14, wave: 'sine' }, 0.9], 39: ['block', { f: 900, dec: 0.07 }, 1], 54: ['cowbell', {}, 0.9], 70: ['shaker', {}, 1], 51: ['chime', { r: [900, 1350, 2270], dec: 0.35 }, 0.9], 46: ['scrape', { n: 7 }, 0.9] },
+    'perc-tabla': { 36: ['membrane', { f: 100, dec: 0.55, drop: 0.72, glide: 0.25 }, 1.1], 38: ['membrane', { f: 330, dec: 0.45, drop: 1.04, sl: 0.2 }, 1], 41: ['membrane', { f: 380, dec: 0.3, drop: 1.03, sl: 0.1 }, 0.9], 42: ['membrane', { f: 620, dec: 0.07, sl: 0.4, slap: 4500 }, 0.9], 37: ['membrane', { f: 270, dec: 0.6, drop: 1.02, sl: 0.05 }, 0.9], 70: ['shaker', {}, 0.7] },
+    'perc-cajon': { 36: ['membrane', { f: 80, dec: 0.25, drop: 1.4, sl: 0.2, slap: 1500 }, 1.2], 38: ['snare', { tone: 250, dec: 0.13, nv: 0.8, hp: 2500 }, 0.9], 39: ['clap', {}, 0.8], 42: ['block', { f: 1700, dec: 0.035, wave: 'sine' }, 0.8], 54: ['tamb', {}, 0.8], 70: ['shaker', {}, 0.9] },
+  });
+  Object.assign(DRUM_LABEL, { 'perc-bongos': 'Bongos', 'perc-congas': 'Congas', 'perc-djembe': 'Djembe', 'perc-latin': 'Latin percussion', 'perc-tabla': 'Tabla', 'perc-cajon': 'Cajón' });
+  const ROW_LABELS = {
+    'perc-bongos': { 36: 'Low bongo', 38: 'High bongo', 41: 'Low (muted)', 42: 'High (muted)', 46: 'Open tone', 37: 'Rim click' },
+    'perc-congas': { 36: 'Low conga', 45: 'Mid conga', 38: 'High conga', 41: 'Slap', 42: 'Muted', 37: 'Rim click' },
+    'perc-djembe': { 36: 'Bass', 38: 'Tone', 42: 'Slap', 41: 'Muted bass', 70: 'Shaker' },
+    'perc-latin': { 36: 'Low conga', 38: 'Timbale', 45: 'Mid conga', 47: 'Timbale high', 50: 'Timbale low', 37: 'Claves', 39: 'Wood block', 54: 'Cowbell', 70: 'Maracas', 51: 'Agogo', 46: 'Guiro' },
+    'perc-tabla': { 36: 'Ge (bass)', 38: 'Na', 41: 'Tin', 42: 'Ta', 37: 'Tun', 70: 'Ghungroo' },
+    'perc-cajon': { 36: 'Bass', 38: 'Slap', 39: 'Clap', 42: 'Finger tap', 54: 'Tambourine', 70: 'Shaker' },
+  };
   for (const id of Object.keys(KITMAPS)) {
     const keys = Object.keys(KITMAPS[id]).map(Number);
-    def(id, DRUM_LABEL[id], 'Drums', 'drum', 35, 70, { rows: ROW_ORDER.filter((m) => keys.includes(m)).map((m) => [m, ROW_NAMES[m]]) });
+    def(id, DRUM_LABEL[id], /^perc-/.test(id) ? 'World percussion' : 'Drums', 'drum', 35, 70, { rows: ROW_ORDER.filter((m) => keys.includes(m)).map((m) => [m, (ROW_LABELS[id] && ROW_LABELS[id][m]) || ROW_NAMES[m]]) });
   }
 
   /* kits per genre: default tracks for the studio ([name, instrument, volume, pan]) + effects */
@@ -268,6 +295,84 @@
     const nz = NS(c, t, end), bp = F(c, 'bandpass', 3200, 2), ng = G(c, 0.03); nz.connect(bp); bp.connect(ng); ng.connect(g);
   };
 
+  /* ------------------------------------------------------------------ v4.7 more melodic instruments */
+  /** bowed strings: detuned saws, a body resonance, vibrato that fades in and a little rosin noise */
+  const BOW = {
+    violin: { gain: 0.2, atk: 0.09, bright: 6, hp: 190, body: 520, vr: 5.8, vd: 20 }, viola: { gain: 0.21, atk: 0.1, bright: 5, hp: 130, body: 370, vr: 5.5, vd: 18 },
+    cello: { gain: 0.24, atk: 0.12, bright: 4, hp: 60, body: 230, vr: 5, vd: 16 }, doublebass: { gain: 0.28, atk: 0.15, bright: 3, hp: 35, body: 110, vr: 4.6, vd: 11 },
+  };
+  for (const k of Object.keys(BOW)) {
+    const B = BOW[k];
+    I[k] = (c, o, t, dur, m, v) => {
+      const f = mtof(m), { g, end } = ADSR(c, t, dur, v * B.gain, B.atk, 0.12, 0.88, 0.14), lp = F(c, 'lowpass', Math.min(f * B.bright + 600, 9000), 0.7), hp = F(c, 'highpass', B.hp, 0.5), pk = F(c, 'peaking', B.body, 1.4); pk.gain.value = 5;
+      lp.connect(hp); hp.connect(pk); pk.connect(g); g.connect(o); const os = [-6, 6].map((dt) => O(c, 'sawtooth', f, t, end, dt)); os.forEach((x) => x.connect(lp)); vib(c, t, end, os, B.vr + rnd(c) * 0.4, B.vd, 0.22);
+      const nz = NS(c, t, end), nh = F(c, 'highpass', 4200, 0.5), ng = G(c, 0.02); nz.connect(nh); nh.connect(ng); ng.connect(g);
+    };
+  }
+  /** reeds: a buzzing source through a nasal / woody filter */
+  const REED = {
+    oboe: { w: ['sawtooth'], lp: [4, 500, 4200], f: 1300, q: 2.2, fg: 5, gain: 0.2, atk: 0.05, vr: 5.2, vd: 10, det: 3 }, bassoon: { w: ['sawtooth'], lp: [3, 300, 1800], f: 520, q: 1.6, fg: 5, gain: 0.26, atk: 0.06, vr: 4.8, vd: 8, det: 3 },
+    harmonica: { w: ['sawtooth', 'square'], lp: [3, 800, 4200], f: 1800, q: 1, fg: 3, gain: 0.17, atk: 0.04, vr: 6, vd: 6, det: 7, trem: 6 }, accordion: { w: ['sawtooth', 'sawtooth', 'square'], lp: [3.5, 700, 4500], f: 1400, q: 0.9, fg: 3, gain: 0.15, atk: 0.03, vr: 5, vd: 4, det: 12, trem: 5 },
+  };
+  for (const k of Object.keys(REED)) {
+    const R = REED[k];
+    I[k] = (c, o, t, dur, m, v) => {
+      const f = mtof(m), { g, end } = ADSR(c, t, dur, v * R.gain, R.atk, 0.1, 0.86, 0.12), lp = F(c, 'lowpass', Math.min(f * R.lp[0] + R.lp[1], R.lp[2]), 0.8), pk = F(c, 'peaking', R.f, R.q); pk.gain.value = R.fg; lp.connect(pk); pk.connect(g);
+      let out = g; if (R.trem) { const tg = G(c, 1), l = O(c, 'sine', R.trem, t, end), lg = G(c, 0.12); l.connect(lg); lg.connect(tg.gain); g.connect(tg); tg.connect(o); } else g.connect(o); void out;
+      const os = R.w.map((w, i) => O(c, w, f, t, end, (i - (R.w.length - 1) / 2) * R.det)); os.forEach((x) => x.connect(lp)); vib(c, t, end, os, R.vr + rnd(c) * 0.3, R.vd, 0.3);
+    };
+  }
+  /** breathy flutes */
+  const FLT = { piccolo: { gain: 0.26, atk: 0.05, noise: 0.07, vd: 10, oct: 0.2 }, panflute: { gain: 0.3, atk: 0.07, noise: 0.2, vd: 8, oct: 0.05 }, recorder: { gain: 0.3, atk: 0.04, noise: 0.03, vd: 4, oct: 0.1 } };
+  for (const k of Object.keys(FLT)) {
+    const L = FLT[k];
+    I[k] = (c, o, t, dur, m, v) => {
+      const f = mtof(m), { g, end } = ADSR(c, t, dur, v * L.gain, L.atk, 0.08, 0.85, 0.15); g.connect(o);
+      const a = O(c, 'sine', f, t, end), b = O(c, 'triangle', f * 2, t, end), bg = G(c, L.oct); a.connect(g); b.connect(bg); bg.connect(g);
+      const nz = NS(c, t, end), bp = F(c, 'bandpass', f * 2.2, 2.5), ng = G(c, L.noise); nz.connect(bp); bp.connect(ng); ng.connect(g); vib(c, t, end, [a, b], 5.2, L.vd, 0.35);
+    };
+  }
+  /** brass: a brightening swell, mellow for horn and tuba */
+  const BRS = {
+    trumpet: { gain: 0.2, atk: 0.03, lo: 2, hi: 7, max: 7000, q: 1.5, tail: 4 }, trombone: { gain: 0.22, atk: 0.06, lo: 1.6, hi: 5, max: 3800, q: 1.2, tail: 3.5 },
+    horn: { gain: 0.24, atk: 0.1, lo: 1.2, hi: 3.2, max: 2600, q: 0.9, tail: 2.6 }, tuba: { gain: 0.3, atk: 0.07, lo: 1.1, hi: 2.6, max: 1000, q: 0.8, tail: 2, sub: 0.35 },
+  };
+  for (const k of Object.keys(BRS)) {
+    const B = BRS[k];
+    I[k] = (c, o, t, dur, m, v) => {
+      const f = mtof(m), { g, end } = ADSR(c, t, dur, v * B.gain, B.atk, 0.15, 0.82, 0.14), lp = F(c, 'lowpass', f * B.lo, B.q);
+      lp.frequency.setValueAtTime(f * B.lo, t); lp.frequency.linearRampToValueAtTime(Math.min(f * B.hi, B.max), t + 0.1 + B.atk); lp.frequency.linearRampToValueAtTime(Math.min(f * B.tail, B.max), t + 0.45); lp.connect(g); g.connect(o);
+      const os = [-5, 5].map((dt) => O(c, 'sawtooth', f, t, end, dt)); os.forEach((x) => x.connect(lp)); if (B.sub) { const sb = O(c, 'sine', f, t, end), sg = G(c, B.sub); sb.connect(sg); sg.connect(g); }
+      vib(c, t, end, os, 5.4, 6, 0.4);
+    };
+  }
+  /** struck bars, bells and tines: a few sine partials that each ring for their own time. partial = [ratio, level, decay seconds] */
+  const MAL = {
+    xylophone: { p: [[1, 1, 0.5], [3, 0.45, 0.25], [6.3, 0.2, 0.12]], atk: 0.002, peak: 0.34, click: 0.25 }, marimba: { p: [[1, 1, 1.1], [4, 0.4, 0.4], [9.9, 0.1, 0.1]], atk: 0.003, peak: 0.4, click: 0.15 },
+    glockenspiel: { p: [[1, 1, 1.8], [2.76, 0.5, 1], [5.4, 0.4, 0.6], [8.9, 0.2, 0.3]], atk: 0.002, peak: 0.24, click: 0.12 }, celesta: { p: [[1, 1, 1.6], [4, 0.35, 0.5], [8, 0.1, 0.2]], atk: 0.004, peak: 0.34, click: 0.08 },
+    musicbox: { p: [[1, 1, 1.2], [2.76, 0.4, 0.5], [5.4, 0.3, 0.3]], atk: 0.002, peak: 0.26, click: 0.2 }, tubularbells: { p: [[1, 1, 4.5], [2.4, 0.55, 3], [3.9, 0.35, 2.2], [5.4, 0.2, 1.4]], atk: 0.002, peak: 0.26, click: 0.2 },
+    kalimba: { p: [[1, 1, 0.9], [6.27, 0.25, 0.12], [2, 0.15, 0.5]], atk: 0.002, peak: 0.4, click: 0.1 }, steeldrum: { p: [[1, 1, 0.9], [2, 0.55, 0.6], [3, 0.25, 0.4], [4.2, 0.1, 0.2]], atk: 0.004, peak: 0.36, click: 0.05 },
+  };
+  for (const k of Object.keys(MAL)) {
+    const M = MAL[k];
+    I[k] = (c, o, t, dur, m, v) => {
+      const f = mtof(m), nyq = c.sampleRate * 0.45;
+      for (const [r, lv, T] of M.p) { if (f * r > nyq) continue; const { g, end } = PD(c, t, Math.max(dur * 0.5, 0.08), v * M.peak * lv, M.atk, T, 0.2); g.connect(o); O(c, 'sine', f * r, t, end).connect(g); }
+      if (M.click > 0) { const hp = nz(c, t, 0.03, 'highpass', 2500, 0.5), pg = PERC(c, t, v * M.click * 0.3, 0.001, 0.015); hp.connect(pg.g); pg.g.connect(o); }
+    };
+  }
+  /** more plucked strings (Karplus-Strong) */
+  I.ukulele = (c, o, t, dur, m, v) => { const lp = F(c, 'lowpass', 3500, 0.5); lp.connect(o); KS(c, lp, t, m, Math.max(dur, 0.8), v, 0.9, 0.5, 0.6); };
+  I.mandolin = (c, o, t, dur, m, v) => { const hp = F(c, 'highpass', 250, 0.5); hp.connect(o); const n = Math.max(1, Math.min(6, Math.floor(dur / 0.07))); for (let i = 0; i < n; i++) KS(c, hp, t + i * 0.07, m, 0.9, v * (i ? 0.7 : 1), 0.8, 0.8, 0.36); };
+  I.banjo = (c, o, t, dur, m, v) => { const hp = F(c, 'highpass', 400, 0.6), pk = F(c, 'peaking', 2200, 1.2); pk.gain.value = 6; hp.connect(pk); pk.connect(o); KS(c, hp, t, m, 0.8, v, 0.55, 0.95, 0.7); };
+  I.sitar = (c, o, t, dur, m, v) => { const bus = G(c, 0.6), ws = c.createWaveShaper(), wg = G(c, 0.3), hp = F(c, 'highpass', 200, 0.5); ws.curve = driveCurve(c, 5); bus.connect(o); bus.connect(ws); ws.connect(hp); hp.connect(wg); wg.connect(o); KS(c, bus, t, m, Math.max(dur, 1.5), v, 2.2, 0.92, 0.5); };
+  /** church organ: drawbar-style additive sines */
+  I.organ = (c, o, t, dur, m, v) => {
+    const f = mtof(m), { g, end } = ADSR(c, t, dur, v * 0.16, 0.012, 0.05, 0.95, 0.07); g.connect(o);
+    [[1, 1], [2, 0.8], [3, 0.55], [4, 0.45], [6, 0.25], [8, 0.2]].forEach(([r, l]) => { if (f * r > c.sampleRate * 0.45) return; const x = O(c, 'sine', f * r, t, end), xg = G(c, l * 0.5); x.connect(xg); xg.connect(g); });
+    const nzs = NS(c, t, t + 0.04), hp = F(c, 'highpass', 3000, 0.5), pg = PERC(c, t, v * 0.04, 0.001, 0.02); nzs.connect(hp); hp.connect(pg.g); pg.g.connect(o);
+  };
+
   /* ------------------------------------------------------------------ drum voices */
   const nz = (c, t, len, type, f, q) => { const n = NS(c, t, t + len), fl = F(c, type, f, q); n.connect(fl); return fl; };
   const D = {
@@ -299,6 +404,17 @@
     thump(c, o, t, v, p) { const f = p.f || 80, os = O(c, 'sine', f, t, t + 0.4), { g } = PERC(c, t, v * 0.95, 0.004, 0.3), lp = F(c, 'lowpass', 220, 0.5); os.frequency.exponentialRampToValueAtTime(38, t + 0.2); os.connect(g); g.connect(lp); lp.connect(o); },
     brush(c, o, t, v) { const bp = nz(c, t, 0.4, 'bandpass', 3200, 0.7), g = c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * 0.22, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0003, t + 0.26); bp.connect(g); g.connect(o); },
     metal(c, o, t, v) { const f = 330 + rnd(c) * 120, os = O(c, 'sine', f, t, t + 3), md = O(c, 'sine', f * 1.41, t, t + 3), mg = G(c, f * 2), { g } = PERC(c, t, v * 0.3, 0.002, 2.6); md.connect(mg); mg.connect(os.frequency); os.connect(g); g.connect(o); },
+
+    /* v4.7 hand percussion: a skin that drops (or rises) in pitch, with a slap of noise */
+    membrane(c, o, t, v, p) {
+      const f = p.f || 200, dec = p.dec || 0.25, { g } = PERC(c, t, v * 0.85, 0.002, dec), os = O(c, 'sine', f * (p.drop || 1.35), t, t + dec + 0.05); os.frequency.exponentialRampToValueAtTime(f, t + (p.glide || 0.05)); os.connect(g); g.connect(o);
+      const o2 = O(c, 'sine', f * 1.55, t, t + dec * 0.5 + 0.05), g2 = PERC(c, t, v * 0.22, 0.002, dec * 0.5); o2.connect(g2.g); g2.g.connect(o);
+      const sl = nz(c, t, 0.05, 'bandpass', p.slap || 2500, 0.8), sg = PERC(c, t, v * (p.sl === undefined ? 0.3 : p.sl), 0.001, 0.03); sl.connect(sg.g); sg.g.connect(o);
+    },
+    block(c, o, t, v, p) { const f = p.f || 800, dec = p.dec || 0.07, os = O(c, p.wave || 'triangle', f, t, t + dec + 0.05), { g } = PERC(c, t, v * 0.5, 0.001, dec); os.frequency.setValueAtTime(f * 1.05, t); os.frequency.exponentialRampToValueAtTime(f, t + 0.01); os.connect(g); g.connect(o); const hp = nz(c, t, 0.02, 'bandpass', f * 2, 1), pg = PERC(c, t, v * 0.15, 0.001, 0.01); hp.connect(pg.g); pg.g.connect(o); },
+    cowbell(c, o, t, v, p) { const f = p.f || 560, dec = p.dec || 0.32, bp = F(c, 'bandpass', f * 4.7, 1.2), { g } = PERC(c, t, v * 0.32, 0.002, dec); [f, f * 1.48].forEach((fr) => O(c, 'square', fr, t, t + dec + 0.05).connect(bp)); bp.connect(g); g.connect(o); },
+    chime(c, o, t, v, p) { const dec = p.dec || 0.5; (p.r || [900, 1350, 2270]).forEach((fr, i) => { const os = O(c, 'sine', fr, t, t + dec + 0.05), { g } = PERC(c, t, v * 0.22 / (1 + i * 0.5), 0.001, dec / (1 + i * 0.35)); os.connect(g); g.connect(o); }); },
+    scrape(c, o, t, v, p) { const n = p.n || 6, gap = p.gap || 0.018; for (let i = 0; i < n; i++) { const hp = nz(c, t + i * gap, 0.03, 'bandpass', p.f || 5200, 1.5), pg = PERC(c, t + i * gap, v * 0.16, 0.001, 0.014); hp.connect(pg.g); pg.g.connect(o); } },
     rattle(c, o, t, v) { const bp = nz(c, t, 0.7, 'bandpass', 5200, 3), g = c.createGain(), l = O(c, 'square', 16, t, t + 0.7), lg = G(c, 0.5); g.gain.setValueAtTime(0.5 * v * 0.25, t); g.gain.linearRampToValueAtTime(0, t + 0.65); l.connect(lg); lg.connect(g.gain); bp.connect(g); g.connect(o); },
   };
   function drumPlay(kit) {

@@ -2,7 +2,28 @@
 
 All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [4.6.0] — current
+## [4.7.0] — current
+
+### Added
+- **Mobile friendly (iOS, iPadOS, Android):** on phones the activity bar becomes a bottom navigation bar, panels open full screen, toolbars and tabs scroll sideways, dialogs fill the screen, inputs use 16 px text (no iOS zoom) and everything respects notches / safe areas. New `touch.js` makes the node graph and the 2D scene view work with fingers: drag blocks, drag the background to pan, pinch to zoom, double-tap to open, press-and-hold for the right-click menu. Ports have larger touch areas. The web version is now an installable app (manifest, icons, offline service worker) – *Add to Home Screen*.
+- **Block ports:** every block that sends an *object* now has one output per key – **Calendar** (year, month, day, weekday, hour, minute, second, timestamp, dayName, monthName, date, time, isWeekend, isDaytime), **Clock** (hours, minutes, seconds, total), Joystick, Touch look, Accelerometer, Microphone, Hearing, Colour/Face tracker, VR head/controller and AR place. **Optional ports** (e.g. Expression's *c–f* and *error*, Global/Object variable *get / reset / changed*, Filter *reset*, Ease *stop / reverse*, Repeater *stop*, Timer *stop / reset*, Clock *reset / toggle*) are hidden until wired; tick them under **Ports** in the block's settings.
+- **28 new instruments:** Violin, Viola, Cello, Double bass, Oboe, Bassoon, Piccolo, Pan flute, Recorder, Trumpet, Trombone, French horn, Tuba, Xylophone, Marimba, Glockenspiel, Celesta, Music box, Tubular bells, Kalimba, Steel drum, Ukulele, Mandolin, Banjo, Sitar, Church organ, Accordion and Harmonica – plus six **World percussion** kits: Bongos, Congas, Djembe, Latin percussion (claves, cowbell, agogo, maracas, timbales, guiro), Tabla and Cajón. Percussion kits answer to the normal drum notes and show their own row names.
+- **AI voice (Music studio → 🤖 AI voice…):** natural text-to-speech with the open-source Kokoro model, running on the device (WebAssembly). 12 voices, speed and pitch, added as a normal audio clip. The ~90 MB model is downloaded once, after asking, and cached.
+- **17 new VXSite blocks (47 in total):** Call to action banner, Logo / partner row, Team members, Timeline, Numbered steps, Big quote, Progress bars / skills, Social links, Contact details, Image + text, Tags / badges, Scrolling announcement, Pros and cons, Opening hours, Embed a web page (https only, sandboxed), Audio player and Download card.
+- **Saving shows where it went:** exporting a WAV tells you the folder (desktop: the full path from the Save dialog; browser: the save picker's folder or the browser's Downloads folder). Adding a track to the project says it is stored in Assets → Sounds.
+- Sound-effect cards in **Defaults** have a **▶ Preview** button.
+
+### Changed
+- **Triggers no longer always send 1:** *Once* sends the game time it fired at; *Controller* sends how hard the button was pressed (analog triggers included) or, on release, how long it was held, can listen to *any* button (index −1) and has a *button* output.
+- **Calendar** sends everything as one object (and each key separately); the old "field" choice stays for existing projects and decides what *out* carries.
+- **Block Extras plugin 1.2.0** no longer copies blocks that already exist: Coin Flip, Alternate, Sequencer, In Range and Random Pick were removed (use Random, Toggle Switch, Router, Filter and List Order).
+- The Defaults dialog hides the tag filter ("All" / "sfx") when there is only one category; the Helpdesk button in the Cloud panel is centred with its icon.
+
+### Fixed
+- Music studio: the **play-head bar disappeared** after un-ticking *Loop* during playback (the position kept counting past the end).
+- The site **preview** showed two *Log in* links when a login page was in the menu.
+
+## [4.6.0]
 
 ### Added
 - **Choir and human voices** (Music studio → Choir): Soprano, Mezzo-soprano, Contralto (Alto), Countertenor, Tenor, Baritone and Bass. Each voice is formant-synthesised from real vowel measurements, with vibrato that fades in, slow pitch drift, a small scoop into each note, breath noise and a choice of solo, small or large choir. A new **Choral** genre writes a part for every voice.

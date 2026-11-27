@@ -239,6 +239,30 @@ Everything is composed and synthesized on your computer – nothing is downloade
 
 Then use the model in 3D scenes with the **Model** object type.
 
+## Block ports: object outputs and optional ports
+
+- **One output per key.** Blocks that report several values at once send them as an object – **Calendar** (year, month, day, hour…), **Clock** (hours, minutes, seconds), Joystick, Accelerometer, Microphone and more. Each key is its own output, so you can wire \`year\` straight to a Text or Expression block. The block's main **out** still carries the whole object.
+- **Optional ports.** Big blocks only show the ports you normally need (for example **Expression** shows *in, a, b*). Select the block and tick the extra inputs / outputs under **Ports** in its settings – *c, d, e, f* and *error* for Expression, *get / reset / changed* for variables, and so on. A port with a wire is always shown, and hidden ports keep working exactly as wired.
+- **Triggers send real values.** *Once* sends the game time it fired at, *Controller* sends the press strength (or hold time on release) and can listen to any button (index −1).
+
+## Music: more instruments and the AI voice
+
+- **Instruments:** strings (violin, viola, cello, double bass), woodwinds (oboe, bassoon, piccolo, pan flute, recorder), brass (trumpet, trombone, French horn, tuba), mallets (xylophone, marimba, glockenspiel, celesta, music box, tubular bells, kalimba, steel drum), plucked (ukulele, mandolin, banjo, sitar), church organ, accordion and harmonica. Pick them from the instrument list of any track.
+- **World percussion kits:** Bongos, Congas, Djembe, Latin percussion, Tabla and Cajón. They respond to the normal drum notes, and the piano-roll rows are named after the drums (for example *High bongo*, *Cowbell*).
+- **🤖 AI voice…** reads your text as natural speech and adds it to the timeline at the play position as an audio clip (move, cut and fade it like any recording). Choose from 12 voices, speed and pitch. The first time, it asks before downloading a ~90 MB open-source model; afterwards it works offline. It speaks – for singing use *Vocals from text*.
+- **Saving:** the WAV export and *Add to project* tell you where the file went.
+
+## Using Vextra on a phone or tablet
+
+Vextra Studio runs on **iOS, iPadOS and Android** in the browser (open the web version, then **Share → Add to Home Screen** on iOS or **⋮ → Install app** on Android – it then opens full screen and works offline).
+
+- **Layout:** on a phone the activity bar becomes a **bottom navigation bar**; tap a tool to open its panel full screen and tap it again to close it. Tabs and toolbars scroll sideways. Dialogs open full screen. Tablets keep the side bar.
+- **Node graph (Logic):** drag a block with one finger, drag the empty background to **pan**, **pinch** with two fingers to zoom, **double-tap** a block to open it and **press and hold** for the right-click menu. Ports have bigger touch areas.
+- **Scene view:** one finger selects and moves objects, two fingers pan and pinch-zoom.
+- **Typing:** inputs use 16 px text so iOS does not zoom the page.
+- **Games with tilt / shake** can use the real sensors of the phone when you press **Play** there (the editor simulates them on a computer).
+- Big jobs (3D scenes, long music tracks) are lighter on a computer, but everything can be built on a phone.
+
 ## Helpdesk – inventory and deployment
 
 **Cloud → Helpdesk** (also in the command menu) is an agentless IT helpdesk for the computers on your own network. Nothing is installed on them.

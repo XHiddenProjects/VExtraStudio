@@ -37,7 +37,7 @@
     };
     function renderCanvas() {
       const ctx = { site, editing: true }; const body = page().blocks.map((b) => S.blockHtml(b, ctx, wrapBlock)).join('');
-      const nav = site.nav.show !== false ? `<header class="vx-nav"><nav class="in"><b>${S.esc(site.nav.brand)}</b>${site.pages.filter((p) => p.inNav).map((p) => `<a href="#" data-page="${p.id}"${p.id === pageId ? ' aria-current="page"' : ''}>${S.esc(p.title)}</a>`).join('')}${S.usesAuth(site) ? '<a href="#">Log in</a>' : ''}</nav></header>` : '';
+      const nav = site.nav.show !== false ? `<header class="vx-nav"><nav class="in"><b>${S.esc(site.nav.brand)}</b>${site.pages.filter((p) => p.inNav).map((p) => `<a href="#" data-page="${p.id}"${p.id === pageId ? ' aria-current="page"' : ''}>${S.esc(p.title)}</a>`).join('')}${S.usesAuth(site) && !site.pages.some((p) => (p.slug === 'login' || (p.blocks || []).some((b) => b.type === 'login')) && p.inNav && p.access !== 'admin') ? '<a href="#">Log in</a>' : ''}</nav></header>` : '';
       const css = S.css(site).replace(/:root\{/, ':host{').replace(/body\{/, '.sb-page{');
       shadow.innerHTML = `<style>${css}
 :host{display:block}.sb-page{min-height:100%}.sbb{position:relative;outline:2px solid transparent;outline-offset:2px;border-radius:6px;cursor:default;margin:2px 0}.sbb:hover{outline-color:#2457d655}.sbb.sel{outline-color:#2457d6}
