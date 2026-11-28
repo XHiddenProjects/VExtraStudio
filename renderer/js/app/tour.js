@@ -6,7 +6,7 @@
     { sel: '#activity [data-view="explorer"]', title: 'Your files', text: 'Open a folder or start a New project here. Everything you make – websites, games, code – lives in files you can see.', side: 'right' },
     { sel: '#activity [data-view="create"]', title: 'Create', text: 'Drag ready-made objects, pages and blocks from here into your game or website. No code needed to start.', side: 'right' },
     { sel: '#tabbar', title: 'Tabs', text: 'Every file, game and website opens as a tab. Games have Scene, Logic (blocks), Assets and Play views. Websites have Pages, Data and Site.', side: 'bottom' },
-    { sel: '#activity [data-view="cloud"]', title: 'Cloud & Helpdesk', text: 'Sign in to publish your work to the web, share a project with friends, or open the Helpdesk for computers and tickets.', side: 'right' },
+    { sel: '#activity [data-view="cloud"]', title: 'Cloud', text: 'Sign in to publish your work to the web, share a project with friends and keep cloud saves.', side: 'right' },
     { sel: '#st-right', title: 'Simple and Advanced', text: 'You are in Simple mode, which hides the expert tools. Click the mode label down here whenever you want everything.', side: 'top' },
     { sel: null, title: 'You are ready', text: 'Press F1 any time for the documentation, or open the Welcome page to start from an example. You can replay this tour from the command menu (“Take the tour”).', side: 'center' },
   ];

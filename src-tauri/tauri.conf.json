@@ -37,7 +37,8 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "resources/server/*"
+      "resources/server/*",
+      "resources/singer/*"
     ],
     "windows": {
       "wix": {

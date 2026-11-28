@@ -48,7 +48,7 @@
     add('Show explorer', () => VX.sidebar.show('explorer')); add('Show create palette', () => VX.sidebar.show('create')); add('Show plugins', () => VX.sidebar.show('plugins')); add('Show themes', () => VX.sidebar.show('themes')); add('Account & sharing', () => VX.sidebar.show('cloud'));
     add('Documentation', () => VX.docs.open(), 'F1'); add('Docs: Block reference', () => VX.docs.open('blocks')); add('Docs: Plugin API', () => VX.docs.open('plugin-api')); add('Take the tour', () => VX.tour.start()); add('Welcome page', () => app.showWelcome()); add('Settings', () => app.openSettings(), 'Ctrl+,');
     add('Preview current file', () => { const t = VX.tabs.active(); if (t) VX.web.openPreview(t); }, 'F5'); add('Design a theme…', () => VX.sidebar.themeDesigner()); add('Toggle simple / advanced mode', () => { const m = app.settings.mode === 'simple' ? 'advanced' : 'simple'; app.set('mode', m); document.body.dataset.mode = m; renderStatus(); });
-    add('Publish to the web…', () => VX.cloudUI.publish()); add('Share / collaborate…', () => VX.cloudUI.share()); add('Sign in / account…', () => VX.sidebar.show('cloud')); add('Helpdesk: devices, tickets and deployment', () => VX.helpdesk.open());
+    add('Publish to the web…', () => VX.cloudUI.publish()); add('Share / collaborate…', () => VX.cloudUI.share()); add('Sign in / account…', () => VX.sidebar.show('cloud'));
     for (const t of VX.theme.list()) add('Theme: ' + t.name, () => { app.set('theme', t.id); VX.theme.apply(t.id); });
     for (const c of VXHost.commands.values()) add(c.title, c.run, c.hint);
     return C;
@@ -117,6 +117,7 @@
     if (app.settings.welcome !== false) app.showWelcome(); VX.update.start(); VX.tour && VX.tour.maybe();
     $('#splash').style.opacity = 0; setTimeout(() => $('#splash').remove(), 350);
     try { const lf = await window.native.launchFiles(); for (const f of lf || []) await VX.pack.handleFile(f); window.native.onOpenFile((fs) => (fs || []).forEach((f) => VX.pack.handleFile(f))); } catch (e) { console.warn('launch files', e); }
+    /* the installer's "install the AI singer" answer is picked up here, once */ try { if (window.native.isDesktop && VX.aiSinger) setTimeout(() => { VX.aiSinger.handlePending(() => {}); }, 3000); } catch { /* optional */ }
     window.__vxReady = true;
   }
   function menu(id) {

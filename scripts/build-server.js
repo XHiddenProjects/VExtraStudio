@@ -11,7 +11,7 @@ const root = path.join(__dirname, '..'), out = path.join(root, 'src-tauri', 'res
 const copyOnly = process.argv.includes('--copy-only');
 const exe = process.platform === 'win32' ? 'vextra-server.exe' : 'vextra-server';
 fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
-const copySource = (why) => { for (const f of ['server.js', 'mfa.js', 'host.js', 'helpdesk.js']) fs.copyFileSync(path.join(root, 'server', f), path.join(out, f)); console.log(`[server] copied the server source (${why}) – the app will run it with Node.js.`); };
+const copySource = (why) => { for (const f of ['server.js', 'mfa.js', 'host.js']) fs.copyFileSync(path.join(root, 'server', f), path.join(out, f)); console.log(`[server] copied the server source (${why}) – the app will run it with Node.js.`); };
 if (copyOnly) { copySource('--copy-only'); process.exit(0); }
 const major = +process.versions.node.split('.')[0];
 let esbuild, postject; try { esbuild = require('esbuild'); postject = require.resolve('postject/dist/cli.js'); } catch { /* not installed */ }

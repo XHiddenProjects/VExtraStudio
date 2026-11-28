@@ -426,7 +426,7 @@
   /* ------------------------------------------------------------------ human voices (formant synthesis)
      A glottal-style harmonic source (steeper roll-off when soft, brighter when loud) is sent through five parallel formant filters tuned
      to real vowel measurements for each voice class, with natural vibrato that fades in, slow pitch drift, a small pitch scoop into each
-     note, breath noise and a few singers per voice for the choir. Lyrics are sung one syllable per note: vowels glide, consonants add
+     note, breath noise and a few singers per voice for the choir. Held vowels (ah, eh, ee, oh, oo) glide; consonants add
      bursts of noise or a hum. It is an approximation of singing – it will not read words out loud like a speech engine. */
   const FM = {  // per vowel: 5 centre frequencies (Hz), 5 levels (dB), 5 bandwidths (Hz)
     soprano: { a: [800, 1150, 2900, 3900, 4950, 0, -6, -32, -20, -50, 80, 90, 120, 130, 140], e: [350, 2000, 2800, 3600, 4950, 0, -20, -15, -40, -56, 60, 100, 120, 150, 200], i: [270, 2140, 2950, 3900, 4950, 0, -12, -26, -26, -44, 60, 90, 100, 120, 120], o: [450, 800, 2830, 3800, 4950, 0, -11, -22, -22, -50, 40, 80, 100, 120, 120], u: [325, 700, 2700, 3800, 4950, 0, -16, -35, -40, -60, 50, 60, 170, 180, 200] },
@@ -489,30 +489,13 @@
   }
   for (const k of Object.keys(VOICES)) I['v_' + k] = (c, o, t, dur, m, v, ex) => sing(c, o, t, dur, m, v, k, ex);
 
-  /** Splits lyrics into sung syllables: [{ text, v:[vowel, (vowel2)], k:onset kind, g:glide, vd:voiced, co:coda }] */
-  function syllables(text) {
-    const out = [], words = String(text == null ? '' : text).toLowerCase().replace(/[^a-z' ]+/g, ' ').replace(/'/g, '').split(/\s+/).filter(Boolean);
-    const nucleus = (vg) => { const d = { ee: ['i'], ea: ['i'], ie: ['a', 'i'], ei: ['e', 'i'], oo: ['u'], ou: ['a', 'u'], ow: ['a', 'u'], ai: ['e', 'i'], ay: ['e', 'i'], oi: ['o', 'i'], oy: ['o', 'i'], au: ['o'], aw: ['o'], oa: ['o'], eu: ['e', 'u'], ew: ['e', 'u'], ue: ['u'], ey: ['e', 'i'], ye: ['a', 'i'], io: ['i', 'o'], ia: ['i', 'a'] }[vg.slice(0, 2)]; if (d) return d; const ch = vg[0]; return [ch === 'y' ? 'i' : ch === 'u' ? 'a' : ch]; };
-    for (const w of words) {
-      let parts = w.match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]+$)?/g) || [];
-      const used = parts.join('').length; if (used < w.length) { if (parts.length) parts[parts.length - 1] += w.slice(used); else parts = [w]; }
-      if (parts.length > 1 && /^[^aeiouy]*e$/.test(parts[parts.length - 1]) && !/le$/.test(w)) { const last = parts.pop(); parts[parts.length - 1] += last; }
-      for (const p of parts) {
-        const mm = /^([^aeiouy]*)([aeiouy]*)(.*)$/.exec(p) || [p, '', 'a', ''], on = mm[1], vg = mm[2] || 'a', co = mm[3];
-        const k = !on ? '' : /^(sh|ch|th|h|f|s|x|z|v)/.test(on) ? 'fric' : /^(p|t|k|b|d|g|c|q)/.test(on) ? 'plos' : /^(m|n)/.test(on) ? 'nasal' : /^(l|r|w|y|j)/.test(on) ? 'liq' : 'plos';
-        out.push({ text: p, v: nucleus(vg), k, g: k === 'liq' ? on[0] : '', vd: /^(z|v|b|d|g)/.test(on), co });
-      }
-    }
-    return out;
-  }
-
   /** Schedules one note (or drum hit) of instrument `id` on `ctx`, connected to `out`. t / dur in seconds. */
   function play(id, ctx, out, t, dur, midi, vel, extra) {
     const fn = I[id]; if (!fn) return false;
     fn(ctx, out, t, Math.max(0.03, dur), midi, Math.max(0.05, Math.min(1, vel === undefined ? 0.8 : vel)), extra);
     return true;
   }
-  const api = { INSTRUMENTS, VOICES, VOWELS, syllables, KITS, KITMAPS, ROW_NAMES, play, seed, mtof, mulberry32, noteName, NOTE_NAMES };
+  const api = { INSTRUMENTS, VOICES, VOWELS, KITS, KITMAPS, ROW_NAMES, play, seed, mtof, mulberry32, noteName, NOTE_NAMES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.VXMusicKits = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

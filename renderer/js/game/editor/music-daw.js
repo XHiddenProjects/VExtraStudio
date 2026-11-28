@@ -1,5 +1,5 @@
 /* Vextra game editor – Music studio workspace (a small DAW): transport with live meter, track strips with mixer, piano roll with ruler,
-   piano keys, zoom, drag / resize / box-select, velocity lane, undo / redo, audio-clip timeline with waveforms, recording, vocals from text.
+   piano keys, zoom, drag / resize / box-select, velocity lane, undo / redo, audio-clip timeline with waveforms, recording, AI singer (solo or choir).
    VX.musicDaw.mount(host, env) → { destroy() }. env comes from music-studio.js (song state, helpers, project assets). */
 (function () {
   const { h } = VX;
@@ -74,38 +74,44 @@
           instSel(t, (v) => { t.inst = v; const k = ins[v]; if (k.type !== 'drum') for (const n of t.notes) { while (n.m < k.lo) n.m += 12; while (n.m > k.hi) n.m -= 12; } if (env.audition) env.audition(v, k.type === 'drum' ? 36 : 60); commit(); rebuildAll(); }),
           h('div', { class: 'tr-mix' }, h('label', {}, 'Vol', h('input', { type: 'range', min: 0, max: 1, step: 0.01, value: t.vol, 'aria-label': 'Volume of ' + t.name, oninput: (e) => { t.vol = +e.target.value; }, onchange: commit })), h('label', {}, 'Pan', h('input', { type: 'range', min: -1, max: 1, step: 0.05, value: t.pan, 'aria-label': 'Pan of ' + t.name, oninput: (e) => { t.pan = +e.target.value; }, ondblclick: (e) => { e.target.value = 0; t.pan = 0; commit(); }, onchange: commit }))));
         if (voice) {
-          const ly = h('textarea', { class: 'tr-lyrics', rows: 2, placeholder: 'Type lyrics – each note sings one syllable', 'aria-label': 'Lyrics for ' + t.name, maxlength: 600, onfocus: () => { S.sel = i; }, onchange: (e) => { t.lyrics = e.target.value; commit(); drawAll(); } }); ly.value = t.lyrics || '';
-          strip.append(h('div', { class: 'tr-voice' }, h('label', {}, 'Vowel', h('select', { 'aria-label': 'Vowel', onchange: (e) => { t.vowel = e.target.value; commit(); } }, kits.VOWELS.map((v) => h('option', { value: v, selected: (t.vowel || 'a') === v }, v === 'a' ? 'ah' : v === 'e' ? 'eh' : v === 'i' ? 'ee' : v === 'o' ? 'oh' : 'oo')))), h('label', {}, 'Singers', h('select', { 'aria-label': 'Number of singers', onchange: (e) => { t.ens = +e.target.value; commit(); } }, ENS.map(([v, l]) => h('option', { value: v, selected: (t.ens == null ? 3 : t.ens) === v }, l))))), ly,
-            h('div', { class: 'tr-voice' }, h('button', { class: 'btn sm', title: 'Write a melody that fits the lyrics (replaces this track’s notes)', onclick: () => { if (!(t.lyrics || '').trim()) return say('Type some lyrics first.', true); melodyFor(t); commit(); rebuildAll(); } }, '🎤 Sing the lyrics'), h('small', {}, (t.lyrics ? kits.syllables(t.lyrics).length : 0) + ' syllables')));
+          strip.append(h('div', { class: 'tr-voice' }, h('label', {}, 'Vowel', h('select', { 'aria-label': 'Vowel', onchange: (e) => { t.vowel = e.target.value; commit(); } }, kits.VOWELS.map((v) => h('option', { value: v, selected: (t.vowel || 'a') === v }, v === 'a' ? 'ah' : v === 'e' ? 'eh' : v === 'i' ? 'ee' : v === 'o' ? 'oh' : 'oo')))), h('label', {}, 'Singers', h('select', { 'aria-label': 'Number of singers', onchange: (e) => { t.ens = +e.target.value; commit(); } }, ENS.map(([v, l]) => h('option', { value: v, selected: (t.ens == null ? 3 : t.ens) === v }, l))))));
         }
         trackBox.append(strip);
       });
       const add = h('select', { class: 'tr-add', 'aria-label': 'Add an instrument' }, h('option', { value: '' }, '＋ Add instrument…'), Object.entries(groups).map(([g, l]) => h('optgroup', { label: g }, l.map((k) => h('option', { value: k.id }, k.name)))));
       add.onchange = () => { if (!add.value) return; const k = ins[add.value]; const t = { name: k.name, inst: k.id, vol: 0.8, pan: 0, mute: false, solo: false, notes: [] }; if (k.voice) { t.vowel = 'a'; t.ens = 3; } song().tracks.push(t); S.sel = song().tracks.length - 1; if (!k.voice) gen.regenTrack(song(), t); commit(); rebuildAll(); };
-      trackBox.append(h('div', { class: 'tr-actions' }, add, h('button', { class: 'btn sm', title: 'Turn a line of text into sung vocals', onclick: () => vocalsDialog() }, '🎤 Vocals from text…'), h('button', { class: 'btn sm', title: 'An AI voice reads your text as natural speech and adds it to the timeline', onclick: () => aiVoiceDialog() }, '🤖 AI voice…')));
+      trackBox.append(h('div', { class: 'tr-actions' }, add, h('button', { class: 'btn sm', title: 'An AI singer sings your lyrics on this track’s melody – solo or as a choir', onclick: () => singerDialog() }, '🎤 AI singer…'), VX.aiSinger && VX.aiSinger.hasManaged() ? h('button', { class: 'btn sm', title: 'Check, reinstall or remove the AI singer’s files', onclick: () => VX.aiSinger.manage() }, '⚙ Singer files…') : null));
     }
-    /** a simple, singable melody for the lyrics of a voice track: stepwise motion on the song's scale, inside the voice's range */
-    function melodyFor(t) {
-      const syl = kits.syllables(t.lyrics || ''), s = song(), sc = gen.SCALES[s.mode] || gen.SCALES.major, ins = kits.INSTRUMENTS[t.inst]; let seed = 7; for (const ch of t.lyrics || '') seed = (seed * 31 + ch.charCodeAt(0)) >>> 0; const r = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-      const pitches = []; for (let m = ins.lo; m <= ins.hi; m++) if (sc.includes(((m - s.key) % 12 + 12) % 12)) pitches.push(m); let idx = Math.floor(pitches.length / 2) + Math.floor(r() * 3) - 1, b = 0; const notes = [];
-      syl.forEach((sy, i) => { const len = i % 4 === 3 ? 2 : r() < 0.3 ? 0.5 : 1; idx = clamp(idx + [-2, -1, -1, 0, 1, 1, 2][Math.floor(r() * 7)], 2, pitches.length - 3); notes.push({ t: b, d: +(len * 0.92).toFixed(3), m: pitches[idx], v: +(0.7 + r() * 0.2).toFixed(2) }); b += len; if (i % 4 === 3) b += 0.5; });
-      t.notes = notes; const need = Math.min(64, Math.max(2, Math.ceil(b / 4))); if (need > s.bars) s.bars = need;
-    }
-    /** AI voice: natural speech from text (Kokoro, runs in the browser) added as an audio clip */
-    async function aiVoiceDialog() {
-      const AI = VX.aiVoice; if (!AI) return say('The AI voice is not available.', true);
-      const v = await VX.ui.form({ title: 'AI voice – text to speech', intro: 'An AI voice reads your text and puts it on the timeline as an audio clip at the play position. It speaks rather than sings – use it for narration, rap-style lines or backing words, and shift the pitch to match your key. It runs on your device; the first time it downloads a ~90 MB voice model.', fields: [{ key: 'text', label: 'Text (up to ' + AI.MAX + ' characters)', type: 'textarea', value: 'Welcome to the show. Let the music begin.', required: true }, { key: 'voice', label: 'Voice', type: 'select', value: 'af_heart', options: AI.VOICES }, { key: 'speed', label: 'Speed', type: 'select', value: '1', options: [['0.8', 'Slow'], ['1', 'Normal'], ['1.15', 'Quick'], ['1.3', 'Fast']] }, { key: 'pitch', label: 'Pitch', type: 'select', value: '0', options: [['-5', 'Lower (−5)'], ['-2', 'A bit lower (−2)'], ['0', 'Natural'], ['2', 'A bit higher (+2)'], ['5', 'Higher (+5)'], ['7', 'Much higher (+7)']] }], submit: 'Generate voice' });
-      if (!v || !String(v.text || '').trim()) return;
-      if (!AI.consented() && !AI.ready()) { const ok = await VX.ui.confirm('The AI voice needs a one-time download of about 90 MB (the open-source Kokoro model, from the jsDelivr and Hugging Face servers). It is stored in this browser and then works offline. Nothing you type is sent anywhere – the voice runs on this device. Download it now?', 'Download and generate', { title: 'Download the voice model?' }); if (!ok) return; AI.remember(); }
+    /** AI singer: lyrics + a track's melody → sung audio clip(s). Solo = one part; choir = several parts (soprano…bass) built from the melody on the song's scale. */
+    async function singerDialog() {
+      const AI = VX.aiSinger; if (!AI) return say('The AI singer is not available.', true);
+      const s = song(), cand = s.tracks.map((x, i) => [i, x]).filter(([, x]) => x.notes.length && kits.INSTRUMENTS[x.inst] && kits.INSTRUMENTS[x.inst].type !== 'drum');
+      if (!cand.length) return say('Give the singer a melody first: add an instrument track and compose or draw some notes.', true);
+      const mg = await AI.ensureManaged(say); if (!mg.ok) return; say('');
+      const v = await VX.ui.form({ title: 'AI singer – solo or choir', intro: 'An AI singing voice (such as the open-source SoulX-Singer) sings your lyrics on the melody of a track and adds the result to the timeline as audio. In the desktop app it is installed and started for you (one-time download); otherwise it runs in a small singing bridge you start yourself – see tools/singing-bridge. Only the lyrics and the notes are sent, and only to the address below.',
+        fields: [{ key: 'mode', label: 'Singers', type: 'select', value: 'solo', options: [['solo', 'Solo – one singer'], ['choir', 'Choir – several parts in harmony']] },
+          { key: 'size', label: 'Choir size (choir only)', type: 'select', value: '4', options: AI.CHOIRS },
+          { key: 'track', label: 'Melody from track', type: 'select', value: String(cand.some(([i]) => i === S.sel) ? S.sel : cand[0][0]), options: cand.map(([i, x]) => [String(i), x.name]) },
+          { key: 'lyrics', label: 'Lyrics (up to ' + AI.MAX + ' characters)', type: 'textarea', value: 'Sing with me tonight, under the open sky', required: true, hint: 'One word or syllable per note works best; the bridge decides how to spread the words.' },
+          { key: 'language', label: 'Language', type: 'select', value: 'en', options: AI.LANGS },
+          { key: 'voice', label: 'Voice (optional)', type: 'text', value: '', placeholder: 'the name of a voice your bridge offers', hint: 'Leave empty for the bridge’s default singer.' },
+          { key: 'url', label: 'Singing bridge address', type: 'text', value: mg.managed ? mg.url : AI.getUrl(), required: true, hint: 'Default ' + AI.DEFAULT_URL + ' (this computer only). Use https:// if it is on another machine.' }], submit: 'Sing' });
+      if (!v || !String(v.lyrics || '').trim()) return;
+      let base; try { base = AI.cleanUrl(v.url); } catch (e) { return say(e.message, true); }
+      AI.setUrl(base);
+      const tr = s.tracks[+v.track]; if (!tr) return say('Pick a track with a melody.', true);
+      const parts = v.mode === 'choir' ? AI.choir(+v.size) : [{ id: 'solo', name: 'Solo', steps: 0, oct: 0, pan: 0, gain: 1 }];
+      const sc = gen.SCALES[s.mode] || gen.SCALES.major, ok = [];
       try {
-        say('Preparing the voice…'); const data = await AI.speak(v.text, { voice: v.voice, speed: +v.speed || 1, pitch: +v.pitch || 0, ctx: audio(), onProgress: (p) => say('Downloading the voice model… ' + p + '%') });
-        await addClip('AI voice – ' + String(v.text).trim().slice(0, 24), data); say('Voice added to the timeline at the play position.');
-      } catch (e) { say('Could not make the voice: ' + (e && e.message ? e.message : 'unknown error') + (AI.ready() ? '' : ' (the first use needs an internet connection)'), true); }
-    }
-    async function vocalsDialog() {
-      const voices = kits.VOICES; const v = await VX.ui.form({ title: 'Vocals from text', intro: 'Type a line of lyrics. Each syllable is sung on its own note by the voice you choose, and you can change every note afterwards. It is sung, not spoken – think of a choir humming the words.', fields: [{ key: 'text', label: 'Lyrics', type: 'textarea', value: 'Hello world, sing with me tonight', required: true }, { key: 'voice', label: 'Voice', type: 'select', value: 'soprano', options: Object.entries(voices).map(([k, x]) => [k, x.name]) }, { key: 'ens', label: 'Singers', type: 'select', value: '1', options: ENS.map(([k, l]) => [String(k), l]) }, { key: 'vowel', label: 'Vowel used between words', type: 'select', value: 'a', options: [['a', 'ah'], ['o', 'oh'], ['u', 'oo']] }], submit: 'Add vocals' });
-      if (!v || !String(v.text || '').trim()) return;
-      const t = { name: voices[v.voice].name + ' vocals', inst: 'v_' + v.voice, vol: 0.9, pan: 0, mute: false, solo: false, notes: [], lyrics: String(v.text).slice(0, 600), vowel: v.vowel, ens: +v.ens }; melodyFor(t); song().tracks.push(t); S.sel = song().tracks.length - 1; commit(); rebuildAll();
+        for (let k = 0; k < parts.length; k++) {
+          const p = parts[k]; say('Singing ' + (parts.length > 1 ? p.name + ' (' + (k + 1) + ' of ' + parts.length + ')' : 'the lyrics') + '… this can take a minute');
+          const notes = parts.length > 1 ? AI.harmonise(tr.notes, p, s.key, sc, 36, 84) : tr.notes.map((n) => ({ t: n.t, d: n.d, m: n.m }));
+          const r = await AI.sing({ url: base, lyrics: v.lyrics, language: v.language, voice: v.voice, bpm: s.bpm, part: p.id, seed: 11 + k * 7, notes });
+          ok.push([p, r]);
+        }
+      } catch (e) { return say(e && e.message ? e.message : 'The singer could not finish.', true); }
+      for (let k = 0; k < ok.length; k++) { const [p, r] = ok[k]; await addClip((parts.length > 1 ? p.name : 'Singer') + ' – ' + String(v.lyrics).trim().slice(0, 18), r.data, { start: +(Math.min(...tr.notes.map((n) => n.t)) * spb() + k * 0.012).toFixed(3), gain: p.gain * (parts.length > 1 ? 0.8 : 1), lane: k % 3 }); }
+      say(parts.length > 1 ? 'The choir was added to the timeline.' : 'The singer was added to the timeline.');
     }
 
     /* ---------------- piano roll ---------------- */
@@ -130,10 +136,9 @@
       const b0 = Math.floor(sl / D.Z), b1 = Math.min(G.beats, Math.ceil((sl + w) / D.Z)), sub = D.Z >= 56 ? 4 : D.Z >= 26 ? 2 : 1;
       for (let b = b0; b <= b1; b++) for (let q = 0; q < sub; q++) { const bt = b + q / sub, x = Math.round(bt * D.Z - sl) + 0.5; c.strokeStyle = q ? bd : (b % 4 === 0 ? mu : bd); c.globalAlpha = q ? 0.18 : b % 4 === 0 ? 0.75 : 0.4; c.beginPath(); c.moveTo(x, 0); c.lineTo(x, hh); c.stroke(); }
       c.globalAlpha = 1;
-      const ly = G.t.lyrics && isVoice(G.t) ? kits.syllables(G.t.lyrics) : null, sorted = ly ? G.t.notes.map((n, i) => [n, i]).sort((a, b) => a[0].t - b[0].t) : null, order = new Map(); if (sorted) sorted.forEach(([n], k) => order.set(n, k));
       for (const n of G.t.notes) { const ri = G.rows.indexOf(n.m); if (ri < 0) continue; const x = xOf(n.t), wd = G.drum ? Math.max(10, D.Z * 0.4) : Math.max(4, n.d * D.Z - 1), y = ri * G.rh - st; if (x + wd < 0 || x > w || y + G.rh < 0 || y > hh) continue; const on = D.sel.has(n);
         c.globalAlpha = 0.5 + n.v * 0.5; c.fillStyle = tc; c.beginPath(); (c.roundRect ? c.roundRect(x, y + 1.5, wd, G.rh - 3, 3) : c.rect(x, y + 1.5, wd, G.rh - 3)); c.fill(); c.globalAlpha = 1; if (on) { c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke(); c.lineWidth = 1; }
-        if (ly && ly.length && wd > 14) { c.fillStyle = '#fff'; c.fillText(ly[order.get(n) % ly.length].text, x + 3, y + G.rh / 2, wd - 4); } }
+      }
       if (D.drag && D.drag.box) { const b = D.drag.box; c.strokeStyle = tc; c.fillStyle = 'rgba(108,140,255,.15)'; c.fillRect(b.x0 - sl, b.y0 - st, b.x1 - b.x0, b.y1 - b.y0); c.strokeRect(b.x0 - sl + 0.5, b.y0 - st + 0.5, b.x1 - b.x0, b.y1 - b.y0); }
       c.fillStyle = fg; c.globalAlpha = 0.0;
     }
@@ -198,7 +203,7 @@
       h('button', { class: 'btn sm', title: 'Snap the selected notes (or all) to the grid', onclick: () => { for (const n of targets()) { n.t = Math.max(0, Math.round(n.t / D.snap) * D.snap); if (!G.drum) n.d = Math.max(D.snap, Math.round(n.d / D.snap) * D.snap); } commit(); drawAll(); } }, 'Quantize'),
       h('button', { class: 'btn sm', title: 'Selected notes (or all) one semitone down', onclick: () => transpose(-1) }, '♭ −1'), h('button', { class: 'btn sm', onclick: () => transpose(1), title: 'One semitone up' }, '♯ +1'), h('button', { class: 'btn sm', onclick: () => transpose(-12), title: 'One octave down' }, '−8ve'), h('button', { class: 'btn sm', onclick: () => transpose(12), title: 'One octave up' }, '+8ve'),
       h('button', { class: 'btn sm', title: 'Make velocities and timing a little less mechanical', onclick: () => { let s = 12345 + G.t.notes.length; const r = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; for (const n of targets()) { n.v = clamp(+(n.v + (r() - 0.5) * 0.2).toFixed(2), 0.1, 1); if (!G.drum) n.t = Math.max(0, +(n.t + (r() - 0.5) * 0.04).toFixed(3)); } commit(); drawAll(); } }, 'Humanize'),
-      h('button', { class: 'btn sm', title: 'Compose new notes for this track', onclick: () => { if (isVoice(G.t)) { if ((G.t.lyrics || '').trim()) melodyFor(G.t); else return say('Type lyrics for this voice first, or add notes by hand.', true); } else gen.regenTrack(song(), G.t); D.sel.clear(); commit(); rebuildAll(); } }, '🎲 Re-compose'),
+      h('button', { class: 'btn sm', title: 'Compose new notes for this track', onclick: () => { gen.regenTrack(song(), G.t); D.sel.clear(); commit(); rebuildAll(); } }, '🎲 Re-compose'),
       h('button', { class: 'btn sm', onclick: () => { D.sel = new Set(G.t.notes); drawAll(); }, title: 'Select all (Ctrl+A)' }, 'Select all'), h('button', { class: 'btn sm', onclick: () => deleteSel() , title: 'Delete the selection (Delete)' }, 'Delete'), h('button', { class: 'btn sm', onclick: () => { G.t.notes = []; D.sel.clear(); commit(); drawAll(); } }, 'Clear track'),
       h('span', { class: 'sp' }), h('span', { class: 'daw-hint' }, 'Click: add · Drag: move · Edge: length · Ctrl+drag: select · Right-click: delete'));
     const curLbl = tools.querySelector('.daw-cur');
@@ -249,7 +254,7 @@
         h('button', { class: 'btn sm', title: 'Cut the clip in two at the play position', onclick: () => { const t = S.pos * spb(); if (t <= c.start + 0.05 || t >= c.start + c.dur - 0.05) return say('Move the play position (click the ruler) inside the clip first.', true); const d = +(t - c.start).toFixed(3), b = Object.assign({}, c, { id: uid('clip'), start: +t.toFixed(3), offset: +((c.offset || 0) + d).toFixed(3), dur: +(c.dur - d).toFixed(3), fadeIn: 0.005 }); D.dataById.set(b.id, b.data); c.dur = d; c.fadeOut = 0.005; song().clips.push(b); D.clipSel = b.id; say(''); commit(); drawClips(); drawClipPanel(); } }, '✂ Split'),
         h('button', { class: 'btn sm' + (c.mute ? ' on' : ''), 'aria-pressed': String(!!c.mute), onclick: () => { c.mute = !c.mute; commit(); drawClips(); drawClipPanel(); } }, c.mute ? 'Muted' : 'Mute'), h('button', { class: 'btn sm', onclick: removeClip }, 'Delete clip'));
     }
-    const addClip = async (name, data) => { let b; try { b = await gen.decodeClip(audio(), data); } catch { say('That audio file could not be read.', true); return; } const id = uid('clip'); D.dataById.set(id, data); const dur = +b.duration.toFixed(2); song().clips.push({ id, name: String(name).slice(0, 40), data, start: +(S.pos * spb()).toFixed(2), offset: 0, dur, gain: 1, fadeIn: 0.01, fadeOut: 0.05, mute: false, full: dur, lane: Math.min(2, song().clips.length % 3) }); D.clipSel = id; say(''); commit(); drawClips(); drawClipPanel(); };
+    const addClip = async (name, data, o) => { let b; try { b = await gen.decodeClip(audio(), data); } catch { say('That audio file could not be read.', true); return; } const id = uid('clip'); D.dataById.set(id, data); const dur = +b.duration.toFixed(2); song().clips.push({ id, name: String(name).slice(0, 40), data, start: o && o.start != null ? o.start : +(S.pos * spb()).toFixed(2), offset: 0, dur, gain: o && o.gain ? o.gain : 1, fadeIn: 0.01, fadeOut: 0.05, mute: false, full: dur, lane: o && o.lane != null ? o.lane : Math.min(2, song().clips.length % 3) }); D.clipSel = id; say(''); commit(); drawClips(); drawClipPanel(); };
     const file = h('input', { type: 'file', accept: 'audio/*', multiple: true, style: 'display:none', onchange: async (e) => { for (const f of e.target.files) { if (f.size > 12e6) { say(f.name + ' is over 12 MB – trim it first.', true); continue; } await addClip(f.name.replace(/\.[^.]+$/, ''), await VX.readFileAsDataURL(f)); } e.target.value = ''; } });
     const recBtn = h('button', { class: 'btn sm', 'aria-pressed': 'false', title: 'Record from the microphone at the play position' }, '🎤 Record');
     recBtn.onclick = async () => {

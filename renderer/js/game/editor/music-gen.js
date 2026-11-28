@@ -118,9 +118,8 @@
     const anySolo = song.tracks.some((t) => t.solo), spb = secPerBeat(song);
     for (const tr of song.tracks) {
       if (tr.mute || (anySolo && !tr.solo)) continue; const g = ctx.createGain(); g.gain.value = tr.vol == null ? 0.8 : tr.vol; let node = g; if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = clamp(tr.pan || 0, -1, 1); g.connect(p); node = p; } node.connect(master);
-      const sy = tr.lyrics && K.syllables ? K.syllables(tr.lyrics) : null, sylFor = (t2, i) => (sy && sy.length ? sy[i % sy.length] : null);
-      const sorted = sy ? tr.notes.slice().sort((a, b) => a.t - b.t) : tr.notes;
-      for (let ni = 0; ni < sorted.length; ni++) { const n = sorted[ni]; const t = n.t * spb; if (t >= len) continue; K.play(tr.inst, ctx, g, t, n.d * spb, n.m, n.v, K.INSTRUMENTS[tr.inst] && K.INSTRUMENTS[tr.inst].voice ? { track: tr, syl: sylFor(tr, ni) } : undefined); }
+      const sorted = tr.notes;
+      for (let ni = 0; ni < sorted.length; ni++) { const n = sorted[ni]; const t = n.t * spb; if (t >= len) continue; K.play(tr.inst, ctx, g, t, n.d * spb, n.m, n.v, K.INSTRUMENTS[tr.inst] && K.INSTRUMENTS[tr.inst].voice ? { track: tr } : undefined); }
     }
     for (const c of song.clips || []) {
       if (!c.data || c.mute) continue; let b; try { b = await decodeClip(ctx, c.data); } catch { continue; }

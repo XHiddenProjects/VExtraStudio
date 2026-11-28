@@ -7,7 +7,7 @@
   /* ---------- activity bar ---------- */
   const BUILTIN = [
     { id: 'explorer', icon: 'files', title: 'Explorer (Ctrl+Shift+E)' }, { id: 'search', icon: 'search', title: 'Search in files (Ctrl+Shift+F)' },
-    { id: 'create', icon: 'create', title: 'Create – drag items onto the canvas' }, { id: 'library', icon: 'library', title: 'Library – templates & games' }, { id: 'cloud', icon: 'cloud', title: 'Account, sharing & publishing' }, { id: 'helpdesk', icon: 'monitor', title: 'Helpdesk – computers, tickets and software deployment', action: () => VX.helpdesk && VX.helpdesk.open() }, '-',
+    { id: 'create', icon: 'create', title: 'Create – drag items onto the canvas' }, { id: 'library', icon: 'library', title: 'Library – templates & games' }, { id: 'cloud', icon: 'cloud', title: 'Account, sharing & publishing' }, '-',
     { id: 'plugins', icon: 'plugin', title: 'Plugins', adv: true }, { id: 'themes', icon: 'theme', title: 'Themes', adv: true },
   ];
   SB.renderActivity = function () {

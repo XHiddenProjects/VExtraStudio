@@ -6,7 +6,8 @@
     • Uninstall from Windows Settings → Apps (or run the .msi again → Remove): a Yes / No question appears – "Also delete Vextra Studio's settings, plugins, themes and local data?"
     • Silent / scripted uninstall asks nothing and KEEPS the data unless you pass the property:   msiexec /x Vextra.msi REMOVEUSERDATA=1 /qn
     • An UPGRADE (installing a newer version over this one) never asks and never deletes anything (UPGRADINGPRODUCTCODE is set then).
-    • What is deleted: %APPDATA%\studio.vextra.app (settings, plugins, themes, local server data) and %LOCALAPPDATA%\studio.vextra.app (browser-engine cache).
+    • The AI singer folder (%LOCALAPPDATA%\studio.vextra.app\singer) is always deleted on uninstall, whatever the answer.
+      What is deleted: %APPDATA%\studio.vextra.app (settings, plugins, themes, local server data) and %LOCALAPPDATA%\studio.vextra.app (browser-engine cache).
       Your own project folders are never touched. If the question cannot be shown, or anything fails, nothing is deleted (Return="ignore").
   Referenced from tauri.conf.json → bundle.windows.wix (fragmentPaths + componentRefs).
 -->
@@ -25,7 +26,13 @@
     <CustomAction Id="VxSetDataRoaming" Property="VXDATA_ROAMING" Value="[AppDataFolder]studio.vextra.app" />
     <CustomAction Id="VxSetDataLocal" Property="VXDATA_LOCAL" Value="[LocalAppDataFolder]studio.vextra.app" />
 
+    <!-- the AI singer (Python, libraries, models) is ALWAYS removed on a real uninstall (never on an upgrade) – it is several GB and useless without the app -->
+    <CustomAction Id="VxSetSinger" Property="VXSINGER_DIR" Value="[LocalAppDataFolder]studio.vextra.app\singer" />
+    <CustomAction Id="VxStopSinger" Directory="TARGETDIR" Execute="immediate" Return="ignore" ExeCommand="powershell.exe -NoProfile -WindowStyle Hidden -Command &quot;Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '*\studio.vextra.app\singer\*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }&quot;" />
+
     <InstallExecuteSequence>
+      <Custom Action="VxSetSinger" After="CostFinalize">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
+      <Custom Action="VxStopSinger" Before="RemoveFiles">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
       <Custom Action="VxAskRemoveData" After="CostFinalize">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE AND NOT REMOVEUSERDATA AND UILevel &gt;= 3</Custom>
       <Custom Action="VxSetDataRoaming" After="VxAskRemoveData">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE AND REMOVEUSERDATA="1"</Custom>
       <Custom Action="VxSetDataLocal" After="VxSetDataRoaming">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE AND REMOVEUSERDATA="1"</Custom>
@@ -37,6 +44,7 @@
         <RegistryValue Root="HKMU" Key="Software\studio.vextra.app" Name="DataRemovalSupport" Type="integer" Value="1" KeyPath="yes" />
         <util:RemoveFolderEx On="uninstall" Property="VXDATA_ROAMING" />
         <util:RemoveFolderEx On="uninstall" Property="VXDATA_LOCAL" />
+        <util:RemoveFolderEx On="uninstall" Property="VXSINGER_DIR" />
       </Component>
     </DirectoryRef>
   </Fragment>

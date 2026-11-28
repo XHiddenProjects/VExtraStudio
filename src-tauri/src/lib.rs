@@ -22,6 +22,8 @@ use tauri::{
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_updater::UpdaterExt;
 
+mod singer;
+
 mod builtin {
     include!(concat!(env!("OUT_DIR"), "/builtin.rs"));
 }
@@ -1679,6 +1681,141 @@ fn app_launch_files(state: tauri::State<'_, LaunchFiles>) -> Vec<String> {
     state.0.lock().map(|mut g| std::mem::take(&mut *g)).unwrap_or_default()
 }
 
+/* ---------------- AI singer (managed SoulX-Singer environment, see singer.rs) ---------------- */
+struct SingerState {
+    child: Mutex<Option<Child>>,
+    cancel: Arc<AtomicBool>,
+    busy: AtomicBool,
+}
+impl Default for SingerState {
+    fn default() -> Self {
+        SingerState { child: Mutex::new(None), cancel: Arc::new(AtomicBool::new(false)), busy: AtomicBool::new(false) }
+    }
+}
+fn singer_base(app: &AppHandle) -> Res<PathBuf> {
+    app.path().app_local_data_dir().map_err(err)
+}
+fn singer_res(app: &AppHandle) -> Option<PathBuf> {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    if let Ok(r) = app.path().resource_dir() {
+        dirs.push(r.join("resources").join("singer"));
+        dirs.push(r.join("singer"));
+    }
+    if let Ok(e) = std::env::current_exe() {
+        if let Some(d) = e.parent() {
+            dirs.push(d.join("singer"));
+            dirs.push(d.join("resources").join("singer"));
+        }
+    }
+    dirs.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("resources").join("singer"));
+    dirs.into_iter().find(|d| d.join("bridge.py").is_file())
+}
+fn singer_kill(state: &SingerState) {
+    if let Ok(mut g) = state.child.lock() {
+        if let Some(mut c) = g.take() {
+            let _ = c.kill();
+            let _ = c.wait();
+        }
+    }
+}
+#[tauri::command]
+fn singer_status(app: AppHandle) -> Res<singer::Status> {
+    Ok(singer::status(&singer_base(&app)?))
+}
+/// Installs (or resumes installing) the AI singer. Progress arrives as "singer:progress" events.
+#[tauri::command]
+async fn singer_install(app: AppHandle, state: tauri::State<'_, SingerState>) -> Res<()> {
+    if state.busy.swap(true, Ordering::SeqCst) {
+        return Err("The AI singer is already being installed.".into());
+    }
+    singer_kill(&state);
+    let base = singer_base(&app)?;
+    let res = singer_res(&app).ok_or_else(|| "The singer files are missing from this installation.".to_string());
+    let cancel = state.cancel.clone();
+    let a2 = app.clone();
+    let out = match res {
+        Ok(res) => tauri::async_runtime::spawn_blocking(move || {
+            singer::install(&base, &res, &cancel, &|p| {
+                let _ = a2.emit("singer:progress", p);
+            })
+        })
+        .await
+        .map_err(err)
+        .and_then(|r| r),
+        Err(e) => Err(e),
+    };
+    state.busy.store(false, Ordering::SeqCst);
+    out
+}
+#[tauri::command]
+fn singer_cancel(state: tauri::State<'_, SingerState>) {
+    state.cancel.store(true, Ordering::SeqCst);
+}
+/// Starts the singing bridge on this computer (if it is not running) and returns its port.
+#[tauri::command]
+async fn singer_start(app: AppHandle, state: tauri::State<'_, SingerState>, port: Option<u16>) -> Res<u16> {
+    let port = port.unwrap_or(singer::DEFAULT_PORT);
+    let up = |p: u16| std::net::TcpStream::connect_timeout(&std::net::SocketAddr::from(([127, 0, 0, 1], p)), Duration::from_millis(300)).is_ok();
+    {
+        let mut g = state.child.lock().map_err(err)?;
+        if let Some(c) = g.as_mut() {
+            if matches!(c.try_wait(), Ok(None)) && up(port) {
+                return Ok(port);
+            }
+            let _ = c.kill();
+            let _ = c.wait();
+            *g = None;
+        }
+    }
+    if up(port) {
+        return Ok(port); // something else (for example your own bridge) already answers there
+    }
+    let child = singer::start(&singer_base(&app)?, port)?;
+    *state.child.lock().map_err(err)? = Some(child);
+    for _ in 0..80 {
+        if up(port) {
+            return Ok(port);
+        }
+        if let Ok(mut g) = state.child.lock() {
+            if let Some(c) = g.as_mut() {
+                if !matches!(c.try_wait(), Ok(None)) {
+                    *g = None;
+                    return Err("The singer stopped right after starting – see bridge.log in the singer folder.".into());
+                }
+            }
+        }
+        tokio_sleep(250).await;
+    }
+    Err("The singer did not start in time.".into())
+}
+async fn tokio_sleep(ms: u64) {
+    let _ = tauri::async_runtime::spawn_blocking(move || std::thread::sleep(Duration::from_millis(ms))).await;
+}
+#[tauri::command]
+fn singer_stop(state: tauri::State<'_, SingerState>) {
+    singer_kill(&state);
+}
+/// Deletes everything the AI singer installed (Python, libraries, models, voices).
+#[tauri::command]
+async fn singer_remove(app: AppHandle, state: tauri::State<'_, SingerState>) -> Res<()> {
+    if state.busy.load(Ordering::SeqCst) {
+        return Err("Wait for the installation to stop first.".into());
+    }
+    singer_kill(&state);
+    let base = singer_base(&app)?;
+    tauri::async_runtime::spawn_blocking(move || singer::remove(&base)).await.map_err(err)?
+}
+/// The installer leaves a note ("install" after the person agreed in the setup wizard, "refresh" after an update); reading it clears it.
+#[tauri::command]
+fn singer_pending(app: AppHandle) -> Res<Option<String>> {
+    let f = singer::dir(&singer_base(&app)?).join("setup-requested");
+    let v = fs::read_to_string(&f).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    if v.is_some() {
+        let _ = fs::remove_file(&f);
+    }
+    Ok(v)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let launch: Vec<String> = std::env::args().skip(1).filter(|a| is_launch_file(a)).collect();
@@ -1688,8 +1825,10 @@ pub fn run() {
         .manage(ServeState::default())
         .manage(RunState::default())
         .manage(ServerState::default())
+        .manage(SingerState::default())
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
+                singer_kill(window.app_handle().state::<SingerState>().inner());
                 if let Ok(mut g) = window.app_handle().state::<ServerState>().inner().0.lock() {
                     if let Some(mut c) = g.take() {
                         let _ = c.kill();
@@ -1710,6 +1849,17 @@ pub fn run() {
         .setup(|app| {
             let menu = build_menu(app.handle())?;
             app.set_menu(menu)?;
+            {
+                /* after an update, an installed AI singer gets the newer bridge (cheap; the big downloads stay) */
+                let h = app.handle().clone();
+                std::thread::spawn(move || {
+                    if let (Ok(base), Some(res)) = (singer_base(&h), singer_res(&h)) {
+                        if singer::status(&base).outdated {
+                            singer::refresh_bridge(&base, &res);
+                        }
+                    }
+                });
+            }
             app.on_menu_event(|app, event| {
                 let _ = app.emit("menu:action", event.id().0.clone());
             });
@@ -1720,13 +1870,15 @@ pub fn run() {
             fs_write_base64, fs_create, fs_remove, fs_rename, fs_exists, fs_mtime, fs_reveal, fs_list_files, fs_search, ext_list, ext_save,
             ext_remove, ext_import, ext_open_dir, settings_load, settings_save, secret_get, secret_set, app_info, app_clean,
             http_request, http_download, run_start, run_poll, run_cancel, term_start, term_write, term_shells, php_status, php_log, db_detect, db_cli, open_url, php_check, php_start, php_stop, serve_start, serve_stop, server_start, server_status, server_stop,
-            updater_check, updater_install, app_restart, app_launch_files
+            updater_check, updater_install, app_restart, app_launch_files,
+            singer_status, singer_install, singer_cancel, singer_start, singer_stop, singer_remove, singer_pending
         ])
         .build(tauri::generate_context!())
         .expect("error while building Vextra Studio");
     app.run(|_handle, _event| {
         /* every OS: when the app really quits (Cmd+Q on macOS, last window on Linux/Windows, a restart for an update) the bundled server and PHP servers go with it */
         if let tauri::RunEvent::Exit = _event {
+            singer_kill(_handle.state::<SingerState>().inner());
             if let Ok(mut g) = _handle.state::<ServerState>().inner().0.lock() {
                 if let Some(mut c) = g.take() {
                     let _ = c.kill();
