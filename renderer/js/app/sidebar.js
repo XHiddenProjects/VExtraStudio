@@ -7,7 +7,7 @@
   /* ---------- activity bar ---------- */
   const BUILTIN = [
     { id: 'explorer', icon: 'files', title: 'Explorer (Ctrl+Shift+E)' }, { id: 'search', icon: 'search', title: 'Search in files (Ctrl+Shift+F)' },
-    { id: 'create', icon: 'create', title: 'Create – drag items onto the canvas' }, { id: 'library', icon: 'library', title: 'Library – templates & games' }, { id: 'cloud', icon: 'cloud', title: 'Account, sharing & publishing' }, '-',
+    { id: 'create', icon: 'create', title: 'Create – drag items onto the canvas' }, { id: 'library', icon: 'library', title: 'Library – templates & games' }, { id: 'cloud', icon: 'cloud', title: 'Account, sharing & publishing' }, { id: 'integrations', icon: 'integrations', title: 'Integrations – AI singer, Blender' }, '-',
     { id: 'plugins', icon: 'plugin', title: 'Plugins', adv: true }, { id: 'themes', icon: 'theme', title: 'Themes', adv: true },
   ];
   SB.renderActivity = function () {
@@ -243,6 +243,7 @@
   SB.themeDesigner = themeDesigner;
 
   /* ---------- cloud (account / share / publish) ---------- */
+  SB.views.integrations = { title: 'Integrations', actions: () => [], render: (c) => VX.integrations.renderPanel(c) };
   SB.views.cloud = { title: 'Account & Sharing', actions: () => [], render: (c) => VX.cloudUI.renderPanel(c) };
   VX.on('registry', () => { SB.renderActivity(); });
 })();

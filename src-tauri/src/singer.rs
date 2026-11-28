@@ -40,6 +40,8 @@ pub struct Status {
     pub engine_rev: String,
     pub supported: bool,
     pub note: String,
+    pub device: String,
+    pub port: u16,
 }
 
 pub fn dir(base: &Path) -> PathBuf {
@@ -84,16 +86,37 @@ pub fn has_gpu() -> bool {
 }
 
 #[cfg(windows)]
-fn hide(c: &mut Command) {
+pub(crate) fn hide(c: &mut Command) {
     use std::os::windows::process::CommandExt;
     c.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 }
 #[cfg(not(windows))]
-fn hide(_c: &mut Command) {}
+pub(crate) fn hide(_c: &mut Command) {}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct Config {
+    pub device: String, // auto | cuda | cpu
+    pub port: u16,
+}
+pub fn config(base: &Path) -> Config {
+    let t = fs::read_to_string(dir(base).join("config.json")).unwrap_or_default();
+    let v: serde_json::Value = serde_json::from_str(&t).unwrap_or(serde_json::Value::Null);
+    let device = match v.get("device").and_then(|x| x.as_str()) { Some("cuda") => "cuda", Some("cpu") => "cpu", _ => "auto" };
+    let port = v.get("port").and_then(|x| x.as_u64()).filter(|p| *p >= 1024 && *p <= 65535).map(|p| p as u16).unwrap_or(DEFAULT_PORT);
+    Config { device: device.into(), port }
+}
+pub fn set_config(base: &Path, device: &str, port: u16) -> Result<Config, String> {
+    let d = dir(base);
+    fs::create_dir_all(&d).map_err(|e| e.to_string())?;
+    let device = if device == "cuda" || device == "cpu" { device } else { "auto" };
+    let port = if (1024..=65535).contains(&(port as u32)) { port } else { DEFAULT_PORT };
+    fs::write(d.join("config.json"), format!("{{\"device\":\"{}\",\"port\":{}}}", device, port)).map_err(|e| e.to_string())?;
+    Ok(config(base))
+}
 
 pub fn status(base: &Path) -> Status {
     let d = dir(base);
-    let mut s = Status { dir: d.to_string_lossy().to_string(), engine_rev: ENGINE_REV.into(), gpu: has_gpu(), supported: true, ..Default::default() };
+    let mut s = Status { dir: d.to_string_lossy().to_string(), engine_rev: ENGINE_REV.into(), gpu: has_gpu(), supported: true, device: config(base).device, port: config(base).port, ..Default::default() };
     if !(cfg!(windows) || cfg!(target_os = "linux") || cfg!(target_os = "macos")) { s.supported = false; s.note = "This system is not supported.".into(); }
     if d.is_dir() {
         s.size_mb = dir_size(&d) / 1_048_576;
@@ -129,7 +152,7 @@ fn run(mut cmd: Command, d: &Path, label: &str, cancel: &AtomicBool, watch: Opti
     }
 }
 
-fn download(url: &str, to: &Path, cancel: &AtomicBool, progress: &dyn Fn(Prog), step: &str, pct: u8, label: &str) -> Result<(), String> {
+pub(crate) fn download(url: &str, to: &Path, cancel: &AtomicBool, progress: &dyn Fn(Prog), step: &str, pct: u8, label: &str) -> Result<(), String> {
     let agent = ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(20)).timeout_read(Duration::from_secs(60)).build();
     let resp = agent.get(url).call().map_err(|e| format!("download failed ({}): {}", label, e))?;
     let total: u64 = resp.header("Content-Length").and_then(|v| v.parse().ok()).unwrap_or(0);
@@ -159,7 +182,7 @@ fn tar_path() -> PathBuf {
     PathBuf::from("tar")
 }
 
-fn extract(archive: &Path, to: &Path) -> Result<(), String> {
+pub(crate) fn extract(archive: &Path, to: &Path) -> Result<(), String> {
     fs::create_dir_all(to).map_err(|e| e.to_string())?;
     let mut c = Command::new(tar_path());
     c.arg("-xf").arg(archive).arg("-C").arg(to).stdout(Stdio::null()).stderr(Stdio::piped());
@@ -168,7 +191,7 @@ fn extract(archive: &Path, to: &Path) -> Result<(), String> {
     if o.status.success() { Ok(()) } else { Err(format!("could not unpack: {}", String::from_utf8_lossy(&o.stderr).trim())) }
 }
 
-fn find_file(root: &Path, name: &str) -> Option<PathBuf> {
+pub(crate) fn find_file(root: &Path, name: &str) -> Option<PathBuf> {
     for e in fs::read_dir(root).ok()?.flatten() {
         let p = e.path();
         if p.is_dir() { if let Some(f) = find_file(&p, name) { return Some(f); } } else if p.file_name().map(|n| n == name).unwrap_or(false) { return Some(p); }
@@ -313,7 +336,7 @@ pub fn start(base: &Path, port: u16) -> Result<Child, String> {
     let log2 = log.try_clone().map_err(|e| e.to_string())?;
     let mut c = Command::new(env_python(&d));
     c.arg(d.join("bridge").join("bridge.py")).arg("--soulx").arg(d.join("src")).arg("--voices").arg(d.join("voices"))
-        .args(["--host", "127.0.0.1", "--port", &port.to_string(), "--device", if has_gpu() { "cuda" } else { "cpu" }])
+        .args(["--host", "127.0.0.1", "--port", &port.to_string(), "--device", &match config(base).device.as_str() { "cuda" => "cuda", "cpu" => "cpu", _ => if has_gpu() { "cuda" } else { "cpu" } }])
         .current_dir(&d).env("NLTK_DATA", d.join("nltk_data")).env("HF_HUB_OFFLINE", "1").env("PYTHONIOENCODING", "utf-8")
         .stdin(Stdio::null()).stdout(Stdio::from(log)).stderr(Stdio::from(log2));
     hide(&mut c);

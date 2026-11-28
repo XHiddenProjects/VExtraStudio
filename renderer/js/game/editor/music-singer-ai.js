@@ -109,18 +109,9 @@
     try { say('Starting the singer…'); const port = await N.start(); return { ok: true, managed: true, url: 'http://127.0.0.1:' + port }; }
     catch (e) { say(e && e.message ? e.message : 'The singer could not start.', true); return { ok: false }; }
   }
-  /** after the setup wizard / an update left a note: offer the install once */
-  async function handlePending(say) { const N = nat(); if (!N) return; let p = null; try { p = await N.pending(); } catch { return; } if (p === 'install') { try { const st = await N.status(); if (!st.installed) await installWithUI(); } catch { /* shown by the window */ } } }
-  /** management dialog: status, location, remove everything */
-  async function manage() {
-    const N = nat(); if (!N) return VX.ui.toast('The built-in singer is part of the desktop app.', 'info');
-    const st = await N.status();
-    if (!st.installed && !st.partial) { if (await VX.ui.confirm('The AI singer is not installed. Install it now (' + SIZE_NOTE + ')?', 'Install')) await installWithUI(); return; }
-    const ok = await VX.ui.confirm((st.installed ? 'The AI singer is installed' : 'A half-finished AI singer install was found') + ' (' + st.size_mb + ' MB in ' + st.dir + '). Delete all of it? Python, libraries, models and your own voices in its voices folder are removed; you can install it again later.', 'Delete it', { title: 'Remove the AI singer?', danger: true });
-    if (!ok) return;
-    try { await N.stop(); await N.remove(); VX.ui.toast('The AI singer was removed.', 'ok'); } catch (e) { VX.ui.toast(e && e.message ? e.message : 'Could not remove it.', 'error'); }
-  }
+  /** opens the Integrations tab, where the singer is installed, configured and removed */
+  function manage() { if (VX.sidebar && VX.sidebar.show) VX.sidebar.show('integrations'); }
   /** the choir parts for a count (2–4) */
   const choir = (n) => PARTS.slice(0, Math.max(2, Math.min(4, n | 0)));
-  VX.aiSinger = { DEFAULT_URL, LANGS, PARTS, CHOIRS, MAX, getUrl, setUrl, cleanUrl, health, sing, choir, ensureManaged, installWithUI, handlePending, manage, hasManaged: () => !!nat(), harmonise, _t: { snap, degree, toRequest } };
+  VX.aiSinger = { DEFAULT_URL, LANGS, PARTS, CHOIRS, MAX, getUrl, setUrl, cleanUrl, health, sing, choir, ensureManaged, installWithUI, manage, hasManaged: () => !!nat(), harmonise, _t: { snap, degree, toRequest } };
 })();

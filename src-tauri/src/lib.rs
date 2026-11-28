@@ -22,6 +22,7 @@ use tauri::{
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_updater::UpdaterExt;
 
+mod blender;
 mod singer;
 
 mod builtin {
@@ -1805,15 +1806,83 @@ async fn singer_remove(app: AppHandle, state: tauri::State<'_, SingerState>) -> 
     let base = singer_base(&app)?;
     tauri::async_runtime::spawn_blocking(move || singer::remove(&base)).await.map_err(err)?
 }
-/// The installer leaves a note ("install" after the person agreed in the setup wizard, "refresh" after an update); reading it clears it.
 #[tauri::command]
-fn singer_pending(app: AppHandle) -> Res<Option<String>> {
-    let f = singer::dir(&singer_base(&app)?).join("setup-requested");
-    let v = fs::read_to_string(&f).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    if v.is_some() {
-        let _ = fs::remove_file(&f);
+fn singer_config(app: AppHandle) -> Res<singer::Config> {
+    Ok(singer::config(&singer_base(&app)?))
+}
+/// device: "auto" | "cuda" | "cpu"; takes effect the next time the singer starts (a running one is stopped so it restarts).
+#[tauri::command]
+fn singer_set_config(app: AppHandle, state: tauri::State<'_, SingerState>, device: String, port: u16) -> Res<singer::Config> {
+    singer_kill(&state);
+    singer::set_config(&singer_base(&app)?, &device, port)
+}
+
+/* ---------------- Blender integration (see blender.rs) ---------------- */
+fn blender_res(app: &AppHandle) -> Option<PathBuf> {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    if let Ok(r) = app.path().resource_dir() {
+        dirs.push(r.join("resources").join("blender"));
+        dirs.push(r.join("blender"));
     }
-    Ok(v)
+    if let Ok(e) = std::env::current_exe() {
+        if let Some(d) = e.parent() {
+            dirs.push(d.join("blender"));
+            dirs.push(d.join("resources").join("blender"));
+        }
+    }
+    dirs.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("resources").join("blender"));
+    dirs.into_iter().find(|d| d.join(blender::ADDON_FILE).is_file())
+}
+#[tauri::command]
+async fn blender_status(app: AppHandle) -> Res<blender::Status> {
+    let base = singer_base(&app)?;
+    tauri::async_runtime::spawn_blocking(move || blender::status(&base)).await.map_err(err)
+}
+#[tauri::command]
+fn blender_install_addon(app: AppHandle, path: String) -> Res<String> {
+    let res = blender_res(&app).ok_or_else(|| "The Blender add-on file is missing from this installation.".to_string())?;
+    blender::install_addon(&singer_base(&app)?, &res, &path)
+}
+#[tauri::command]
+fn blender_remove_addon(app: AppHandle, path: String) -> Res<()> {
+    blender::remove_addon(&singer_base(&app)?, &path)
+}
+/// Downloads a portable Blender into the app's folder. Progress arrives as "blender:progress" events.
+#[tauri::command]
+async fn blender_install_portable(app: AppHandle, state: tauri::State<'_, SingerState>) -> Res<()> {
+    if state.busy.swap(true, Ordering::SeqCst) {
+        return Err("Another download is running – wait for it to finish.".into());
+    }
+    let base = singer_base(&app)?;
+    let res = blender_res(&app).ok_or_else(|| "The Blender add-on file is missing from this installation.".to_string());
+    let cancel = state.cancel.clone();
+    cancel.store(false, Ordering::SeqCst);
+    let a2 = app.clone();
+    let out = match res {
+        Ok(res) => tauri::async_runtime::spawn_blocking(move || {
+            blender::install_portable(&base, &res, &cancel, &|p| {
+                let _ = a2.emit("blender:progress", p);
+            })
+        })
+        .await
+        .map_err(err)
+        .and_then(|r| r),
+        Err(e) => Err(e),
+    };
+    state.busy.store(false, Ordering::SeqCst);
+    out
+}
+#[tauri::command]
+async fn blender_remove_portable(app: AppHandle, state: tauri::State<'_, SingerState>) -> Res<()> {
+    if state.busy.load(Ordering::SeqCst) {
+        return Err("Wait for the download to stop first.".into());
+    }
+    let base = singer_base(&app)?;
+    tauri::async_runtime::spawn_blocking(move || blender::remove_managed(&base)).await.map_err(err)?
+}
+#[tauri::command]
+fn blender_launch(app: AppHandle, path: String) -> Res<()> {
+    blender::launch(&singer_base(&app)?, &path)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1871,7 +1940,8 @@ pub fn run() {
             ext_remove, ext_import, ext_open_dir, settings_load, settings_save, secret_get, secret_set, app_info, app_clean,
             http_request, http_download, run_start, run_poll, run_cancel, term_start, term_write, term_shells, php_status, php_log, db_detect, db_cli, open_url, php_check, php_start, php_stop, serve_start, serve_stop, server_start, server_status, server_stop,
             updater_check, updater_install, app_restart, app_launch_files,
-            singer_status, singer_install, singer_cancel, singer_start, singer_stop, singer_remove, singer_pending
+            singer_status, singer_install, singer_cancel, singer_start, singer_stop, singer_remove, singer_config, singer_set_config,
+            blender_status, blender_install_addon, blender_remove_addon, blender_install_portable, blender_remove_portable, blender_launch
         ])
         .build(tauri::generate_context!())
         .expect("error while building Vextra Studio");

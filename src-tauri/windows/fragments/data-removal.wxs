@@ -28,10 +28,12 @@
 
     <!-- the AI singer (Python, libraries, models) is ALWAYS removed on a real uninstall (never on an upgrade) – it is several GB and useless without the app -->
     <CustomAction Id="VxSetSinger" Property="VXSINGER_DIR" Value="[LocalAppDataFolder]studio.vextra.app\singer" />
+    <CustomAction Id="VxSetBlender" Property="VXBLENDER_DIR" Value="[LocalAppDataFolder]studio.vextra.app\blender" />
     <CustomAction Id="VxStopSinger" Directory="TARGETDIR" Execute="immediate" Return="ignore" ExeCommand="powershell.exe -NoProfile -WindowStyle Hidden -Command &quot;Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '*\studio.vextra.app\singer\*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }&quot;" />
 
     <InstallExecuteSequence>
       <Custom Action="VxSetSinger" After="CostFinalize">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
+      <Custom Action="VxSetBlender" After="CostFinalize">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
       <Custom Action="VxStopSinger" Before="RemoveFiles">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
       <Custom Action="VxAskRemoveData" After="CostFinalize">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE AND NOT REMOVEUSERDATA AND UILevel &gt;= 3</Custom>
       <Custom Action="VxSetDataRoaming" After="VxAskRemoveData">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE AND REMOVEUSERDATA="1"</Custom>
@@ -45,6 +47,7 @@
         <util:RemoveFolderEx On="uninstall" Property="VXDATA_ROAMING" />
         <util:RemoveFolderEx On="uninstall" Property="VXDATA_LOCAL" />
         <util:RemoveFolderEx On="uninstall" Property="VXSINGER_DIR" />
+        <util:RemoveFolderEx On="uninstall" Property="VXBLENDER_DIR" />
       </Component>
     </DirectoryRef>
   </Fragment>

@@ -167,8 +167,10 @@ def make_handler(args):
     class H(BaseHTTPRequestHandler):
         def _cors(self):
             o = self.headers.get("Origin")
-            if o and (o in allowed or "*" in allowed):
-                self.send_header("Access-Control-Allow-Origin", o); self.send_header("Vary", "Origin")
+            # echo back only an origin that is in OUR allow-list (the value we send is our own string, never the raw request header)
+            ok = next((a for a in allowed if a == o and re.fullmatch(r"[A-Za-z0-9:/._-]{1,200}", a)), None) if o else None
+            if ok or (o and "*" in allowed and re.fullmatch(r"[A-Za-z0-9:/._-]{1,200}", o)):
+                self.send_header("Access-Control-Allow-Origin", ok or "*" if ok is None else ok); self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Headers", "Content-Type"); self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Private-Network", "true")
 

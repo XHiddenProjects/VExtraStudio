@@ -38,7 +38,8 @@
     ],
     "resources": [
       "resources/server/*",
-      "resources/singer/*"
+      "resources/singer/*",
+      "resources/blender/*"
     ],
     "windows": {
       "wix": {

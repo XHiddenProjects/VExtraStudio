@@ -80,7 +80,7 @@
       });
       const add = h('select', { class: 'tr-add', 'aria-label': 'Add an instrument' }, h('option', { value: '' }, '＋ Add instrument…'), Object.entries(groups).map(([g, l]) => h('optgroup', { label: g }, l.map((k) => h('option', { value: k.id }, k.name)))));
       add.onchange = () => { if (!add.value) return; const k = ins[add.value]; const t = { name: k.name, inst: k.id, vol: 0.8, pan: 0, mute: false, solo: false, notes: [] }; if (k.voice) { t.vowel = 'a'; t.ens = 3; } song().tracks.push(t); S.sel = song().tracks.length - 1; if (!k.voice) gen.regenTrack(song(), t); commit(); rebuildAll(); };
-      trackBox.append(h('div', { class: 'tr-actions' }, add, h('button', { class: 'btn sm', title: 'An AI singer sings your lyrics on this track’s melody – solo or as a choir', onclick: () => singerDialog() }, '🎤 AI singer…'), VX.aiSinger && VX.aiSinger.hasManaged() ? h('button', { class: 'btn sm', title: 'Check, reinstall or remove the AI singer’s files', onclick: () => VX.aiSinger.manage() }, '⚙ Singer files…') : null));
+      trackBox.append(h('div', { class: 'tr-actions' }, add, h('button', { class: 'btn sm', title: 'An AI singer sings your lyrics on this track’s melody – solo or as a choir', onclick: () => singerDialog() }, '🎤 AI singer…'), VX.aiSinger && VX.aiSinger.hasManaged() ? h('button', { class: 'btn sm', title: 'Install, configure or remove the AI singer (Integrations tab)', onclick: () => VX.aiSinger.manage() }, '⚙ Singer settings…') : null));
     }
     /** AI singer: lyrics + a track's melody → sung audio clip(s). Solo = one part; choir = several parts (soprano…bass) built from the melody on the song's scale. */
     async function singerDialog() {

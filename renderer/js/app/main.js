@@ -117,7 +117,6 @@
     if (app.settings.welcome !== false) app.showWelcome(); VX.update.start(); VX.tour && VX.tour.maybe();
     $('#splash').style.opacity = 0; setTimeout(() => $('#splash').remove(), 350);
     try { const lf = await window.native.launchFiles(); for (const f of lf || []) await VX.pack.handleFile(f); window.native.onOpenFile((fs) => (fs || []).forEach((f) => VX.pack.handleFile(f))); } catch (e) { console.warn('launch files', e); }
-    /* the installer's "install the AI singer" answer is picked up here, once */ try { if (window.native.isDesktop && VX.aiSinger) setTimeout(() => { VX.aiSinger.handlePending(() => {}); }, 3000); } catch { /* optional */ }
     window.__vxReady = true;
   }
   function menu(id) {
