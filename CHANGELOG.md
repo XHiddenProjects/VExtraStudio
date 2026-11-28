@@ -26,6 +26,9 @@ All notable changes to Vextra Studio. Format follows [Keep a Changelog](https://
 - The Defaults dialog hides the tag filter ("All" / "sfx") when there is only one category.
 
 ### Fixed
+- **Phones:** a full-screen side panel (Explorer, Integrations …) had no visible way back. Every panel now has a **✕** button, the bottom bar starts with a **🎮 Editor** button (returns to your tabs, or opens the Welcome page when none are open), and opening a file or page closes the panel by itself.
+- Buttons in side panels (for example *Download portable Blender…*) no longer run off the edge; they wrap.
+- The on-screen keyboard no longer covers the phone's bottom bar, and is fully opaque by default.
 - On-screen keyboard: it covered the *Customize* dialog and other dialogs; taps on its buttons did not register on real touch screens.
 - Security (CodeQL *HTTP response splitting*, `bridge.py`): the CORS header is now taken from the allow-list, never copied from the request.
 - Music studio: the **play-head bar disappeared** after un-ticking *Loop* during playback (the position kept counting past the end).

@@ -79,7 +79,7 @@
             btn('Open Blender', async () => { try { if (!f.addon) await N.installAddon(f.path); await N.launch(f.path); VX.ui.toast('Blender is starting with the Vextra add-on switched on. In its 3D view press N → Vextra → Start link.', 'ok'); } catch (e) { VX.ui.toast(msgOf(e), 'error'); } redraw(); }, { title: 'Installs the add-on if needed, starts Blender and switches the add-on on' }))));
       }
       body.push(row(
-        st.managed_supported && !st.managed_installed ? btn('Download a portable Blender (4.2 LTS, about 350 MB)…', async () => {
+        st.managed_supported && !st.managed_installed ? btn('Download portable Blender (~350 MB)…', async () => {
           if (!(await VX.ui.confirm('Download Blender 4.2 LTS (about 350 MB) from download.blender.org into Vextra Studio\'s own data folder? It does not touch an existing Blender and is removed again with “Remove downloaded Blender”.', 'Download', { title: 'Download Blender?' }))) return;
           await progress('Downloading Blender', 'This happens once. Blender is free and open source (blender.org).', () => N.installPortable(), (cb) => N.onProgress(cb), () => N.cancel()); redraw();
         }, { primary: !st.found.length }) : null,

@@ -104,6 +104,7 @@
     await app.loadSettings(); document.body.dataset.mode = app.settings.mode;
     await VX.theme.load(); VX.theme.apply(app.settings.theme); VX.i18n.init(app.settings.language || 'auto'); VX.a11y.init();
     $('#app').style.setProperty('--sidew', app.settings.sidebarWidth + 'px'); $('#app').style.setProperty('--bottomh', app.settings.bottomHeight + 'px');
+    VX.on('tabChange', () => { if (window.matchMedia('(max-width: 720px)').matches) VX.sidebar.collapse(true); }); /* phones: opening a file or page leaves the full-screen panel */
     { const mq = window.matchMedia('(max-width: 860px)'); const fit = () => { if (mq.matches) VX.sidebar.collapse(true); }; mq.addEventListener('change', fit); setTimeout(fit, 700); }
     drag($('#side-resizer'), (e) => { const w = VX.clamp(e.clientX - 52, 180, 560); $('#app').style.setProperty('--sidew', w + 'px'); app.set('sidebarWidth', w); });
     drag($('#bottom-resizer'), (e) => { const w = VX.clamp(innerHeight - e.clientY - 24, 80, innerHeight * 0.7); $('#app').style.setProperty('--bottomh', w + 'px'); app.set('bottomHeight', w); });

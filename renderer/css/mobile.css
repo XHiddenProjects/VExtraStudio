@@ -56,3 +56,13 @@ html.touch .tb-mi { padding: 10px 14px; }
 }
 @media (max-width: 720px) and (orientation: landscape) { #activity .act { width: 40px; height: 40px; } }
 @media (max-width: 720px) { #toolbar .tag { display: none; } }
+
+/* v4.7 – always a way back from a full-screen panel, and no clipped buttons */
+.mob-only, #side-close { display: none; }
+@media (max-width: 720px) {
+  .mob-only { display: inline-flex; }
+  #side-close { display: inline-flex; margin-left: 6px; min-width: 36px; min-height: 36px; justify-content: center; align-items: center; font-size: 16px; }
+  #side-head { align-items: center; }
+  #side-actions { margin-left: auto; }
+  #side-body button.btn, #side-body .btn { white-space: normal; text-align: left; max-width: 100%; height: auto; min-height: 30px; line-height: 1.25; }
+}

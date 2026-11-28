@@ -40,7 +40,7 @@
     game: { name: 'Shortcuts – game editor', keys: [...MODS, K('Escape'), K('Delete'), K('Space'), K('Tab'), K('ArrowLeft'), K('ArrowUp'), K('ArrowDown'), K('ArrowRight'), K('Z', { c: 1 }), K('Y', { c: 1 }), K('S', { c: 1 }), K('C', { c: 1 }), K('V', { c: 1 }), K('D', { c: 1 }), K('A', { c: 1 }), K('Enter')] },
     minimal: { name: 'Minimal', keys: [{ m: 'ctrl' }, K('Escape'), K('Z', { c: 1 }), K('S', { c: 1 }), K('Delete')] }
   };
-  const DEFAULTS = { mode: 'auto', size: 'm', opacity: 0.96, preset: 'editor', collapsed: false };
+  const DEFAULTS = { mode: 'auto', size: 'm', opacity: 1, preset: 'editor', collapsed: false };
   const cfg = () => ({ mode: vx.settings.get('mode', DEFAULTS.mode), size: vx.settings.get('size', DEFAULTS.size), opacity: +vx.settings.get('opacity', DEFAULTS.opacity), collapsed: !!vx.settings.get('collapsed', false), pos: vx.settings.get('pos', null) });
   const layout = () => { try { const v = JSON.parse(vx.settings.get('layout', '') || 'null'); if (Array.isArray(v) && v.length) return v.filter((d) => d && (d.br || d.m || KEYS[d.k])).slice(0, 120); } catch { /* fall back */ } return PRESETS.full.keys; };
   const saveLayout = (l) => vx.settings.set('layout', JSON.stringify(l));
@@ -122,6 +122,7 @@
   const css = `#vx-osk{position:fixed;z-index:1001;left:50%;bottom:calc(6px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(98vw,760px);background:var(--panel,#1c1f26);color:var(--text,#e6e6e6);border:1px solid var(--border,#3a3f4b);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.45);font:13px system-ui,sans-serif;user-select:none;-webkit-user-select:none;touch-action:none;box-sizing:border-box}
 #vx-osk.wrapmode{width:auto;max-width:min(98vw,720px)}
 #vx-osk.moved{left:0;top:0;bottom:auto;transform:none}
+@media (max-width:720px){#vx-osk:not(.moved){bottom:calc(56px + env(safe-area-inset-bottom,0px))}}
 #vx-osk .hd{display:flex;align-items:center;gap:4px;padding:2px 6px;border-bottom:1px solid var(--border,#3a3f4b);cursor:grab}
 #vx-osk .hd b{flex:1;font-weight:600;font-size:11px;opacity:.7;padding-left:4px}
 #vx-osk .hd button,#vx-osk .pill{all:unset;cursor:pointer;padding:3px 8px;border-radius:6px;font-size:14px;line-height:1}

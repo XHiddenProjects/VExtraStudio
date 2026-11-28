@@ -16,6 +16,7 @@
       if (v === '-') return bar.append(h('div', { class: 'act-sep adv' }));
       bar.append(h('button', Object.assign({ class: 'act' + (v.adv ? ' adv' : '') + (SB.current === v.id ? ' active' : ''), title: v.title, 'data-view': v.id }, v.state ? { 'data-state': v.state } : {}, { onclick: () => (v.action ? v.action() : SB.current === v.id && !$('#sidebar').classList.contains('collapsed') ? SB.collapse(true) : SB.show(v.id)) }), VX.icon(v.icon)));
     };
+    bar.append(h('button', { class: 'act mob-only', title: 'Back to the editor and your tabs', 'aria-label': 'Back to the editor and your tabs', onclick: () => { SB.collapse(true); const T = VX.tabs; if (T && !T.list().length) VX.app.showWelcome(); } }, VX.icon('game')));
     const all = [...BUILTIN.filter((v) => v !== '-'), ...[...VXHost.panels.values()].map((p) => ({ id: 'panel:' + p.id, icon: p.icon, title: p.title + ' (plugin)', state: VXHost.panelState.get(p.id) }))];
     const ord = VX.app.settings.activityOrder || []; const rank = (v) => { const i = ord.indexOf(v.id); return i < 0 ? 1000 + all.indexOf(v) : i; }; all.sort((a, b) => rank(a) - rank(b));
     VX.dnd.sortable(bar, { item: '.act[data-view]', id: (el) => el.dataset.view, onMove: (f, t, after) => { const ids = [...bar.querySelectorAll('.act[data-view]')].map((n) => n.dataset.view).filter((x) => x !== f); ids.splice(ids.indexOf(t) + (after ? 1 : 0), 0, f); VX.app.set('activityOrder', ids); SB.renderActivity(); } });
